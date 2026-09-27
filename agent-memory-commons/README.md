@@ -8,7 +8,7 @@ If you run more than one AI agent, you've probably noticed they don't share cont
 
 ## The pattern
 
-An **Agent Memory Commons** is a shared file space — typically inside a synced Obsidian vault — where multiple agents agree to write into prefixed subspaces and read from anywhere. Each agent owns its own folder (`_agent-hermes/`, `_agent-claude-code/`, `_agent-offgrid/`); everyone reads freely. The folder prefix is the only mandatory metadata; everything else is free-form prose.
+An **Agent Memory Commons** is a shared file space — typically inside a synced Obsidian vault and vector indexed using Engraphis — where multiple agents agree to write into prefixed subspaces and read from anywhere. Each agent owns its own folder (`_agent-hermes/`, `_agent-claude-code/`, `_agent-offgrid/`); everyone reads freely. The folder prefix is the only mandatory metadata; everything else is free-form prose.
 
 The payoff compounds: every agent that joins later inherits what the others learned. The cost is one convention (prefixed folders), one practice (closure lines on ended projects), and one sync routine (verify weekly that files are propagating).
 
