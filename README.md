@@ -16,7 +16,7 @@ Articles are written from the practitioner side — after running the pattern, n
 
 | Article | What it covers | Pattern | Implementation |
 |---|---|---|---|
-| [Agent Memory Commons](./agent-memory-commons/) | A shared file space that lets multiple AI agents (Hermes, Claude Code, Minimax M3, OpenCode, custom openclaw) share context through a synced Obsidian vault — no coordination overhead, no API contracts | [PATTERN.md](./agent-memory-commons/PATTERN.md) | [IMPLEMENTATION.md](./agent-memory-commons/IMPLEMENTATION.md) |
+| [Agent Memory Commons](./agent-memory-commons/) | A shared file space that lets multiple AI agents (Hermes, Claude Code, Minimax M3, OpenCode, OpenHuman, custom openclaw) share context through a synced Obsidian vault — no coordination overhead, no API contracts | [PATTERN.md](./agent-memory-commons/PATTERN.md) | [IMPLEMENTATION.md](./agent-memory-commons/IMPLEMENTATION.md) |
 
 More articles coming.
 
