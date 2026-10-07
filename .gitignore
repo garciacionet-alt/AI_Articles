@@ -1,0 +1,24 @@
+# ──────────────────────────────────────────────────────────────────
+# Stray upload / temp artifacts
+# ──────────────────────────────────────────────────────────────────
+# Auto-generated temp uploads that landed at the repo root by mistake.
+user_file_upload_tmp_*
+*_upload_tmp_*
+user_upload_*
+
+# Image/screenshot drops that are not part of the published artifact set.
+*.tmp.jpg
+*.tmp.png
+*_tmp_*.jpg
+*_tmp_*.png
+
+# OS / editor detritus
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Local scratch / scratch dirs that should never be committed
+scratch/
+*.scratch
