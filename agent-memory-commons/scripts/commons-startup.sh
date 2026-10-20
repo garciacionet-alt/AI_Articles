@@ -2,6 +2,7 @@
 # commons-startup.sh — run at agent session start to load recent commons context
 #
 # Usage:
+#   export VAULT="$HOME/Library/Mobile Documents/com~apple~CloudDocs/<VENDOR>/<VAULT-NAME>"
 #   ./commons-startup.sh
 #
 # What it does:
@@ -9,7 +10,8 @@
 #   2. Lists recent files in your own agent subspace (modified in the last 7 days)
 #   3. Prints a summary you can scan to decide what to read in detail
 
-VAULT="$HOME/Library/Mobile Documents/com~apple~CloudDocs/<VENDOR>/<VAULT>/"
+set -u
+VAULT="${VAULT:-<VAULT-PATH>}"
 AGENT_FOLDER="$VAULT/_agent-<name>/"
 
 echo "=== Agent subspace READMEs ==="

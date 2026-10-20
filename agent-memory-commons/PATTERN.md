@@ -3,6 +3,7 @@ title: Agent Memory Commons — Pattern Description and Setup
 status: design-pattern
 applies-to: any single-user setup with multiple AI agents and one or more computers
 companion: agent-memory-commons-implementation.md
+updated: 2026-10-20
 ---
 
 # Agent Memory Commons
@@ -41,6 +42,8 @@ The cost is hygiene: a commons without discipline becomes a swamp. The rest of t
 
 **New agents join for free.** When a new agent arrives, it can begin reading the commons immediately. It does not need onboarding beyond knowing the path. It begins writing into its own prefixed subspace as soon as it produces work product.
 
+**The commons maintains its own hygiene.** The artifacts that keep the commons legible — the protocol file, the linter, the views, the session-end ritual — live inside the commons. A commons that depends on the user remembering to tidy it is not a system; it is a folder with good intentions.
+
 ## Sync directories and the multi-computer commons
 
 A single computer's commons is straightforward: an agent writes to disk, another agent reads from disk. The complication arises when the user works across more than one computer — a laptop on the road, a desktop at the office, a workstation in the home office — and expects the commons to be coherent across all of them.
@@ -52,7 +55,7 @@ The simplest mechanism is a **sync directory**: a folder that the operating syst
 - **Dropbox / Google Drive / OneDrive.** Third-party file-syncing services that all provide a folder-on-disk that replicates to the cloud and to other devices. Suitable for the commons as long as the agent writes atomically (write the full file, do not partial-write).
 - **Git.** A version-controlled folder, manually pushed and pulled. Slower but produces a complete history. Best for users who want full traceability of changes.
 
-The commons lives inside a sync-rooted directory. The sync service handles replication. Agents on each machine read and write the same files. The path that an agent on the laptop sees is the same path that an agent on the desktop sees, modulo per-machine directory aliases (a symlink or shortcut at `~/OpenHuman/` pointing to the sync root, for example).
+The commons lives inside a sync-rooted directory. The sync service handles replication. Agents on each machine read and write the same files. The path that an agent on the laptop sees is the same path that an agent on the desktop sees, modulo per-machine directory aliases (a symlink or shortcut at `~/Vault/` pointing to the sync root, for example).
 
 When choosing a sync mechanism, three properties matter:
 
@@ -113,6 +116,8 @@ The commons only provides value if agents actually read from it. This requires a
 ## Basic setup
 
 The following describes a minimal commons setup. Paths are abstracted; replace with paths appropriate to the user's environment. For the concrete implementation of these steps — including vector-DB installation, env vars, and shell scripts — see [agent-memory-commons-implementation.md](./agent-memory-commons-implementation.md).
+
+Steps 1 to 7 are the minimum viable commons: enough to start, not enough to survive the first year of use. The operating layer that comes after them is what keeps it navigable once the folder stops being small.
 
 ### 1. Choose a sync-rooted directory
 
@@ -209,13 +214,47 @@ After three months of operation, spend an hour reviewing the commons. Look for:
 
 This is not a one-time cleanup. It is a recurring practice, like reviewing the calendar at the start of a new season.
 
+## The operating layer
+
+The seven steps above produce a folder with a convention in it. They do not produce a commons that is still legible six months later. Conventions decay silently: nothing breaks, the links rot, the frontmatter drifts, and one day an agent cannot tell whether a document is current or last year's.
+
+The answer is an operating layer — a small set of artifacts that keep the commons honest without requiring anyone to police it by hand. Six pieces, each cheap, each doing a job that is invisible when it works and expensive when it is missing.
+
+**A protocol file at the root.** One short file, loaded automatically by whatever agent runtime touches the vault, answering the questions every new agent asks: where do artifacts go, which conventions are mandatory, what must never be touched. Keep it under a page. The moment it grows past that, it stops being read.
+
+**A frontmatter vocabulary.** Two fields on every note, and a closed set of values for each. `type:` says what kind of note it is. `status:` says where the note is in its life — and it is a lifecycle state, never a description. `active` and `stale` are states; "verified Oct 16 against v1.29" is a note, and it belongs in its own field. A closed vocabulary exists so that a tool can filter on it without a human reading every file.
+
+**`stale` as the pruning marker.** Nothing is ever deleted automatically. A note marked `stale` enters a queue, and a human approves every removal. This is what makes it safe to write a lot: the cost of an unwanted note is one flag, not a deleted file and a revert.
+
+**A read-only linter.** A script that reports — and never modifies — the failure modes a reader cannot see: links that point at nothing, pages nothing links to, wikilinks that resolve to no file, frontmatter that has drifted outside the vocabulary. It must be strictly read-only. A linter that rewrites files is a mutator wearing a lint coat, and one day it will rewrite something someone cared about.
+
+> **The linter must never be satisfied by deleting a document.** When a lint fails on an orphan page, the fix is to link it from somewhere real, or to mark it `stale` — not to remove it. A lint pass that quietly deletes content is a data-loss event with a green exit code.
+
+**Live views.** A database-style view over the vault — a typed-note index and a pruning queue — so the state of the commons is legible in the user's note app without running a script. Views read the frontmatter vocabulary, which is exactly why that vocabulary has to be closed and typed.
+
+**A session-end ritual.** Every session ends the same way: refresh the status file, capture anything durable in the semantic layer, and write a hand-off only when the next step is genuinely someone else's job. The ritual is short because it runs every time; anything that takes more than a minute will not survive the first busy week.
+
+The semantic layer deserves one more rule, because that is where a commons quietly turns into a transcript log. Durable claims are classified on two axes: **how the memory behaves** (a standing fact, a procedure, an episode of something that happened) and **what kind of thought it is** (context, a decision, a mistake, a pattern, a snapshot of the world at a point in time). Every claim also carries a stable subject key, so a later claim about the same thing supersedes the earlier one instead of piling up beside it. Without classification and a subject key, a semantic layer becomes a search index over sentences nobody wrote on purpose. The concrete tool calls are in the implementation document.
+
 ## Common failure modes and mitigations
 
-**Stale data accumulates.** Old projects sit in agent folders, undated, and other agents treat them as current. *Mitigation: closure lines on every ended project; periodic hygiene pass.*
+**Stale data accumulates.** Old projects sit in agent folders, undated, and other agents treat them as current. *Mitigation: closure lines on every ended project; mark superseded notes `status: stale` so they enter the pruning queue; periodic hygiene pass.*
 
 **Filename collisions across agents.** Two agents write `summary.md` on the same day, both without date prefixes. *Mitigation: date-prefixed filenames (`YYYY-MM-DD-summary.md`); agent-prefixed folders do most of the work.*
 
 **Sync latency surprises an agent.** An agent writes a file and immediately tries to read it from a second machine that has not synced yet. *Mitigation: the agent that writes is the only consumer that reads immediately; cross-machine reads happen in later sessions, after sync has had time to propagate.*
+
+**The sync service resurrects deleted files.** A file deleted from the working tree can reappear minutes later with its original timestamp, because the sync daemon is still holding it. "The file is gone" and "the file is gone" can both be true within the same hour. *Mitigation: after any delete, re-check the filesystem rather than trusting the exit code of the tool that performed the delete. A trash utility that reports success while leaving the file in place is the normal case here, not the exception.*
+
+**The workspace cannot delete.** Agents often run in a sandbox where unlink, rename, and move are denied. A "move" attempted there fails halfway and leaves both halves behind, which is worse than not moving at all. *Mitigation: perform a move as a copy plus a redirect stub, hand the real deletion to a script run from a normal terminal, and verify the final state against the filesystem.*
+
+**Version control inside a restricted workspace is a trap.** Git takes a lock file before it writes an index. In a sandbox that cannot remove lock files, the write fails, the lock is left behind, and the next legitimate `git` command — from a human, in a real terminal — is blocked by the agent's leftover. Worse, some version-control libraries offer an "index rebuild" convenience that materialises the entire tree back into the working directory, silently reverting uncommitted work while appearing to succeed. *Mitigation: commit from a normal terminal, or from a library that writes the index without lock files; never call an API that writes the tree to disk to "fix" the index; stage an explicit list of paths rather than the whole tree, and verify what you wrote afterwards.*
+
+**The note application owns its own data files.** View and configuration files written by a note app are rewritten whenever the app saves them — keys reordered, comments stripped, formatting normalised. Editing them by hand is a treadmill, and every save produces a spurious diff. *Mitigation: keep documentation in ordinary Markdown files rather than inside the app's data files; write the data files in the app's own normalised style; expect them to churn in version control and exclude them when that churn is noise.*
+
+**Frontmatter drifts.** Notes accumulate fields that no longer mean anything — a status that became a sentence, a type that was invented locally. Nothing breaks, and the views built on those fields quietly stop working. *Mitigation: a closed vocabulary for `type:` and `status:`, enforced by the linter, so drift shows up as a warning instead of as a silently empty view.*
+
+**The semantic layer becomes a transcript log.** Everything that happened gets written down, so nothing can be found. *Mitigation: classify every durable claim by kind, give it a stable subject key, and keep only what another agent would need to pick the work up.*
 
 **Privacy surface.** Agent-written files in the commons may contain sensitive material — transcripts, drafts of private correspondence, internal observations. *Mitigation: keep raw observation streams in the observing agent's local storage; only structured summaries enter the commons. For additional isolation, use a `_private/` folder in the vault root: anything inside it is excluded from indexing by convention. Do not place sensitive files outside this folder if exclusion from the index is required.*
 
@@ -241,4 +280,6 @@ Each variant adds complexity only where it is needed.
 
 ## Summary
 
-The Agent Memory Commons is a small, simple pattern that solves a real problem: how to let multiple agents working for the same user share context without coordination overhead. The implementation cost is one convention (prefixed agent folders), one practice (closure lines on ended projects), and one sync routine (verify weekly that files are propagating). The payoff compounds: every agent that joins later inherits what the others learned.
+The Agent Memory Commons is a small, simple pattern that solves a real problem: how to let multiple agents working for the same user share context without coordination overhead. The implementation cost is one convention (prefixed agent folders), one practice (closure lines on ended projects), one sync routine (verify weekly that files are propagating), and one operating layer — a root protocol file, a closed frontmatter vocabulary, a read-only linter, live views, and a session-end ritual.
+
+The last item is what separates a commons that works from a folder that used to work. The pattern is easy to adopt and easy to lose: conventions decay quietly, and the only thing that keeps a commons navigable is a small set of artifacts that check themselves. The payoff compounds — every agent that joins later inherits what the others learned, and every session that ends properly leaves the next one something to stand on.

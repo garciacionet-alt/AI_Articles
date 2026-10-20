@@ -41,4 +41,4 @@ _agent-hermes/
 ## See also
 
 - [../../PATTERN.md](../../PATTERN.md) — the Agent Memory Commons pattern this subspace participates in
-- [../../IMPLEMENTATION.md](../../IMPLEMENTATION.md) — concrete setup, including session-startup prompts and write-check prompts
+- [../../IMPLEMENTATION.md](../../IMPLEMENTATION.md) — concrete setup, including session-startup prompts, the session-end ritual, and write-check prompts

@@ -10,15 +10,17 @@ If you run more than one AI agent, you've probably noticed they don't share cont
 
 An **Agent Memory Commons** is a shared file space — typically inside a synced Obsidian vault and vector indexed using Engraphis — where multiple agents agree to write into prefixed subspaces and read from anywhere. Each agent owns its own folder (`_agent-hermes/`, `_agent-claude-code/`, `_agent-offgrid/`); everyone reads freely. The folder prefix is the only mandatory metadata; everything else is free-form prose.
 
-The payoff compounds: every agent that joins later inherits what the others learned. The cost is one convention (prefixed folders), one practice (closure lines on ended projects), and one sync routine (verify weekly that files are propagating).
+The payoff compounds: every agent that joins later inherits what the others learned.
+
+The cost is one convention (prefixed folders), one practice (closure lines on ended projects), one sync routine (verify weekly that files are propagating) — and one operating layer that keeps the whole thing legible once the folder stops being small: a root protocol file, a closed frontmatter vocabulary, a read-only linter, live views, and a session-end ritual. Without it, a commons degrades quietly: links rot, frontmatter drifts, and agents start treating last year's document as current.
 
 ## What's in this article
 
 | Document | What it covers |
 |---|---|
-| [PATTERN.md](./PATTERN.md) | The pattern itself: purpose, design principles, sync directories, layered memory architecture, startup discipline, basic setup, failure modes. Portable across any single-user multi-agent setup. |
-| [IMPLEMENTATION.md](./IMPLEMENTATION.md) | The concrete implementation: env vars, session-startup prompts, scan/search/write prompts, Engraphis setup, alternative vector databases, shell scripts, end-to-end setup checklist. |
-| [scripts/](./scripts/) | Two shell scripts: `commons-startup.sh` for session bootstrap and `commons-hygiene.sh` for quarterly maintenance. |
+| [PATTERN.md](./PATTERN.md) | The pattern itself: purpose, design principles, sync directories, layered memory architecture, startup discipline, basic setup, the operating layer, failure modes. Portable across any single-user multi-agent setup. |
+| [IMPLEMENTATION.md](./IMPLEMENTATION.md) | The concrete implementation: env vars, session-startup and session-end prompts, the read-only linter, live views, claim classification, Engraphis setup, alternative vector databases, shell scripts, end-to-end setup checklist. |
+| [scripts/](./scripts/) | Two shell scripts: `commons-startup.sh` for session bootstrap and `commons-hygiene.sh` for quarterly maintenance. Both take the vault path from the environment and report rather than modify. |
 | [examples/](./examples/) | A worked example: the `_agent-hermes/` README filled in. Use this as a template for your own agent subspaces. |
 
 ## Audience
@@ -34,13 +36,13 @@ If you only run one agent on one computer, this pattern is overkill. If you run 
 ## Quick start
 
 1. Read [PATTERN.md](./PATTERN.md) for the design rationale.
-2. Read the "Basic setup" section in [IMPLEMENTATION.md](./IMPLEMENTATION.md#basic-setup) for the seven steps.
+2. Read the "Basic setup" section in [IMPLEMENTATION.md](./IMPLEMENTATION.md#basic-setup) for the seven steps, then [The operating layer](./IMPLEMENTATION.md#the-operating-layer) for what keeps the result usable.
 3. Run through the end-to-end [setup checklist](./IMPLEMENTATION.md#end-to-end-setup-checklist).
 4. Copy [examples/_agent-hermes/](./examples/_agent-hermes/) as a template for your first agent subspace.
 
 ## Companion resources
 
-- **LinkedIn article** (companion essay, with carousel): *link coming soon — this article will be cross-linked from a LinkedIn post in the "Data-Driven Partnerships" series.*
+- **LinkedIn companion** (essay + carousel): *Why I Built an Agent Memory Commons*, published in **The Technical Alliances Letter** newsletter. The article is also listed on my LinkedIn profile as a GitHub publication.
 - **Author:** [Gary Garcia](https://github.com/garciacionet-alt) — written from the practitioner side, after running this pattern across multiple agents on a single Obsidian vault.
 
 ## License
@@ -50,4 +52,4 @@ If you only run one agent on one computer, this pattern is overkill. If you run 
 
 ---
 
-*This is the first article in the AI_Articles repo. More patterns and reference implementations will land here over time.*
+*This article is one of two in the AI_Articles repo. More patterns and reference implementations will land here over time.*

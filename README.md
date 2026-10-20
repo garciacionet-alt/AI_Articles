@@ -16,7 +16,7 @@ Articles are written from the practitioner side — after running the pattern, n
 
 | Article | What it covers | Pattern | Implementation |
 |---|---|---|---|
-| [Agent Memory Commons](./agent-memory-commons/) | A shared file space that lets multiple AI agents (Hermes, Claude Code, Minimax M3, OpenCode, OpenHuman, custom openclaw) share context through a synced Obsidian vault — no coordination overhead, no API contracts | [PATTERN.md](./agent-memory-commons/PATTERN.md) | [IMPLEMENTATION.md](./agent-memory-commons/IMPLEMENTATION.md) |
+| [Agent Memory Commons](./agent-memory-commons/) | A shared file space that lets multiple AI agents (Hermes, Claude Code, Minimax M3, OpenCode, OpenHuman, custom openclaw) share context through a synced Obsidian vault — no coordination overhead, no API contracts — plus the operating layer that keeps it legible: a root protocol file, a closed frontmatter vocabulary, a read-only linter, live views, and a session-end ritual | [PATTERN.md](./agent-memory-commons/PATTERN.md) | [IMPLEMENTATION.md](./agent-memory-commons/IMPLEMENTATION.md) |
 | [Bot Identity](./bot-identity/) | One credential per bot. Every framework makes multi-agent easy; almost none tell you to give each bot its own channel token and OAuth grant — and without one you cannot scope, revoke, or attribute anything to a specific agent | [PATTERN.md](./bot-identity/PATTERN.md) | [IMPLEMENTATION.md](./bot-identity/IMPLEMENTATION.md) |
 
 More articles coming.
