@@ -42,7 +42,7 @@ If you only run one agent on one computer, this pattern is overkill. If you run 
 
 ## Companion resources
 
-- **LinkedIn companion** (essay + carousel): *Why I Built an Agent Memory Commons*, published in **The Technical Alliances Letter** newsletter. The article is also listed on my LinkedIn profile as a GitHub publication.
+- **LinkedIn companion** (essay + carousel): [*Why I Built an Agent Memory Commons*](https://www.linkedin.com/pulse/why-i-built-agent-memory-commons-gary-garcia-ezs2c) — published 27 September 2026 in **The Technical Alliances Letter** newsletter. The article is also listed on my LinkedIn profile as a GitHub publication.
 - **Author:** [Gary Garcia](https://github.com/garciacionet-alt) — written from the practitioner side, after running this pattern across multiple agents on a single Obsidian vault.
 
 ## License
