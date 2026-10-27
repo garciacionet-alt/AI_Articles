@@ -592,7 +592,51 @@ the team:
 
 ---
 
+## 13. What Zolon's published notes added
+
+Zolon published his own field notes on 2026-10-27 —
+[thezolon/tiiny-api-notes](https://github.com/thezolon/tiiny-api-notes) —
+covering the same device. His endpoint set is a subset of this one's KB spec
+and nothing in it contradicts anything above. Three things he established
+that are worth carrying here, because they sharpen §3 and §4:
+
+**The memory scope does not stop capture.** `GET/PUT /kb/memory/scope` takes
+`{"scope": "all" | "tiinyos"}`, and the spec calls it the *summary* scope:
+`tiinyos` "summarizes TiinyOS client chats only", `all` "summarizes every
+LLM output". It reads like the switch you would want. Zolon tested it —
+after switching to `tiinyos`, an API chat was **still captured the same
+way**. At most the setting narrows what gets summarised, not what gets
+recorded. (`GET` also reports `supported_scopes` and `origin_tagging`.)
+
+**Captures are batched, and they land on whole minutes.** On an idle device
+the day's `/kb/conversation_days/{day}` entry did not change for nine
+minutes; one chat sent straight to the gateway's `/v1/chat/completions`
+changed its `content_updated_at` 14 seconds later. So the capture is not
+immediate and not per-request — and a call can sit invisible in the gap.
+
+**The delete has still not been tested on a summarised day.** Zolon tested it
+on a day that had *not* been summarised: the day was gone from the list, its
+text was gone from the vault, and the vault did not re-import it. He states
+the response "is meant to remove what was summarised from that day as well"
+— and marks it not yet tested. So the §5 caveat is open from both sides now,
+which is exactly why it is worth settling.
+
+**He has reported the un-deletable request log to Tiiny** and is waiting for
+their answer.
+
+One deliberate difference worth naming: his repo's ground rules exclude
+root/firmware internals, addresses, keys and data, and say security issues
+go to Tiiny privately first. This document names the mixin path instead. The
+two approaches are both defensible — his is more conservative, and it is
+the one a vendor's own co-creator can afford. If you are publishing your own
+notes, decide deliberately which line you are on rather than by accident.
+
+---
+
 ## Related
 
 - [`README.md`](./README.md) — the six
   documentation surfaces, for the Discord audience
+- [thezolon/tiiny-api-notes](https://github.com/thezolon/tiiny-api-notes) —
+  Zolon's own field notes on the same device, plus a snapshot tool that diffs
+  the published specs across a TiinyOS update

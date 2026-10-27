@@ -463,7 +463,11 @@ The knowledge base keeps captured chats as **one "conversation day" per
 date**. You can list them and delete whole days over the API.
 
 *(This recipe is from Zolon, a Tiiny co-creator, on Discord — verified
-against the device on 2026-10-27.)*
+against the device on 2026-10-27. He has since published
+[his own API notes](https://github.com/thezolon/tiiny-api-notes), including
+a privacy write-up and a tool that diffs the device's specs across a TiinyOS
+update. Start there for the endpoint reference; this section covers the
+deletion specifically.)*
 
 ```bash
 # list the days
@@ -492,7 +496,8 @@ Invoke-RestMethod -Method Delete -Headers @{Authorization="Bearer YOUR_KEY"} \
 3. **Days marked `queued`** have not been summarised yet. Days marked
    `summarized` may already have produced memory facts — though the delete
    response reports `deleted_facts` and `deleted_proposals` counters, which
-   suggests those come too.
+   suggests those come too. This one is still untested on a day that had
+   already been summarised, so treat it as likely rather than established.
 4. **It cannot be undone.** There is no dry-run and no undo endpoint.
 5. **It is not a complete erasure.** Three things survive it — see below.
 
@@ -596,6 +601,7 @@ Honest list, so you don't lose an afternoon to any of them.
 | **The nightly summary pipeline can fail silently** | `GET /kb/memory/schedule` reports `last_outcome`. If summaries stop appearing, check it — a missing model is the usual cause. |
 | **`tiiny load` / `tiiny unload` need a real terminal** | From a script or agent they fail with a TTY error. Run them in a terminal. |
 | **API calls are captured but not viewable** | Your calls land in the knowledge base as a conversation day. There is no interface that shows them individually — only `/kb/conversation_days/{day}` for the summarised day, and a delete for the whole day. See §8. |
+| **The memory scope setting does not stop capture** | `GET/PUT /kb/memory/scope` takes `all` or `tiinyos`. It looks like the switch you want — but it only narrows what gets *summarised*. An API chat is still captured either way. |
 | **The KB service is barely documented** | 50 paths and 59 operations, and the surface that matters most — the `/kb/*` service — is in neither the device's own docs nor `dev.tiiny.ai`. It is discoverable, but only if you already know to look. |
 | **A deleted day does not delete the raw call** | The delete clears the vault's summarised view. The per-day raw log, the retained user-context versions, and an encrypted device log all survive. See §8. |
 
