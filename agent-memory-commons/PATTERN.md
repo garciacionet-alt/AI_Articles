@@ -135,7 +135,7 @@ The directory should be:
 
 ### 2. Create the agent subspace convention
 
-Inside the chosen directory, create one prefixed folder per agent. The convention is `_agent-name/` (underscore prefix to distinguish from user-owned folders, lowercase, hyphenated).
+Inside the chosen directory, create one prefixed folder per agent. The convention is `_agent-<name>/` (underscore prefix to distinguish from user-owned folders, lowercase, hyphenated).
 
 Example:
 
@@ -156,7 +156,7 @@ The README states:
 - **What this folder is.** One sentence.
 - **Who writes here.** The agent's name and version.
 - **What is authoritative vs. observational.** Some folders contain primary work product (research findings, drafted documents). Some contain secondary observations (screen-time logs, transcribed meetings). The README declares which is which.
-- **The naming convention used inside the folder.** Date-prefixed (`YYYY-MM-DD-title.md`), topic-prefixed (`topic-summary.md`), or free-form. Each agent picks what fits its work.
+- **The naming convention used inside the folder.** Dated work product carries a date as a suffix (`<topic>-YYYY-MM-DD.md`); a revision is a new instance (`<topic>-YYYY-MM-DD-v2.md`), never an edit in place; one-off notes may be free-form.
 
 The README does not need to be long. One paragraph is sufficient. The startup-scan step in the previous section ("read each `_agent-*/README.md` first") depends on these READMEs existing.
 
@@ -240,7 +240,7 @@ The semantic layer deserves one more rule, because that is where a commons quiet
 
 **Stale data accumulates.** Old projects sit in agent folders, undated, and other agents treat them as current. *Mitigation: closure lines on every ended project; mark superseded notes `status: stale` so they enter the pruning queue; periodic hygiene pass.*
 
-**Filename collisions across agents.** Two agents write `summary.md` on the same day, both without date prefixes. *Mitigation: date-prefixed filenames (`YYYY-MM-DD-summary.md`); agent-prefixed folders do most of the work.*
+**Filename collisions across agents.** Two agents write `summary.md` on the same day, both without dates. *Mitigation: dated filenames (`summary-YYYY-MM-DD.md`); agent-prefixed folders do most of the work.*
 
 **Sync latency surprises an agent.** An agent writes a file and immediately tries to read it from a second machine that has not synced yet. *Mitigation: the agent that writes is the only consumer that reads immediately; cross-machine reads happen in later sessions, after sync has had time to propagate.*
 

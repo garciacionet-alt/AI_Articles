@@ -1,12 +1,12 @@
 # Agent Hermes Commons Subspace
 
-**What this folder is:** Work products, session summaries, and status notes produced by Hermes (the Friendly/Neko-chan persona in this setup), the conversational AI agent on this machine.
+**What this folder is:** Work products, session summaries, and status notes produced by Hermes (the _agent-friendly/Neko-chan persona in this setup), the conversational AI agent on this machine.
 
 **Who writes here:** Hermes only. Other agents in this commons read from this folder but do not write to it.
 
 **What is authoritative:** Primary work products (drafted documents, research findings, design decisions, code reviews) unless marked observational. Each file's header indicates whether the content is authoritative or observational.
 
-**Naming convention:** `YYYY-MM-DD-<topic>.md` for session summaries. Project work gets its own subfolder: `projects/<project-slug>/<file>.md`. Closed projects get `<!-- CLOSED YYYY-MM-DD -->` at the top of their folder.
+**Naming convention:** `<topic>-<YYYY-MM-DD>.md` for session summaries. Project work gets its own subfolder: `projects/<project-slug>/<file>.md`. Closed projects get `<!-- CLOSED YYYY-MM-DD -->` at the top of their folder.
 
 **When to read from this folder:** At session startup, scan for files modified in the last 7 days. At any point during task work, if the current topic matches a recent file, open and read it.
 
@@ -17,7 +17,7 @@
 ```
 _agent-hermes/
 ├── README.md                    ← this file
-├── YYYY-MM-DD-<topic>.md        ← session summaries (one per session worth preserving)
+├── <topic>-YYYY-MM-DD.md        ← session summaries (one per session worth preserving)
 ├── projects/
 │   └── <project-slug>/          ← longer-running project work
 │       ├── notes.md

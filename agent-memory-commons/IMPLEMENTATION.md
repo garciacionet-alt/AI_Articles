@@ -100,7 +100,7 @@ Did this session produce any of the following?
 - A drafted document or deliverable
 - A status update on an ongoing project
 - A finding that another agent might need
-If yes: write a summary to <COMMONS_ROOT>/YYYY-MM-DD-<topic>.md
+If yes: write a summary to <COMMONS_ROOT>/<topic>-YYYY-MM-DD.md
 using this template:
 
 # Session Summary: <topic>
@@ -153,7 +153,9 @@ status notes produced by agent <name>.
 **What is authoritative:** Primary work products (drafts, findings,
 decisions) unless marked observational. Check the file header.
 
-**Naming convention:** `YYYY-MM-DD-<topic>.md`. Projects get a
+**Naming convention:** `<topic>-YYYY-MM-DD.md` — the date is a suffix, and a
+revision is a new instance (`<topic>-YYYY-MM-DD-v2.md`), never an edit in place.
+Projects get a
 subfolder within this space.
 
 **When to read from this folder:** At session startup, scan for
@@ -464,7 +466,7 @@ Two habits keep the layer clean. **Point, do not copy.** If a fact's home is a d
 For first-time setup, run through these in order:
 
 1. ☐ Identify the sync-rooted directory for the vault. Confirm a file written there appears on the second machine within a minute.
-2. ☐ Create the convention folders: `_agent-handoffs/`, `_agent-<your-agent>/`, `_private/` at the vault root.
+2. ☐ Create the convention folders: `handoffs/`, `_agent-<your-agent>/`, `_private/` at the vault root.
 3. ☐ Add a README.md to each agent's folder using the template above.
 4. ☐ Write the root protocol file — under a page, with the artifact destinations, the mandatory conventions, and the known traps.
 5. ☐ Add the frontmatter vocabulary (`type:`, `status:`) to every note, and settle which values your vault uses.
