@@ -33,7 +33,7 @@ Install the `docx` skill from the skill registry (it's the Nous Research / built
 ## The Workflow
 
 1. **Drop** the `.docx` you want to work with onto the desktop symlink (or into the projects folder directly).
-2. **Tell your agent** to find and edit it, e.g. "Open `Gary-AMD.August11.docx` in the job search folder and change X to Y."
+2. **Tell your agent** to find and edit it, e.g. "Open `annual-report.docx` in the documents folder and change X to Y."
 3. **The agent** finds the file in its workspace, reads it natively, makes the edit, and saves in place.
 4. **You get back** the same `.docx` with formatting intact — bold, italic, styles, tables all preserved.
 
