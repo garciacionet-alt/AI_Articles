@@ -3,16 +3,16 @@ title: Agent Memory Commons — Implementation Manual
 status: implementation
 applies-to: setting up the commons pattern with concrete tooling
 companion: agent-memory-commons.md
-updated: 2026-10-20
+updated: 2026-10-30
 ---
 
 # Agent Memory Commons — Implementation
 
-> **Companion document:** This file describes the concrete setup. For the pattern itself, the design principles, the sync-directory discussion, and the layered memory architecture, see [agent-memory-commons.md](./agent-memory-commons.md).
+> **Companion document:** This file describes the concrete setup. For the pattern itself, the design principles, the sync-directory discussion, and the layered memory architecture, see [agent-memory-commons.md](./PATTERN.md).
 >
 > The two files together are the complete reference. This one is the working manual; the other is the shareable description.
 
-This document assumes the reader has read or skimmed [agent-memory-commons.md](./agent-memory-commons.md) and is now wiring up the pattern in a real environment. Paths are shown as placeholders — `<VAULT-PATH>`, `<VAULT-NAME>`, `<VENDOR>`, `<agent-name>`, `<WORKSPACE-NAME>`, `<PROTOCOL_FILE>`, `<STATUS_FILE>`, `<LINTER>` — substitute the values appropriate to your setup.
+This document assumes the reader has read or skimmed [agent-memory-commons.md](./PATTERN.md) and is now wiring up the pattern in a real environment. Paths are shown as placeholders — `<VAULT-PATH>`, `<VAULT-NAME>`, `<VENDOR>`, `<agent-name>`, `<WORKSPACE-NAME>`, `<PROTOCOL_FILE>`, `<STATUS_FILE>`, `<LINTER>`, `<GIT-DIR>`, `<GIT-EXCHANGE-DIR>`, `<GUARD>` — substitute the values appropriate to your setup.
 
 ## Memory layer configuration
 
@@ -337,6 +337,119 @@ Two database-style views over the vault, so the state of the commons is legible 
 
 These views read the frontmatter vocabulary, which is why that vocabulary has to be closed and typed. They also carry an ownership caveat: a note application rewrites its own view and configuration files whenever it saves them, normalising the format and stripping comments. Write them in the application's own style, keep the documentation in ordinary Markdown files rather than inside them, and expect spurious churn in version control.
 
+## Optional add-on: version control with Git
+
+The pattern does not require version control. This section is the add-on: a Git repository laid over the whole vault tree, so the commons keeps a history of its own structure. Add it when the vault gets restructured, when you need to prove what changed, or when you want a bulk delete to be reversible. Skip it when none of that is true — the setup steps, the operating layer, and the vector index are complete without it.
+
+The reasoning behind the add-on, and the reasons it stays optional, are in the pattern document under [Optional add-on: version control with Git](./PATTERN.md#optional-add-on-version-control-with-git). Two rules hold for everything below:
+
+1. **The file tree stays the source of truth.** Git records the history of the tree; it never becomes the storage layer. The sync service still replicates the files.
+2. **No remote.** History moves between machines as a bundle. A hosted remote means the private contents of the vault leave the machine — a separate decision, made deliberately, and only after the exclude list has been reviewed.
+
+### 1. Put the object store outside the sync folder
+
+```bash
+git init --separate-git-dir=<GIT-DIR> <VAULT-PATH>
+```
+
+`--separate-git-dir` keeps the working tree where the sync service replicates it and puts the object store — the `.git` directory, which grows into tens of megabytes — on local disk. An object store inside a file-sync folder is replicated to every device, locked by two git processes at once, and occasionally corrupted by a sync daemon rewriting a file it does not understand.
+
+Two details matter:
+
+- **The pointer must be relative.** `--separate-git-dir` writes a `.git` *file* containing `gitdir: <path>`. If that path is absolute, it breaks on any machine where the home directory differs. Write it relative to the physical location of the vault, so the same bytes resolve correctly on every machine.
+- **Do not re-run the init on the second machine.** The pointer file lives inside the synced working tree, so rewriting it from one machine propagates back and breaks the other. Seed the second machine from a bundle instead.
+
+### 2. Write the exclude list before the first commit
+
+The exclude list is the first thing that matters, because it is what keeps credentials and confidential material out of permanent history. Once a secret is in an object store it stays there: deleting the file does not remove it from the history, and the object store is exactly the sort of thing that later gets copied, bundled, or pushed.
+
+Exclude, at minimum:
+
+- credentials, keys, and environment files
+- confidential or client material that must not become permanent history
+- raw agent logs and machine session noise
+- application data files the note app rewrites on every save — they churn, and the churn is noise
+- dependency and virtual-environment directories
+- binaries over a size cap
+
+```
+# .gitignore — illustrative
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.p12
+node_modules/
+.venv/
+__pycache__/
+.DS_Store
+```
+
+### 3. Scan the pending set by content, not only by path
+
+A path-based exclude list covers the locations you know about. It does not cover material that has been copied somewhere else — into a project folder, into a note, into an attachment. Something excluded by path in one place is not excluded when it is copied to another.
+
+So the commit step needs a check that inspects the **pending set** — the files about to be committed — by path *and* by content, and refuses the commit when it finds credential-shaped material or a path that is known to be off-limits. A small script is enough. It should be read-only, it should print what it found and where, and it should exit non-zero so it can sit in front of a commit.
+
+```bash
+git status --porcelain          # what is about to be committed
+python3 <GUARD>                # exits non-zero on anything that must not be committed
+```
+
+Run it before every commit, not once at setup.
+
+### 4. Commit by hand, from a normal terminal, with an explicit path list
+
+```bash
+git add <explicit-path> <explicit-path>
+git commit -m "<what changed>"
+```
+
+Stage an explicit list of paths rather than the whole tree. A whole-tree `git add` is how a credential that was copied into an unexpected folder enters the history in one step.
+
+Commit messages describe **the change the commit made** — `AMC: add the publication pipeline so the published article is generated, not hand-edited` — not the area of work. A log of change-describing messages is readable years later; a log of area labels is not.
+
+**Commit from a normal terminal, not from an agent sandbox.** Git takes a lock file before it writes an index. A sandbox that cannot unlink leaves the lock behind, and the next legitimate `git` command — from a human, in a real terminal — is blocked by the agent's leftover. See the failure mode in the pattern document.
+
+### 5. Move history between machines with bundles
+
+```bash
+# On the machine holding the newer history — write locally first, then copy in
+git bundle create <LOCAL-PATH>/vault-<YYYYMMDD-HHMM>.bundle main ^<peer-ref>
+
+# On the other machine
+git fetch <BUNDLE-PATH> 'refs/heads/*:refs/sync/<peer>/*'
+```
+
+Write the bundle to local disk and then copy it into the sync folder. A bundle written directly into a sync folder can fail the same way a rename does inside one.
+
+Before aligning the two machines, check that the alignment is a fast-forward:
+
+```bash
+git merge-base --is-ancestor refs/heads/main refs/sync/<peer>/main
+echo "exit=$?"      # 0 = safe to align; non-zero = you have local work
+```
+
+Only on `exit=0` is `git reset --hard refs/sync/<peer>/main` safe. On a non-zero exit, merge and resolve by hand. Note that a file-sync service typically delivers **files** faster than a bundle delivers **history**, so a working tree can legitimately be ahead of the history — that is expected, not corruption.
+
+### 6. Restore by SHA, not by a relative reference
+
+```bash
+git checkout <sha> -- .          # restore the whole tree as it was at <sha>
+git checkout main -- <path>      # restore one file
+```
+
+Name the commit you want. `main~1` points at "the previous commit", which moves every time a commit lands — so an instruction that was correct when it was written becomes wrong later. A SHA does not move.
+
+Take the baseline commit *before* a restructure, so the pre-restructure state is one named commit away.
+
+### 7. Know what you are signing up for
+
+- **Deleted is now recoverable, and that is permanent.** Once a file is committed, deleting it does not remove it from the history. A pruning pass that deletes files does not shrink the history.
+- **The history is the most sensitive copy of the vault.** It holds everything that was ever committed, including things later deleted. Treat the object store with the same care as the vault itself — which is one more reason it stays on local disk and never goes to a remote.
+- **The add-on can be removed, and nothing breaks.** Remove the pointer and the object store, and the commons is exactly what it was: a synced folder. That is what makes it an add-on rather than a dependency.
+
 ## Index the commons with a vector database
 
 This section is the most implementation-specific part of the manual. It is written against one concrete tool — [Engraphis](https://engraphis.com) — because the user has that tool installed. The shape of the workflow is the same for other vector databases; substitute the equivalent commands.
@@ -480,5 +593,6 @@ For first-time setup, run through these in order:
 13. ☐ Choose the claim kinds you will use and your subject-key convention, then write the first five claims.
 14. ☐ Run a smoke test: have the agent write a test summary to its own subspace, then start a new session and confirm the startup scan picks it up.
 15. ☐ Set a calendar reminder for the first quarterly hygiene pass.
+16. ☐ *Optional* — add the version-control layer: object store outside the sync folder, exclude list written before the first commit, content-level guard in front of every commit.
 
-Once these are in place, the commons is operational. Subsequent work is maintenance, not setup.
+Once these are in place, the commons is operational. Subsequent work is maintenance, not setup. Item 16 is the one piece that can be skipped entirely, and added later without changing anything above it.

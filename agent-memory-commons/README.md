@@ -14,12 +14,14 @@ The payoff compounds: every agent that joins later inherits what the others lear
 
 The cost is one convention (prefixed folders), one practice (closure lines on ended projects), one sync routine (verify weekly that files are propagating) — and one operating layer that keeps the whole thing legible once the folder stops being small: a root protocol file, a closed frontmatter vocabulary, a read-only linter, live views, and a session-end ritual. Without it, a commons degrades quietly: links rot, frontmatter drifts, and agents start treating last year's document as current.
 
+One **optional add-on** sits on top of that: a Git repository over the vault tree, so the commons keeps a history of its own structure — what changed, who changed it, and how to undo a restructure that went wrong. It is not required, it does not replace the sync service, and it changes none of the pattern's commitments. Both documents cover what it adds and what it costs, so you can decide whether your commons needs it.
+
 ## What's in this article
 
 | Document | What it covers |
 |---|---|
-| [PATTERN.md](./PATTERN.md) | The pattern itself: purpose, design principles, sync directories, layered memory architecture, startup discipline, basic setup, the operating layer, failure modes. Portable across any single-user multi-agent setup. |
-| [IMPLEMENTATION.md](./IMPLEMENTATION.md) | The concrete implementation: env vars, session-startup and session-end prompts, the read-only linter, live views, claim classification, Engraphis setup, alternative vector databases, shell scripts, end-to-end setup checklist. |
+| [PATTERN.md](./PATTERN.md) | The pattern itself: purpose, design principles, sync directories, layered memory architecture, startup discipline, basic setup, the operating layer, the **optional version-control add-on**, failure modes. Portable across any single-user multi-agent setup. |
+| [IMPLEMENTATION.md](./IMPLEMENTATION.md) | The concrete implementation: env vars, session-startup and session-end prompts, the read-only linter, live views, claim classification, Engraphis setup, alternative vector databases, the **optional version-control setup**, shell scripts, end-to-end setup checklist. |
 | [scripts/](./scripts/) | Two shell scripts: `commons-startup.sh` for session bootstrap and `commons-hygiene.sh` for quarterly maintenance. Both take the vault path from the environment and report rather than modify. |
 | [examples/](./examples/) | A worked example: the `_agent-hermes/` README filled in. Use this as a template for your own agent subspaces. |
 

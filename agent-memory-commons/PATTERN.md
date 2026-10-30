@@ -3,12 +3,12 @@ title: Agent Memory Commons — Pattern Description and Setup
 status: design-pattern
 applies-to: any single-user setup with multiple AI agents and one or more computers
 companion: agent-memory-commons-implementation.md
-updated: 2026-10-20
+updated: 2026-10-30
 ---
 
 # Agent Memory Commons
 
-> **Companion document:** This file describes the pattern. For the concrete implementation — Engraphis setup, env vars, session-startup prompts, and shell scripts — see [agent-memory-commons-implementation.md](./agent-memory-commons-implementation.md).
+> **Companion document:** This file describes the pattern. For the concrete implementation — Engraphis setup, env vars, session-startup prompts, and shell scripts — see [agent-memory-commons-implementation.md](./IMPLEMENTATION.md).
 
 ## Purpose
 
@@ -53,7 +53,7 @@ The simplest mechanism is a **sync directory**: a folder that the operating syst
 - **iCloud Drive.** On macOS, iCloud Drive folders are reachable under `~/Library/Mobile Documents/`. Files written there are pushed to other devices signed into the same iCloud account within seconds to minutes. This is the sync mechanism Obsidian vaults typically use on Apple platforms.
 - **Syncthing.** A peer-to-peer sync service that replicates a folder across machines directly, with no central server. Useful when the user does not want third-party cloud storage to hold the commons.
 - **Dropbox / Google Drive / OneDrive.** Third-party file-syncing services that all provide a folder-on-disk that replicates to the cloud and to other devices. Suitable for the commons as long as the agent writes atomically (write the full file, do not partial-write).
-- **Git.** A version-controlled folder, manually pushed and pulled. Slower but produces a complete history. Best for users who want full traceability of changes.
+- **Git.** A version-controlled folder. Used as the *sync* mechanism it is slower — a manual push and pull does not meet the sub-minute latency below — but it produces a complete history of the tree. The recommendation is to use Git as an **optional add-on on top of** a sync directory, not as the sync directory itself. See [Optional add-on: version control with Git](#optional-add-on-version-control-with-git).
 
 The commons lives inside a sync-rooted directory. The sync service handles replication. Agents on each machine read and write the same files. The path that an agent on the laptop sees is the same path that an agent on the desktop sees, modulo per-machine directory aliases (a symlink or shortcut at `~/Vault/` pointing to the sync root, for example).
 
@@ -64,6 +64,34 @@ When choosing a sync mechanism, three properties matter:
 - **Offline behavior.** What happens when the laptop is offline for a day? Syncthing and git queue changes and replay on reconnect. iCloud and Dropbox queue as well. The commons remains consistent across machines once both come back online.
 
 A useful property of the file-tree commons is that it survives sync limitations better than a database would. If a write is delayed, the file simply appears later. If a conflict occurs, the agent or user resolves it manually. The system is degraded, not broken.
+
+## Optional add-on: version control with Git
+
+A sync directory gives the commons **presence** on every machine. It does not give it **history**. A synced folder records what the files are right now; it does not record what they used to be, who changed them, or whether a missing file was ever there at all. Those are different problems, and they are solved differently.
+
+Adding Git to the commons — **as an optional add-on, not a component** — is the standard way to close that gap. Nothing above changes. The file tree stays the source of truth, the sync service stays the replication mechanism, every agent keeps reading and writing the same paths, and no agent needs to know a repository exists. Git sits on top and keeps the receipts.
+
+### What it adds
+
+- **An audit trail.** Every structural change becomes a commit with a message that says what changed and why. `git log` turns "the vault looks different" into a reviewable list, and `git diff` shows each change. The reasoning behind a structural decision stops living only in a chat session that is not in the commons.
+- **Reversibility.** A bulk rename, a restructure, a wrong deletion — all recoverable by naming a commit. `git checkout <sha> -- .` restores the tree; `git checkout main -- <path>` restores one file. This is the difference between a restructure being a leap of faith and being a reversible operation.
+- **A diff for the changes that are hard to eyeball.** Folder moves, renames, and bulk deletions are exactly the operations where "it looks fine" is not evidence. A commit turns them into a reviewable change.
+- **One place to enforce what must not be tracked.** An exclude list, plus a content scan in front of every commit, is where the privacy surface gets handled. Confidential material stays out of permanent history even when it is copied into a path the exclude list does not cover.
+- **History that does not require a remote.** History can move between machines as a bundle, so the commons can keep a complete record of its own structure without publishing its contents anywhere.
+
+### Why it is optional
+
+The add-on is optional because nothing in the pattern depends on it, and because it is not free.
+
+- **Git is not the sync mechanism.** The sync service still replicates the files, at sub-minute latency, with the conflict behaviour described above. Git's role is history, not replication. Using `git push` and `git pull` *as* the sync mechanism is a different design: it is slower, it needs a remote to hold private documents, and it turns a file tree into a merge problem. Add Git **on top of** the sync directory — do not replace it.
+- **The commons is complete without it.** Every step of the base setup, the whole operating layer, and the vector index work on a plain synced folder. A single-machine setup, or a commons that will never be restructured, has nothing to gain and a commit discipline to maintain.
+- **It costs attention.** A commit discipline, an exclude list that has to be correct, a content scan before each commit, and the sandbox traps in the failure modes below. That cost is worth paying for a commons that gets restructured, and not worth paying for one that does not.
+- **It changes what a deletion means.** Once a file is committed, "deleted" and "still recoverable" are both true. That is the whole benefit — and it is a change in the risk model that has to be understood, not inherited.
+- **A remote is a separate decision.** The safest form keeps history local and moves it between machines by bundle. Adding a hosted remote means the private contents of the commons leave the machine, which is a decision to make deliberately, and only after the exclude list has been reviewed — never a default.
+
+### What it is not
+
+The add-on changes none of the pattern's commitments. It does not make the commons a repository — the files are still the data, and an agent still needs only the path to work. It does not replace the closure convention, the frontmatter vocabulary, the linter, or the session-end ritual. It does not make the sync service unnecessary. And it can be removed: delete the pointer and the object store, and the commons is exactly what it was before — a synced folder. That is what makes it an add-on rather than a dependency.
 
 ## Roles in a layered memory architecture
 
@@ -115,7 +143,7 @@ The commons only provides value if agents actually read from it. This requires a
 
 ## Basic setup
 
-The following describes a minimal commons setup. Paths are abstracted; replace with paths appropriate to the user's environment. For the concrete implementation of these steps — including vector-DB installation, env vars, and shell scripts — see [agent-memory-commons-implementation.md](./agent-memory-commons-implementation.md).
+The following describes a minimal commons setup. Paths are abstracted; replace with paths appropriate to the user's environment. For the concrete implementation of these steps — including vector-DB installation, env vars, and shell scripts — see [agent-memory-commons-implementation.md](./IMPLEMENTATION.md).
 
 Steps 1 to 7 are the minimum viable commons: enough to start, not enough to survive the first year of use. The operating layer that comes after them is what keeps it navigable once the folder stops being small.
 
@@ -186,7 +214,7 @@ Once the commons grows beyond approximately 200 files, exact-filename search sta
 
 The recommended approach is to use a tool that natively supports Obsidian vault imports and incremental updates. [Engraphis](https://engraphis.com) is one such tool. It understands Obsidian's vault structure (frontmatter, tags, wikilinks), imports files as semantic memories, and maintains a vector index. The import is one-shot per run; the tool handles updates (files that changed since the last import are re-imported with `--on-conflict replace`).
 
-The concrete setup commands, daily re-index cron, alternatives table, and upgrade paths live in the [implementation document](./agent-memory-commons-implementation.md#index-the-commons-with-a-vector-database).
+The concrete setup commands, daily re-index cron, alternatives table, and upgrade paths live in the [implementation document](./IMPLEMENTATION.md#index-the-commons-with-a-vector-database).
 
 #### Scope and exclusion
 
@@ -213,6 +241,8 @@ After three months of operation, spend an hour reviewing the commons. Look for:
 - Files whose content has aged out of usefulness. Move them to an `_archive/` folder inside the agent's subspace, or delete.
 
 This is not a one-time cleanup. It is a recurring practice, like reviewing the calendar at the start of a new season.
+
+**Optional add-on.** A version-control layer over the whole tree can be added at any time, including years after the commons is running. It is not part of the minimum: the seven steps above and the operating layer below are complete without it. See [Optional add-on: version control with Git](#optional-add-on-version-control-with-git) for what it adds, what it costs, and why it stays optional.
 
 ## The operating layer
 
@@ -275,6 +305,7 @@ The pattern adapts to several setups:
 - **Single computer, multiple agents.** Same as above; agents read from one folder, write to prefixed subspaces.
 - **Multiple computers, single agent.** The sync directory handles cross-machine coherence. The agent may run on each machine or only one.
 - **Multiple computers, multiple agents.** The full pattern described above. Sync directory plus prefixed subspaces plus sync verification routine.
+- **Version control, if wanted.** Orthogonal to all four variants. The add-on is a layer over the tree, not a different kind of commons — adding it to a single-computer setup is fine, and it changes none of the four.
 
 Each variant adds complexity only where it is needed.
 
@@ -283,3 +314,5 @@ Each variant adds complexity only where it is needed.
 The Agent Memory Commons is a small, simple pattern that solves a real problem: how to let multiple agents working for the same user share context without coordination overhead. The implementation cost is one convention (prefixed agent folders), one practice (closure lines on ended projects), one sync routine (verify weekly that files are propagating), and one operating layer — a root protocol file, a closed frontmatter vocabulary, a read-only linter, live views, and a session-end ritual.
 
 The last item is what separates a commons that works from a folder that used to work. The pattern is easy to adopt and easy to lose: conventions decay quietly, and the only thing that keeps a commons navigable is a small set of artifacts that check themselves. The payoff compounds — every agent that joins later inherits what the others learned, and every session that ends properly leaves the next one something to stand on.
+
+A version-control layer can be added on top of any of this, at any point, without changing any of it.
