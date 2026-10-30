@@ -71,7 +71,7 @@ This pattern isn't just about `.docx` — it's the general trick for getting any
 The OpenHuman UI toggle for the subconscious loop doesn't always persist. If you flip it on, restart, and the loop still isn't running, edit the config file directly.
 
 **File to edit:**
-`/Users/gary/.openhuman/users/6a1a5cb31adafc7a08afdedb/config.toml`
+`~/.openhuman/users/<USER-ID>/config.toml`
 
 (Confirm your exact path by asking your agent for its data directory. This guide is written against schema_version 6.)
 
