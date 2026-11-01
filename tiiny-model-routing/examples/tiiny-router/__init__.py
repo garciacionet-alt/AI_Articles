@@ -45,11 +45,30 @@ only chooses which model a child should ask for. That separation is deliberate:
 a load evicts whatever was resident, and a routing decision made inside a
 delegation batch must not be able to yank a model out from under a sibling
 task that is already running.
+
+Residency is read, never changed
+--------------------------------
+The plugin does read the device's resident set, and it uses it. A model that
+is not resident cannot answer — the device replies ``404 "is not loaded"``,
+which Hermes classifies as terminal and falls back to the paid provider. On a
+device whose shared NPU pool holds only a few models at a time, that turns a
+routing decision into a silent move off the local device.
+
+So the router picks a model that is actually resident when it can: the tier's
+own choice first, then another candidate from the same tier, then the
+generalist the watchdog keeps resident. The label on the route records any
+substitution (``code→generalist``), so the operator can see that the
+specialist was not available. When residency cannot be determined at all the
+router behaves exactly as it did before: the tier's first choice.
 """
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import time
+import urllib.request
 from typing import Any, Mapping
 
 from agent.delegation_provider import DelegationProvider, DelegationRouteError
@@ -101,6 +120,95 @@ TIER_MODEL: dict[str, str] = {
 
 #: The tier names a caller may pass explicitly.
 VALID_TIERS = tuple(sorted(set(TIER_MODEL)))
+
+#: The generalist. Every tier falls back to it when nothing else is resident,
+#: because the generalist is what the watchdog keeps resident.
+GENERALIST = "Qwen/Qwen3.6-35B-A3B"
+
+#: How long a residency lookup is reused, in seconds. The device's resident
+#: set changes on a swap, not on a heartbeat, so a short cache is enough and
+#: keeps the routing path cheap.
+RESIDENCY_TTL = 30
+
+#: Cached residency lookup: (monotonic timestamp, frozenset of model ids).
+_residency_cache: tuple[float, frozenset[str]] | None = None
+
+
+def resident_models() -> frozenset[str] | None:
+    """Return the model ids currently resident on the device.
+
+    Returns ``None`` when residency cannot be determined — the device is
+    offline, the key is missing, or the lookup timed out. The caller then
+    falls back to the tier's default choice, which is exactly the behaviour
+    from before residency was considered. This path must never raise: a
+    routing decision is not a place to fail.
+    """
+    global _residency_cache
+    now = time.monotonic()
+    if _residency_cache is not None and now - _residency_cache[0] < RESIDENCY_TTL:
+        return _residency_cache[1]
+
+    key = os.environ.get("TIINY_API_KEY", "").strip()
+    if not key:
+        return None
+    try:
+        request = urllib.request.Request(
+            TIINY_BASE_URL + "/models",
+            headers={"Authorization": "Bearer " + key},
+        )
+        with urllib.request.urlopen(request, timeout=3) as response:
+            payload = json.load(response)
+    except Exception:
+        return None
+
+    ids: set[str] = set()
+    for entry in payload.get("data") or []:
+        if not isinstance(entry, dict):
+            continue
+        value = entry.get("id")
+        if isinstance(value, str) and "/" in value:
+            ids.add(value)
+    resident = frozenset(ids)
+    _residency_cache = (now, resident)
+    return resident
+
+
+def choose_model(tier: str) -> tuple[str, str]:
+    """Pick the model for a tier and say how it was picked.
+
+    Returns ``(model, label)``.
+
+    The order is: the tier's own first choice if it is resident; then any
+    other candidate in the tier that is resident; then the generalist, if it
+    is resident; then the tier's first choice regardless.
+
+    The point of the later steps is that a model which is not resident cannot
+    answer — the device answers ``404 "is not loaded"``, which Hermes treats as
+    terminal and falls back to the paid provider. On a device whose NPU pool
+    holds only a few models at a time, routing to a specialist that is not
+    loaded would quietly move the work off the device. Preferring a resident
+    model keeps the work local, and the label records the substitution so the
+    operator can see it happened.
+    """
+    choices = TIER_CHOICES[tier]
+    default_model = choices[0][0]
+
+    resident = resident_models()
+    if resident is None:
+        # Residency unknown — behave exactly as before.
+        return default_model, tier
+
+    for model, _npu, _ctx in choices:
+        if model in resident:
+            if model == default_model:
+                return model, tier
+            return model, f"{tier}→{model.split('/')[-1]}"
+
+    if GENERALIST in resident:
+        return GENERALIST, f"{tier}→generalist"
+
+    return default_model, tier
+
 
 #: Shape signals. These are matched against the task goal, lowercased.
 #:
@@ -198,7 +306,7 @@ class TiinyRouterDelegationProvider(DelegationProvider):
         else:
             tier = detect_tier(goal)
 
-        model = TIER_MODEL[tier]
+        model, label = choose_model(tier)
 
         return {
             "model": model,
@@ -207,7 +315,7 @@ class TiinyRouterDelegationProvider(DelegationProvider):
             "request_overrides": {
                 "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
             },
-            "label": tier,
+            "label": label,
         }
 
 

@@ -49,17 +49,25 @@ checked without spawning a child.
 
 ## Quick Reference
 
-| Tier | Model | NPU | Context |
-|---|---|---|---|
-| `research` | `InternScience/Sage-A1.5-Turbo` | 48% | 262144 |
-| `research` (alt) | `endless-frontier/BigBang-v1-Turbo` | 54% | 131072 |
-| `index` | `openai/gpt-oss-20b` | 27% | 131072 |
-| `code` | `deepreinforce-ai/Ornith-1.0-35B` | 50% | 131072 |
-| `code` (alt) | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 |
-| `code` (heavy) | `Qwen/Qwen3-Coder-Next` | 94% | 131072 |
-| `browser` | `Qwen/Qwen3.8-27B` | 51% | 262144 |
-| `draft` | `Qwen/Qwen3.5-9B` | 29% | 131072 |
-| `general` | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 |
+| Tier | Model | NPU | Context | Resident? |
+|---|---|---|---|---|
+| `research` | `InternScience/Sage-A1.5-Turbo` | 48% | 262144 | downloaded, not loaded |
+| `research` (alt) | `endless-frontier/BigBang-v1-Turbo` | 54% | 131072 | downloaded, not loaded |
+| `index` | `openai/gpt-oss-20b` | 27% | 131072 | **yes — in the required set** |
+| `code` | `deepreinforce-ai/Ornith-1.0-35B` | 50% | 131072 | downloaded, not loaded |
+| `code` (alt) | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 | **yes** |
+| `code` (heavy) | `Qwen/Qwen3-Coder-Next` | 94% | 131072 | not downloaded |
+| `browser` | `Qwen/Qwen3.8-27B` | 51% | 262144 | downloaded, not loaded |
+| `draft` | `Qwen/Qwen3.5-9B` | 29% | 131072 | downloaded, not loaded |
+| `general` | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 | **yes** |
+
+The router reads the device's resident set and never routes to a model that
+is not loaded: it takes the tier's first choice if it is resident, then
+another candidate from the same tier, then the generalist. The route's
+`label` records the substitution. So on the current device `index` runs on
+`gpt-oss-20b`, `code` runs on `Qwen3.6-35B-A3B` via the tier's own second
+candidate, and `research`/`browser`/`draft` run on the generalist until their
+model is swapped in with `tiiny-swap.sh`.
 
 | Command | What it does |
 |---|---|

@@ -99,9 +99,12 @@ that task's goal and context.
 
 ```python
 TIER_CHOICES = {
-    "research": (("InternScience/Sage-A1.5-Turbo", 48, 262144),),
+    "research": (("InternScience/Sage-A1.5-Turbo", 48, 262144),
+                 ("endless-frontier/BigBang-v1-Turbo", 54, 131072)),
     "index":    (("openai/gpt-oss-20b", 27, 131072),),
-    "code":     (("deepreinforce-ai/Ornith-1.0-35B", 50, 131072),),
+    "code":     (("deepreinforce-ai/Ornith-1.0-35B", 50, 131072),
+                 ("Qwen/Qwen3.6-35B-A3B", 47, 262144),
+                 ("Qwen/Qwen3-Coder-Next", 94, 131072)),
     "browser":  (("Qwen/Qwen3.8-27B", 51, 262144),),
     "draft":    (("Qwen/Qwen3.5-9B", 29, 131072),),
     "general":  (("Qwen/Qwen3.6-35B-A3B", 47, 262144),),
@@ -147,6 +150,24 @@ spent. The `chat_template_kwargs` override turns it off per request.
 device. That separation matters: a load evicts whatever was resident, and a
 routing decision made inside a delegation batch must not be able to yank a
 model out from under a sibling task that is already running.
+
+**But it does read the device, and that changes what it picks.** A model that
+is not resident cannot answer: the device replies `404 "is not loaded"`,
+Hermes treats that as terminal, and the child falls back to the paid
+provider. On a device whose shared NPU pool holds a handful of models at a
+time, routing to a specialist that is not loaded silently moves the work off
+the local device — and the work still completes, so nothing looks wrong.
+
+So the router asks the device what is resident and picks something that is
+actually there: the tier's own first choice, then another candidate from the
+same tier, then the generalist. The label on the route records the
+substitution (`code->generalist`), so it is visible rather than invisible in
+a fallback. If the device cannot be reached at all, the router behaves
+exactly as it did before — the tier's first choice.
+
+This is what makes the fallback list in `TIER_CHOICES` worth having. Without
+it, the tier table is a lookup table; with it, the router is the thing that
+keeps work on the device when the device is half-loaded.
 
 ### Letting the caller override
 

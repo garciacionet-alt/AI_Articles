@@ -50,7 +50,7 @@ tiiny-router/
 
 ```yaml
 name: tiiny-router
-version: 1.0.0
+version: 1.1.0
 description: "Delegation backend that routes each subtask to the Tiiny model matching its shape."
 author: Your Name (your-handle), Hermes Agent
 kind: backend
@@ -92,7 +92,75 @@ TIER_CHOICES = {
 ```
 
 A tier can hold several candidates. The first is the default; the rest are
-fallbacks, in the order the device's own model descriptions support.
+fallbacks, in the order the device's own model descriptions support — and the
+router actually *uses* them, because it knows which models are resident. The
+next section is about that, and it is the part that makes the tier table more
+than a lookup table.
+
+### Routing to something that is loaded
+
+A model that is not resident cannot answer. The device replies `404 "is not
+loaded"`, Hermes classifies that as terminal, and the child falls back to the
+paid provider. On a device whose shared NPU pool holds a handful of models at
+a time, that turns a routing decision into a silent move off the local
+device — and the work still completes, so nothing looks wrong.
+
+So the router reads the device's resident set and picks something that is
+actually there:
+
+```python
+def resident_models():
+    """Return the model ids currently resident, or None if unknowable."""
+    key = os.environ.get("TIINY_API_KEY", "").strip()
+    if not key:
+        return None
+    try:
+        request = urllib.request.Request(
+            TIINY_BASE_URL + "/models",
+            headers={"Authorization": "Bearer " + key},
+        )
+        with urllib.request.urlopen(request, timeout=3) as response:
+            payload = json.load(response)
+    except Exception:
+        return None
+    ids = {e["id"] for e in payload.get("data", [])
+           if isinstance(e.get("id"), str) and "/" in e["id"]}
+    return frozenset(ids)
+
+
+def choose_model(tier):
+    choices = TIER_CHOICES[tier]
+    default_model = choices[0][0]
+
+    resident = resident_models()
+    if resident is None:
+        return default_model, tier          # residency unknown — behave as before
+
+    for model, _npu, _ctx in choices:
+        if model in resident:
+            label = tier if model == default_model else f"{tier}->{model.split('/')[-1]}"
+            return model, label
+
+    if GENERALIST in resident:
+        return GENERALIST, f"{tier}->generalist"
+
+    return default_model, tier
+```
+
+Three decisions worth naming:
+
+**Read, never write.** The router asks the device what is resident and nothing
+else. Loading is still the operator's call, made with the swap script.
+
+**Fail open.** If the device is unreachable, the key is missing, or the lookup
+times out, the router returns the tier's first choice — exactly the behaviour
+from before residency was considered. A routing decision is not a place to
+fail.
+
+**Substitute, and say so.** When the tier's specialist is not resident, the
+route falls back to the generalist rather than to a 404. The label records it
+(`research->generalist`), so the substitution is visible in the child's result
+instead of being invisible in a fallback.
 
 ### Shape detection
 
@@ -136,7 +204,7 @@ def route_task(self, task, config):
     else:
         tier = detect_tier(str(task.get("goal") or ""))
 
-    model = TIER_MODEL[tier]
+    model, label = choose_model(tier)
     return {
         "model": model,
         "provider": "custom:tiiny",
@@ -144,7 +212,7 @@ def route_task(self, task, config):
         "request_overrides": {
             "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
         },
-        "label": tier,
+        "label": label,
     }
 ```
 
@@ -161,7 +229,7 @@ reads, so it should read as an instruction.
 
 **`label`** — a short string carried on the child's result, so the route can
 be read back after the fact. Without it, "which model actually ran this?" is
-unanswerable.
+unanswerable. When the router substituted a model, the label says so.
 
 ### The provider and the config
 
@@ -301,7 +369,63 @@ fi
 
 **A stale hold is the hazard.** One left behind stops the watchdog from ever
 restoring the device, so the script needs `--restore` and `--clear` to clear
-one.
+one — and it needs to *check* that it cleared it. A script that prints "hold
+cleared" without verifying is exactly how a hold outlives the batch that
+created it.
+
+Two changes remove the hazard rather than documenting it.
+
+**The hold file is released by truncating it, not only by deleting it.**
+Truncation is a write, and a write works in every context — including a
+sandbox that blocks deletion outright:
+
+```bash
+clear_hold() {
+  : > "$HOLD_FILE" 2>/dev/null || true     # truncate: a write always works
+  rm -f "$HOLD_FILE" 2>/dev/null || true    # remove it if we are allowed to
+  [ -s "$HOLD_FILE" ] && return 1           # still holding? say so.
+  return 0
+}
+```
+
+**The watchdog honours a hold only while it still means something.** An empty
+hold file is a released hold. A hold older than a grace window is honoured
+only if its model is still resident — otherwise it protects nothing and the
+device is restored:
+
+```bash
+HOLD_GRACE=600
+
+hold_active() {
+  [ -f "$HOLD_FILE" ] || return 1
+  local held
+  held="$(head -n1 "$HOLD_FILE" 2>/dev/null | tr -d '\r')"
+  [ -n "$held" ] || return 1                 # empty file = released hold
+
+  # Fresh hold: the load it protects may not have landed yet.
+  local mtime now age
+  mtime="$(stat -f %m "$HOLD_FILE" 2>/dev/null || echo 0)"
+  now="$(date +%s)"; age=$(( now - mtime ))
+  [ "$age" -ge 0 ] && [ "$age" -le "$HOLD_GRACE" ] && return 0
+
+  # Older than the grace window: real only if its model is still resident.
+  local models
+  models="$(curl -sf --max-time 8 -H "Authorization: Bearer $KEY" \
+           "$BASE/v1/models" 2>/dev/null || true)"
+  printf '%s' "$models" | grep -q "\"$held\"" && return 0
+  printf 'ignoring stale hold (%s is not resident)\n' "$held" >&2
+  return 1
+}
+```
+
+The grace window covers the gap between writing the hold and finishing the
+load it exists to protect — the hold is written *before* the load, precisely
+so the watchdog cannot fire in between.
+
+One more portability note, because it will bite anyone running the script
+wherever temp files are restricted: bash implements a here-string (`<<<`) by
+writing a temp file. Reading the previous state that way kills the script on
+`set -u` with an unbound variable. Plain parameter expansion does not.
 
 ---
 

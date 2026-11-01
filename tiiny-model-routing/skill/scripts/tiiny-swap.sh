@@ -53,10 +53,29 @@ die() { printf 'tiiny-swap: %s\n' "$1" >&2; exit 1; }
 
 [ -x "$TIINY_BIN" ] || die "tiiny CLI not found at $TIINY_BIN"
 
+# --- clear the hold ----------------------------------------------------------
+# Releasing the hold has to work in every context, including sandboxes where
+# deletion is blocked. So: truncate first (a write always works), then try to
+# remove the file, then VERIFY. An empty hold file is a released hold.
+#
+# The verify matters. A stale hold silently disables the watchdog forever — the
+# watchdog treats a held device as intentional and never reloads — and a script
+# that prints "hold cleared" without checking is exactly how that happens.
+clear_hold() {
+  : > "$HOLD_FILE" 2>/dev/null || true
+  rm -f "$HOLD_FILE" 2>/dev/null || true
+  [ -s "$HOLD_FILE" ] && return 1
+  return 0
+}
+
 # --- restore mode ------------------------------------------------------------
 if [ "${1:-}" = "--restore" ]; then
-  rm -f "$HOLD_FILE"
-  echo "hold cleared; restoring required models..."
+  if clear_hold; then
+    echo "hold cleared; restoring required models..."
+  else
+    echo "tiiny-swap: WARNING - could not release the hold at $HOLD_FILE." >&2
+    echo "tiiny-swap: the watchdog will keep treating the device as held. Remove that file by hand." >&2
+  fi
   for m in "${REQUIRED_MODELS[@]}"; do
     if script -q /dev/null "$TIINY_BIN" load "$m" -y >/dev/null 2>&1; then
       echo "  loaded $m"
@@ -70,8 +89,11 @@ if [ "${1:-}" = "--restore" ]; then
 fi
 
 if [ "${1:-}" = "--clear" ]; then
-  rm -f "$HOLD_FILE"
-  echo "hold cleared (models left as-is)"
+  if clear_hold; then
+    echo "hold cleared (models left as-is)"
+  else
+    echo "tiiny-swap: WARNING - could not release the hold at $HOLD_FILE." >&2
+  fi
   exit 0
 fi
 

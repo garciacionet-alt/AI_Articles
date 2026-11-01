@@ -112,6 +112,15 @@ re-run the checker on a known goal.
 - **The router never loads a model.** A load is a swap, and it evicts
   whatever was resident — including the model a sibling task is using.
   Residency is a separate, deliberate operation.
+- **The router *reads* residency, and that changes the route.** It queries
+  `GET /v1/models` on the inference endpoint (30-second cache) and picks a
+  model that is actually loaded: the tier's first choice, then another
+  candidate from the same tier, then the generalist. A model that is not
+  resident answers `404 "is not loaded"`, which Hermes treats as terminal
+  and falls back to the paid provider — so routing to an unloaded model
+  silently moves work off the device. The route's `label` records any
+  substitution (`code->generalist`). If the lookup fails, the router fails
+  open to the tier's first choice.
 - **An unknown tier is refused.** The override fails loudly rather than
   falling back to the generalist, because a silent fallback is invisible in
   the output and expensive in the tokens.

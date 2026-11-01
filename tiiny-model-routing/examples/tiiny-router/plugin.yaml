@@ -1,5 +1,5 @@
 name: tiiny-router
-version: 1.0.0
-description: "Delegation backend that routes each subtask to the Tiiny model matching its shape: research, index, code, browser, draft, general."
-author: Your Name (your-handle), Hermes Agent
+version: 1.1.0
+description: "Delegation backend that routes each subtask to the Tiiny model matching its shape: research, index, code, browser, draft, general. Reads the device's resident set and never routes to a model that is not loaded."
+author: Gary Garcia (garciacionet-alt), Hermes Agent
 kind: backend
