@@ -146,10 +146,22 @@ producing a reasoning trace before an answer nobody asked for — and on a
 small `max_tokens` budget it can return an empty response with the budget
 spent. The `chat_template_kwargs` override turns it off per request.
 
-**The router never loads a model.** It chooses; it does not mutate the
-device. That separation matters: a load evicts whatever was resident, and a
-routing decision made inside a delegation batch must not be able to yank a
-model out from under a sibling task that is already running.
+**The router chooses; a separate controller loads.** The backend picks the
+model for a subtask and never touches the device. A load is a swap that
+evicts whatever was resident, so a routing decision made inside a delegation
+batch must not be able to yank a model out from under a sibling task — and
+the delegation plugin has no hook that says "the batch is finished".
+
+So the loading half is a separate command that the manager agent drives
+explicitly, under a lock: plan the batch, reserve the device, load what the
+batch needs, delegate, then release. The two halves agree through a **plan
+file** that records which model was assigned to which goal, so the specialist
+the controller just loaded is the specialist the child actually runs on.
+
+The division is not tidiness. A load needs three things a plugin cannot
+have: a batch-level view (which models the whole batch needs), a lock
+against other agents, and a "we are done" moment. The controller has all
+three.
 
 **But it does read the device, and that changes what it picks.** A model that
 is not resident cannot answer: the device replies `404 "is not loaded"`,
@@ -181,7 +193,7 @@ what went wrong" is shaped like reading, but is actually a drafting task.
 The goal understates the work. A forced `tier` fixes it; an inferred one
 cannot.
 
-## Making the swap survivable
+## Making the load survivable
 
 Choosing a model is half the problem. The other half is residency, and this
 is where most routing implementations break.
@@ -190,6 +202,26 @@ is where most routing implementations break.
 model's inference endpoint then returns `404` — which means *not resident*,
 not a bad model id. Read `/v1/models` to see what is actually loaded; it
 lists resident models, not the whole store.
+
+**The device decides what to evict — unless you decide first.** When a load
+does not fit, the device makes room by evicting something, and it does not
+know what the batch needs. Left to itself it kept the 47% generalist and
+evicted the 27% model the batch had just asked for, so the wave's own model
+was missing and the child answered `404 "is not loaded"` and fell back to
+the paid provider. The controller therefore decides what stays *before* it
+loads: the batch's models are sacred, and of everything else resident the
+cheapest are kept while they fit.
+
+**A batch that does not fit is split into waves.** One shared NPU pool means
+a batch needing 154% cannot hold its models at once. The plan packs the
+batch into waves that each fit inside 100%, and each wave is a separate
+delegation call.
+
+**The device serves one generation-heavy stream at a time.** Two heavy
+children starve each other, and the failure mode is a *hang*, not an error:
+the device keeps reporting healthy while it answers nothing. Run one heavy
+child per wave. A heavy device child and the parent's own cloud stream are
+two providers, so they genuinely run in parallel.
 
 **The watchdog fights you.** A device that reloads its required models every
 few minutes will evict the research model you just loaded for a long task,
@@ -201,16 +233,38 @@ and a hold reads as "cold" and the reload evicts your model anyway.
 specialist should put the required set back when it finishes, or the next
 batch inherits a device nobody configured.
 
-All three are handled by a swap script:
+All of that is handled by a controller:
 
 ```bash
-tiiny-swap.sh <model_id> -- <command>   # hold, load, run, restore
-tiiny-swap.sh <model_id>                 # hold and load, restore later
-tiiny-swap.sh --restore                   # drop the hold, reload the required set
+tiiny_ctl.py plan --owner "$AGENT" --task "what this batch is for" \
+  --goal "index every file under the vault and classify each"   # pick, fit, wave
+tiiny_ctl.py reserve --owner "$AGENT" --task "what this batch is for"  # lock it
+tiiny_ctl.py load --wave 1                                       # load, evict, verify
+tiiny_ctl.py release                                             # restore, unlock
 ```
 
-The script writes the hold *before* the load, which closes the window where
-the watchdog fires between the load and the hold.
+The plan writes the hold *before* the load, which closes the window where
+the watchdog fires between the load and the hold, and the release verifies
+the restore instead of assuming it.
+
+### Two agents, one device
+
+The controller also holds the device against other agents, because two
+delegations at once will fight over the same models and the same silicon.
+The lock is a file taken under `flock`, so two agents cannot both believe
+they hold it, and it **expires**, so a crashed agent does not lock the
+device overnight. Alongside it, a marked notice in the team's shared status
+board tells agents that are not running this code that the device is spoken
+for.
+
+### The image bonus
+
+The same device runs the image models, and the same controller picks the
+right one for the job — a text-accurate default for a logo, a
+high-fidelity model for detail that IS the subject, a character sheet for a
+turnaround, an adapter for cutting a subject out of an existing photo. It
+is the kind of thing that looks like a bonus and turns out to be the reason
+the image pipeline works at all.
 
 ## What the reader gets
 

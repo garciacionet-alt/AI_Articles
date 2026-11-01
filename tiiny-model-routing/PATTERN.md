@@ -124,9 +124,32 @@ batch reports a model error. The operator's first instinct is to suspect the
 model id, the provider config, or the endpoint. The cause is a residency
 change that the batch itself caused.
 
-The preventive measure is the separation above: the router never loads. The
-reactive measure is to restore the required set when the batch finishes, so
-the next batch does not inherit a device nobody configured.
+The preventive measure is the separation above: the router chooses, and a
+separate controller loads — under a lock, with the batch's fit checked before
+anything moves. The reactive measure is to restore the required set when the
+batch finishes, so the next batch does not inherit a device nobody
+configured.
+
+The separation is the load-bearing part, and it is not about caution. A load
+needs three things a delegation plugin cannot have: a **batch-level view** of
+which models the whole batch needs, a **lock** against other agents, and a
+**"we are done"** moment. The delegation plugin's only hook is
+`route_task`, called once per subtask before any child runs, so it has
+neither. Give the plugin a load and it will evict a model out from under a
+sibling task, in the middle of the batch, with nothing to say so.
+
+Two failure modes follow from getting this wrong, and both are silent:
+
+- **The device evicts the wrong model.** When a load does not fit, the device
+  picks what to evict, and it does not know what the batch needs. Observed on
+  a real device: it kept the 47% generalist and evicted the 27% model the
+  batch had just asked for, so the wave's own model was missing.
+- **The watchdog evicts it back.** A device that reloads its required models
+  every few minutes will undo a deliberate swap mid-task.
+
+So the controller decides what stays *before* it loads: the batch's models
+are sacred, and of everything else resident the cheapest are kept while they
+fit.
 
 ### The 404 mistaken for a bad model id
 
@@ -221,8 +244,13 @@ Before trusting a routing setup:
       model, read from the device — not from memory, and not from a
       previous read of the same table.
 - [ ] Every model in the table exists in the device's store.
-- [ ] The NPU shares of the models a batch needs sum to 100% or less.
-- [ ] The router never loads or unloads a model.
+- [ ] The NPU shares of the models a batch needs sum to 100% or less, and a
+      batch that does not fit is split into waves.
+- [ ] The router chooses; a separate controller loads. The plugin never loads
+      or unloads a model.
+- [ ] The controller decides what to evict before it loads — the device's own
+      eviction choice is not batch-aware.
+- [ ] The device is locked for the duration, and the lock expires.
 - [ ] An unrecognised tier is refused, not silently mapped to the fallback.
 - [ ] The generalist fallback is a deliberate choice, not an accident.
 - [ ] Thinking mode is disabled per request for mechanical tiers.

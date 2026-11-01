@@ -43,14 +43,15 @@ A delegation backend is a plugin of `kind: backend`:
 ```
 tiiny-router/
 ├── plugin.yaml
-└── __init__.py
+├── __init__.py
+└── tiers.py
 ```
 
 `plugin.yaml`:
 
 ```yaml
 name: tiiny-router
-version: 1.1.0
+version: 2.0.0
 description: "Delegation backend that routes each subtask to the Tiiny model matching its shape."
 author: Your Name (your-handle), Hermes Agent
 kind: backend
@@ -58,6 +59,20 @@ kind: backend
 
 `__init__.py` holds the provider class and a `register(ctx)` function that
 calls `ctx.register_delegation_provider(...)`.
+
+`tiers.py` holds the tier table, the shape signals, and the special-model
+table — as **pure data and pure functions**, with no Hermes imports, no
+network calls and no device state.
+
+**Keep it in its own file.** The plugin and the standalone scripts (the
+controller, the checker) all need the same table, and a table copied into
+three places is a table that will disagree with itself. It is loaded **by
+path**, not by package name, for a specific reason: the Hermes plugin loader
+executes `__init__.py` through `importlib.util.spec_from_file_location`,
+which does not establish package semantics, so a relative
+`from .tiers import ...` fails there — and the scripts run outside Hermes
+entirely, where `from agent...` is not importable at all. Loading the file
+by path works in both places.
 
 ### The tier table
 
@@ -434,6 +449,83 @@ writing a temp file. Reading the previous state that way kills the script on
 
 ---
 
+## 2b. The device controller
+
+The swap script is for a human at a terminal. A manager agent running a batch
+needs the same things done for it, in order, without a human in the loop — and
+it needs the device kept away from other agents while it works.
+
+`scripts/tiiny_ctl.py` is that. Seven commands:
+
+```bash
+tiiny_ctl.py status                                # device, residency, lock, hold, plan
+tiiny_ctl.py plan --owner "$AGENT" --task "..." \
+  --goal "index every file under the vault"       # pick, fit, wave
+tiiny_ctl.py reserve --owner "$AGENT" --task "..." # take the lock
+tiiny_ctl.py load --wave 1                         # evict, load, verify
+tiiny_ctl.py release                               # restore, unlock
+tiiny_ctl.py catalog --refresh                     # what moved in the store
+tiiny_ctl.py image "a logo with the word ARC in it"
+```
+
+### The plan file
+
+`plan` writes `~/.hermes/tiiny-plan.json`: which model was assigned to which
+goal, and which wave it belongs to. **The router reads it.** That is how the
+specialist the controller just loaded becomes the specialist the child
+actually runs on:
+
+```
+controller: plan → reserve → load       |  plugin: route_task
+controller: release                     |  child runs on the plan's model
+```
+
+The plan lives in the **base** Hermes home on purpose: every profile's
+manager agent must see the same plan.
+
+### The waves
+
+A batch whose models total more than 100% of the NPU is split into waves.
+The packing is first-fit decreasing, with already-resident models placed
+first, so a model that is already loaded stays loaded instead of being
+evicted and re-loaded. Each wave is a separate delegation call, because the
+device serves one generation-heavy stream at a time.
+
+### Deciding what to evict
+
+Before it loads anything, the controller works out what has to go:
+
+- the wave's own models are sacred;
+- of everything else resident, the cheapest are kept while they fit in what
+  is left — a 5% TTS model is worth keeping, a 47% generalist is not, when a
+  wave needs the pool;
+- everything dropped is restored by `release`.
+
+This is not a preference. Left to itself the device keeps the 47% generalist
+and evicts the 27% model the batch had just asked for, so the wave's own
+model is missing and the child answers `404 "is not loaded"`.
+
+### The lock
+
+`~/.hermes/tiiny-lock.json`, taken under `flock` so two agents cannot both
+believe they hold it, and **expiring** so a crashed agent does not lock the
+device overnight. The lock is announced in a marked block in the team's
+shared status board, so agents that are not running this code can see the
+device is spoken for.
+
+Release is a *write*, not a delete — the released state goes into the file.
+Where deletion is blocked, that is the only way to release.
+
+### The catalogue refresh
+
+`catalog --refresh` diffs the live Model Store against the last snapshot and
+reports what is new, what is gone, and whose NPU share or context window
+moved. If a tier model's figures changed, the tier table is now wrong —
+update it. The snapshot records **facts**; the analysis around them is
+written by hand.
+
+---
+
 ## 3. The routing checker
 
 `scripts/route_check.py` applies the same tier table and the same shape
@@ -461,8 +553,17 @@ line comes from `tiiny top`.
       device, not copied from an earlier read.
 - [ ] Every model in the tier table is in the store.
 - [ ] The fallback provider is configured, and its use is visible.
+- [ ] The controller can plan, reserve, load and release, and its release
+      restores the required set and verifies it.
 - [ ] The swap script is in place, and the watchdog honours the hold.
 - [ ] The hold check runs before the cold-check in the watchdog.
 - [ ] `route_check.py` returns the expected tier for a known goal.
 - [ ] A batch with mixed subtasks shows more than one model in its results.
 - [ ] After a deliberate swap, the required models are resident again.
+- [ ] **A plugin change is loaded, not just written.** Editing the plugin
+      file on disk changes nothing in a running gateway — Python has already
+      imported the module. Reload it, and reload it *for every profile that
+      runs it*, because a profile's delegation backend is resolved under that
+      profile's home.
+- [ ] The child's route says the provider you expect. A child that quietly
+      fell back to the paid provider still reports success.

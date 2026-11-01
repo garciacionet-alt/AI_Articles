@@ -6,10 +6,14 @@ and the same shape detection, then prints the tier, the model, and that
 model's NPU share and context window — so a routing decision can be checked
 without spawning a child agent.
 
+The tier table comes from ``plugin/tiers.py``, the same file the routing
+plugin reads, so this script and the backend cannot drift apart.
+
 Usage:
     python3 route_check.py "index every file under the vault and classify each"
     python3 route_check.py --tier code
     python3 route_check.py --all          # every tier, with its budget
+    python3 route_check.py --image "a photorealistic portrait"
 
 Exit codes:
     0  a route was found
@@ -22,73 +26,33 @@ The script makes no network calls and changes nothing on the device.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 import sys
+from pathlib import Path
 
-# tier -> ((model id, NPU share, context window), ...)
-TIER_CHOICES = {
-    "research": (
-        ("InternScience/Sage-A1.5-Turbo", 48, 262144),
-        ("endless-frontier/BigBang-v1-Turbo", 54, 131072),
-    ),
-    "index": (
-        ("openai/gpt-oss-20b", 27, 131072),
-    ),
-    "code": (
-        ("deepreinforce-ai/Ornith-1.0-35B", 50, 131072),
-        ("Qwen/Qwen3.6-35B-A3B", 47, 262144),
-        ("Qwen/Qwen3-Coder-Next", 94, 131072),
-    ),
-    "browser": (
-        ("Qwen/Qwen3.8-27B", 51, 262144),
-    ),
-    "draft": (
-        ("Qwen/Qwen3.5-9B", 29, 131072),
-    ),
-    "general": (
-        ("Qwen/Qwen3.6-35B-A3B", 47, 262144),
-    ),
-}
 
-TIER_MODEL = {tier: choices[0][0] for tier, choices in TIER_CHOICES.items()}
-VALID_TIERS = tuple(sorted(TIER_MODEL))
+def _load_tiers():
+    """Load the shared tier table by path (see plugin/tiers.py for why)."""
+    path = Path(__file__).resolve().parent.parent / "plugin" / "tiers.py"
+    spec = importlib.util.spec_from_file_location("tiiny_tiers", path)
+    if spec is None or spec.loader is None:
+        raise SystemExit(f"could not load the tier table from {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
-SHAPE_SIGNALS = (
-    ("research", (
-        "research", "literature", "survey", "investigate", "find sources",
-        "web search", "search the web", "literature review", "deep dive",
-        "competitive analysis", "market analysis", "sweep the",
-    )),
-    ("index", (
-        "index", "indexing", "inventory", "classify", "classify every",
-        "categorize", "catalog", "catalogue", "list every file", "walk the",
-        "enumerate", "manifest", "tag every", "bulk", "batch classify",
-    )),
-    ("browser", (
-        "browser", "click through", "web ui", "web page", "fill in the form",
-        "navigate the site", "screenshot the", "scrape the page",
-        "automate the browser",
-    )),
-    ("code", (
-        "code", "refactor", "implement", "write a function", "bug", "debug",
-        "fix the", "compile", "unit test", "patch the", "repository", "repo",
-        "module", "script that", "shell script", "migrate the schema",
-    )),
-    ("draft", (
-        "draft", "summar", "rewrite", "rephrase", "bullet", "outline",
-        "condense", "shorten", "proofread", "reword", "tl;dr", "summarise",
-    )),
-)
+
+tiers = _load_tiers()
+
+TIER_CHOICES = tiers.TIER_CHOICES
+TIER_MODEL = tiers.TIER_MODEL
+VALID_TIERS = tiers.VALID_TIERS
 
 
 def detect_tier(goal: str) -> str:
     """Return the task tier for a goal, or 'general' when unrecognised."""
-    text = (goal or "").lower()
-    for tier, signals in SHAPE_SIGNALS:
-        for signal in signals:
-            if signal in text:
-                return tier
-    return "general"
+    return tiers.detect_tier(goal)
 
 
 def resident_models() -> set[str] | None:
@@ -123,6 +87,7 @@ def main() -> int:
     ap.add_argument("goal", nargs="?", help="the task goal, as it would be passed to delegate_task")
     ap.add_argument("--tier", choices=VALID_TIERS, help="force a tier instead of inferring it")
     ap.add_argument("--all", action="store_true", help="show every tier and its budget")
+    ap.add_argument("--image", metavar="JOB", help="pick the image model for a job description")
     ap.add_argument("--alternatives", action="store_true", help="also list the fallback models for the tier")
     args = ap.parse_args()
 
@@ -135,6 +100,17 @@ def main() -> int:
                 print(f"{mark}{tier:<8} {model:<44} {npu:>4}%  {ctx}")
         print("\n* = fallback for that tier. NPU shares are of one shared pool;")
         print("  two models can only be resident together if their shares sum to 100% or less.")
+        return 0
+
+    if args.image:
+        model, reason = tiers.pick_special_model(args.image, "image")
+        entry = tiers.SPECIAL_MODELS.get(model, (0, "", "", ""))
+        print(f"job:    {args.image}")
+        print(f"model:  {model}")
+        print(f"reason: {reason}")
+        print(f"role:   {entry[2]}")
+        print(f"budget: {entry[0]}% NPU")
+        print(f"note:   {entry[3]}")
         return 0
 
     if not args.goal:
@@ -159,7 +135,7 @@ def main() -> int:
     elif model in resident:
         print("residency: loaded")
     else:
-        print(f"residency: NOT loaded — `tiiny-swap.sh {model} -- <cmd>` loads it and restores the rest")
+        print(f"residency: NOT loaded — `tiiny_ctl.py load --model {model}` loads it")
 
     return 0
 
