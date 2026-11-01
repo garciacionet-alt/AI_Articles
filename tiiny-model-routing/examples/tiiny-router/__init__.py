@@ -134,6 +134,26 @@ RESIDENCY_TTL = 30
 _residency_cache: tuple[float, frozenset[str]] | None = None
 
 
+def device_key() -> str:
+    """Return the device API key, or an empty string if it cannot be found.
+
+    Hermes keeps its secrets in ``~/.hermes/.env`` and resolves them through
+    its own accessor — they are **not** in the process environment. Reading
+    ``os.environ`` alone therefore finds nothing, and the router would
+    silently fail open on every call, which is exactly the failure this
+    lookup exists to prevent. Read it the way Hermes reads it, and fall back
+    to the environment for a shell that exported it.
+    """
+    value = ""
+    try:
+        from hermes_cli.config import get_env_value_prefer_dotenv
+
+        value = get_env_value_prefer_dotenv("TIINY_API_KEY") or ""
+    except Exception:
+        value = ""
+    return (value or os.environ.get("TIINY_API_KEY", "") or "").strip()
+
+
 def resident_models() -> frozenset[str] | None:
     """Return the model ids currently resident on the device.
 
@@ -148,7 +168,7 @@ def resident_models() -> frozenset[str] | None:
     if _residency_cache is not None and now - _residency_cache[0] < RESIDENCY_TTL:
         return _residency_cache[1]
 
-    key = os.environ.get("TIINY_API_KEY", "").strip()
+    key = device_key()
     if not key:
         return None
     try:
