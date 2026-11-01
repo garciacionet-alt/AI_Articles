@@ -42,6 +42,11 @@ REQUIRED_MODELS=(
   "Qwen/Qwen3.6-35B-A3B"
   "Qwen/Qwen3-ASR-1.7B"
   "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+  # Preset-voice TTS. Hermes's text_to_speech tool targets this model, and
+  # tiiny-watch.sh holds it in its own required set. It must be restored here
+  # too, or --restore returns a device that is missing TTS until the next
+  # watchdog tick. Costs 0% NPU, so it rides alongside everything else.
+  "Supertone/supertonic-3"
 )
 
 die() { printf 'tiiny-swap: %s\n' "$1" >&2; exit 1; }

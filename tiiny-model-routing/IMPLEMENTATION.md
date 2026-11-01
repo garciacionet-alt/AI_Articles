@@ -232,6 +232,9 @@ REQUIRED_MODELS=(
   "Qwen/Qwen3.6-35B-A3B"
   "Qwen/Qwen3-ASR-1.7B"
   "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+  # Preset-voice TTS (Hermes's text_to_speech tool targets this model).
+  # Costs 0% NPU, so it rides alongside everything else.
+  "Supertone/supertonic-3"
 )
 
 # --restore: drop the hold and reload the required set
