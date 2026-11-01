@@ -303,6 +303,11 @@ REQUIRED_MODELS=(
   # Preset-voice TTS (Hermes's text_to_speech tool targets this model).
   # Costs 0% NPU, so it rides alongside everything else.
   "Supertone/supertonic-3"
+  # The router's `index` tier. This list MUST be identical to the watchdog's
+  # REQUIRED_MODELS: a load evicts whatever does not fit, and a specialist is
+  # the first thing to go, so a shorter list here means --restore leaves the
+  # device without it until the next watchdog tick.
+  "openai/gpt-oss-20b"
 )
 
 # --restore: drop the hold and reload the required set

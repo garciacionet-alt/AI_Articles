@@ -226,12 +226,12 @@ goal:   index every file under the vault and classify each
 tier:   index  (inferred)
 model:  openai/gpt-oss-20b
 budget: 27% NPU, 131072 context
-residency: NOT loaded — `tiiny-swap.sh openai/gpt-oss-20b -- <cmd>` loads it and restores the rest
+residency: loaded
 ```
 
-The checker makes no network calls and changes nothing on the device. It
-exists so a routing decision can be checked *before* a batch spends tokens
-on it.
+The checker reads the device's resident set — one read-only call to the local
+CLI — and changes nothing on the device. It exists so a routing decision can
+be checked *before* a batch spends tokens on it.
 
 ## The limits
 

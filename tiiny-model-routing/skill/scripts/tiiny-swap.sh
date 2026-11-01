@@ -47,6 +47,12 @@ REQUIRED_MODELS=(
   # too, or --restore returns a device that is missing TTS until the next
   # watchdog tick. Costs 0% NPU, so it rides alongside everything else.
   "Supertone/supertonic-3"
+  # The router's `index` tier — also in the watchdog's required set. A load
+  # evicts whatever does not fit, and a specialist is the first thing to go,
+  # so if this list is shorter than the watchdog's, --restore leaves the
+  # device without it until the next watchdog tick. The two lists must be
+  # identical.
+  "openai/gpt-oss-20b"
 )
 
 die() { printf 'tiiny-swap: %s\n' "$1" >&2; exit 1; }
