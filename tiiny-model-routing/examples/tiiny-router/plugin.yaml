@@ -1,0 +1,5 @@
+name: tiiny-router
+version: 1.0.0
+description: "Delegation backend that routes each subtask to the Tiiny model matching its shape: research, index, code, browser, draft, general."
+author: Your Name (your-handle), Hermes Agent
+kind: backend
