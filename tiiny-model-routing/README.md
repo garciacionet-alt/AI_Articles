@@ -105,7 +105,7 @@ TIER_CHOICES = {
     "code":     (("deepreinforce-ai/Ornith-1.0-35B", 50, 131072),
                  ("Qwen/Qwen3.6-35B-A3B", 47, 262144),
                  ("Qwen/Qwen3-Coder-Next", 94, 131072)),
-    "browser":  (("Qwen/Qwen3.8-27B", 51, 262144),),
+    "browser":  (("Qwen/Qwen3.8-27B", 52, 262144),),
     "draft":    (("Qwen/Qwen3.5-9B", 29, 131072),),
     "general":  (("Qwen/Qwen3.6-35B-A3B", 47, 262144),),
 }

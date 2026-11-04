@@ -12,7 +12,7 @@ semantics: a relative ``from .tiers import ...`` fails there. And the scripts
 run outside Hermes entirely, where ``from agent...`` is not importable at all.
 Loading the file by path works in both places, so the table never forks.
 
-**The figures are the device's, read on 2026-11-01.** Every NPU share and
+**The figures are the device's, read on 2026-11-01, re-verified 2026-11-03.** Every NPU share and
 context window below was read from ``GET /api/v1/models/online_models`` and
 checked against the live device. They go stale when TiinyOS updates the
 Model Store; ``scripts/tiiny_ctl.py catalog --refresh`` says so out loud
@@ -53,7 +53,7 @@ TIER_CHOICES: dict[str, tuple[tuple[str, int, int], ...]] = {
         ("Qwen/Qwen3-Coder-Next", 94, 131072),
     ),
     "browser": (
-        ("Qwen/Qwen3.8-27B", 51, 262144),
+        ("Qwen/Qwen3.8-27B", 52, 262144),
     ),
     "draft": (
         ("Qwen/Qwen3.5-9B", 29, 131072),

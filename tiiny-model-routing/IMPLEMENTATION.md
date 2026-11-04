@@ -95,7 +95,7 @@ TIER_CHOICES = {
         ("Qwen/Qwen3-Coder-Next", 94, 131072),
     ),
     "browser": (
-        ("Qwen/Qwen3.8-27B", 51, 262144),
+        ("Qwen/Qwen3.8-27B", 52, 262144),
     ),
     "draft": (
         ("Qwen/Qwen3.5-9B", 29, 131072),

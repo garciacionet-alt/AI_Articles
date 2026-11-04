@@ -110,7 +110,7 @@ tier label.
 | `code` | `deepreinforce-ai/Ornith-1.0-35B` | 50% | 131072 |
 | `code` (alt) | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 |
 | `code` (heavy) | `Qwen/Qwen3-Coder-Next` | 94% | 131072 |
-| `browser` | `Qwen/Qwen3.8-27B` | 51% | 262144 |
+| `browser` | `Qwen/Qwen3.8-27B` | 52% | 262144 |
 | `draft` | `Qwen/Qwen3.5-9B` | 29% | 131072 |
 | `general` | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 |
 
@@ -179,3 +179,25 @@ goal.
   `~/.hermes/.env` and is read through `hermes_cli.config`'s accessor. A
   plugin that reads `os.environ` finds nothing, and the residency check
   fails open on every call.
+- **A partially-installed plugin fails at load, not at use.** The plugin
+  loader executes `__init__.py` through `spec_from_file_location`, so
+  `__init__.py` cannot use a relative import to reach `tiers.py` — it loads
+  that file by path. Copy the whole `plugin/` directory, not just
+  `__init__.py` and `plugin.yaml`. A tree with `__init__.py` but no
+  `tiers.py` raises `ImportError` at load, and the backend is then simply
+  absent from `hermes plugins list` — which reads as "never installed"
+  rather than "installed wrong". Validate with
+  `hermes plugins validate <dir>`.
+- **The installed skill and the vault skill drift apart.** The vault copy
+  under `skills/tiiny-model-routing/` is the source of truth; the installed
+  copies live under `~/.hermes/skills/tiiny-model-routing/` and
+  `~/.hermes/skills/mlops/tiiny-model-routing/`. A stale installed copy ends
+  up carrying its own literal copy of the tier table instead of importing
+  `plugin/tiers.py`, and the table starts drifting. Diff all three before
+  trusting any of them, and re-sync vault → installed after any table change.
+- **A saved `delegation.backend` does not change a running chat.** The
+  `delegate_task` schema is cached in the prompt prefix, so a config edit
+  applies from the next session (`/new`), not the current one. Verify the
+  backend in a fresh process rather than expecting the current session to
+  re-route:
+  `python3 -c "from agent import delegation_backends as db; print(db.list_backends())"`

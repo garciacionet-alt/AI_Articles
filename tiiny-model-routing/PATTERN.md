@@ -216,7 +216,7 @@ separate document nobody reads at decision time.
 | Bulk indexing and classification | `openai/gpt-oss-20b` | 27% | 131072 |
 | Terminal coding, repository navigation | `deepreinforce-ai/Ornith-1.0-35B` | 50% | 131072 |
 | Repository-scale coding | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 |
-| Computer use, browser automation | `Qwen/Qwen3.8-27B` | 51% | 262144 |
+| Computer use, browser automation | `Qwen/Qwen3.8-27B` | 52% | 262144 |
 | Drafting, summarising | `Qwen/Qwen3.5-9B` | 29% | 131072 |
 | Generalist fallback | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 |
 | Hard refactoring, recovery from failed runs | `Qwen/Qwen3-Coder-Next` | 94% | 131072 |

@@ -100,7 +100,7 @@ like success.
 | `code` | `deepreinforce-ai/Ornith-1.0-35B` | 50% | 131072 | downloaded |
 | `code` (alt) | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 | **resident** |
 | `code` (heavy) | `Qwen/Qwen3-Coder-Next` | 94% | 131072 | not downloaded |
-| `browser` | `Qwen/Qwen3.8-27B` | 51% | 262144 | downloaded |
+| `browser` | `Qwen/Qwen3.8-27B` | 52% | 262144 | downloaded |
 | `draft` | `Qwen/Qwen3.5-9B` | 29% | 131072 | downloaded |
 | `general` | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 | **resident** |
 
