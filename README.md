@@ -4,6 +4,8 @@ Published articles and essays on AI tools, agent patterns, and productivity syst
 
 By [Gary Garcia](https://github.com/garciacionet-alt) · `#TheStrategicTechnicalAlliancesGuy`
 
+[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/garciacionet-alt/badge.svg)](https://hub.xerj.org/contributors/garciacionet-alt)
+
 ---
 
 ## What this repo is
