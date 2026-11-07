@@ -48,6 +48,7 @@ TIER_CHOICES: dict[str, tuple[tuple[str, int, int], ...]] = {
         ("openai/gpt-oss-20b", 27, 131072),
     ),
     "code": (
+        ("Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo", 55, 65536),
         ("deepreinforce-ai/Ornith-1.0-35B", 50, 131072),
         ("Qwen/Qwen3.6-35B-A3B", 47, 262144),
         ("Qwen/Qwen3-Coder-Next", 94, 131072),

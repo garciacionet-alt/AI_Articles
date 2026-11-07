@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tis"
+version = "0.1.0"
+description = "Tiiny Image Agency — plan, generate and iterate images on a local Tiiny appliance"
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2", "httpx>=0.27", "fastapi>=0.110", "uvicorn>=0.29"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "pyyaml>=6"]
+
+[project.scripts]
+tis = "tis.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

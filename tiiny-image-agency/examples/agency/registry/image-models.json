@@ -1,0 +1,974 @@
+{
+  "schema": "tiiny-image-agency/registry/v1",
+  "generated_from": {
+    "device_store": "http://openai.api.tiiny/api/v1/models/online_models",
+    "device_model_count": 92,
+    "image_model_count": 14,
+    "prompt_enhancer_count": 2
+  },
+  "planner": {
+    "id": "Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo",
+    "npu_usage": 55
+  },
+  "prompt_enhancers": [
+    {
+      "id": "Qwen/Qwen-Image-2.1-PE-T2I",
+      "npu_usage": 23,
+      "context_window": 262144,
+      "status": "downloaded",
+      "role": "prompt-enhancer",
+      "dialect": "Takes a short image request and returns a full English scene description of roughly 20 sentences, plus a recommended aspect ratio. The output is designed to be passed straight to Qwen-Image-2.1 \u2014 it IS the dialect.",
+      "notes": "7B, 262144 ctx, 23% NPU. Coexists with Qwen-Image-2.1 (62%) at 85%. This is the device's own answer to prompt translation \u2014 use it instead of hand-writing a dialect."
+    },
+    {
+      "id": "Qwen/Qwen-Image-2.1-PE-I2I",
+      "npu_usage": 24,
+      "context_window": 262144,
+      "status": "not_downloaded",
+      "role": "prompt-enhancer",
+      "dialect": "Takes one or more images plus a vague editing instruction and returns a precise rewrite that spells out what to change, what to leave untouched, and the aspect ratio.",
+      "notes": "7B, 262144 ctx, 24% NPU. The image-to-image counterpart of PE-T2I. NOT downloaded on this device as of 2026-11-05."
+    }
+  ],
+  "models": [
+    {
+      "id": "abenzerps/Qwen-Image-2.1-Uncensored-Quantized",
+      "name": "Qwen-Image-2.1-Uncensored",
+      "kind": "image_generator",
+      "role": "flagship-co-resident",
+      "device": {
+        "npu_usage": 0,
+        "size_bytes": 15588279112,
+        "steps": 40,
+        "guidance_scale": null,
+        "input": "Text,Image",
+        "output": "Image",
+        "supported": [
+          "Image Editing"
+        ],
+        "context_window": null,
+        "image_size": "2048x2048 (recommended)",
+        "status": "not_downloaded",
+        "version_label": "20261029",
+        "load_time": 0
+      },
+      "specialty": {
+        "artifact": [
+          "icon",
+          "logo",
+          "sticker",
+          "cutout",
+          "illustration",
+          "photo"
+        ],
+        "alpha": true,
+        "alpha_kind": "native-rgba",
+        "text_rendering": "strong",
+        "style": [
+          "general",
+          "flat",
+          "illustration"
+        ],
+        "edit_ops": [
+          "instruction_edit",
+          "local_edit",
+          "identity_preservation"
+        ],
+        "max_refs": 10,
+        "quality": "highest",
+        "speed": "slow"
+      },
+      "prompting": {
+        "dialect": "Same family as Qwen-Image-2.1. Same dialect guidance applies.",
+        "sizes_verified": [
+          "512x512",
+          "1024x1024",
+          "2048x2048",
+          "2560x1600",
+          "2752x1536"
+        ],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": "width % 16 == 0; area <= 16896 px"
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 55,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "Community uncensored quant build of Qwen-Image-2.1 with its own packaged runtime. Reports 0% NPU, so it coexists with a resident planner. Treat as a research build: the quantization is community-run, not vendor-supported.",
+      "provenance": "d"
+    },
+    {
+      "id": "black-forest-labs/FLUX.2-klein-4B",
+      "name": "FLUX.2-klein-4B",
+      "kind": "image_generator",
+      "role": "fast-base",
+      "device": {
+        "npu_usage": 19,
+        "size_bytes": 7183924362,
+        "steps": 4,
+        "guidance_scale": "1.0",
+        "input": "Text",
+        "output": "Image",
+        "supported": [],
+        "context_window": null,
+        "image_size": "512x512 (fastest), up to 1536x1536",
+        "status": "not_downloaded",
+        "version_label": "20261106",
+        "load_time": 5
+      },
+      "specialty": {
+        "artifact": [
+          "illustration",
+          "photo",
+          "texture"
+        ],
+        "alpha": false,
+        "alpha_kind": null,
+        "text_rendering": "weak",
+        "style": [
+          "general",
+          "flat"
+        ],
+        "edit_ops": [],
+        "max_refs": null,
+        "quality": "medium",
+        "speed": "fastest"
+      },
+      "prompting": {
+        "dialect": "Short and literal. 4 diffusion steps, rectified flow \u2014 it rewards brevity over elaboration.",
+        "sizes_verified": [
+          "512x512",
+          "1024x1024",
+          "1280x768",
+          "1152x768",
+          "1024x768"
+        ],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": null
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 74,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "Fastest generating model in the catalogue \u2014 sub-second on the device's own terms. Apache 2.0. The only non-Z-Image generator with multi-reference support.",
+      "provenance": "d"
+    },
+    {
+      "id": "fal/FLUX.2-klein-4B-Background-Remove",
+      "name": "FLUX.2-klein-4B-Background-Remove",
+      "kind": "image_generator",
+      "role": "edit-adapter",
+      "device": {
+        "npu_usage": 19,
+        "size_bytes": 7184022700,
+        "steps": 4,
+        "guidance_scale": "1.0",
+        "input": "Text,Image",
+        "output": "Image",
+        "supported": [
+          "Image Editing"
+        ],
+        "context_window": null,
+        "image_size": "512x512 (fastest), up to 1536x1536",
+        "status": "downloaded",
+        "version_label": "20261106",
+        "load_time": 4
+      },
+      "specialty": {
+        "artifact": [
+          "cutout"
+        ],
+        "alpha": true,
+        "alpha_kind": null,
+        "text_rendering": "n/a",
+        "style": [
+          "n/a"
+        ],
+        "edit_ops": [
+          "background_remove"
+        ],
+        "max_refs": null,
+        "quality": "n/a",
+        "speed": "fastest"
+      },
+      "prompting": {
+        "dialect": "Not a generator. Operates on an input image.",
+        "sizes_verified": [
+          "512x512",
+          "1024x1024",
+          "1280x768",
+          "1152x768",
+          "1024x768"
+        ],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": null
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 74,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "Cuts the main subject out of a photo. Product photography and compositing without manual masking.",
+      "provenance": "d,m"
+    },
+    {
+      "id": "fal/FLUX.2-klein-4B-Object-Remove",
+      "name": "FLUX.2-klein-4B-Object-Remove",
+      "kind": "image_generator",
+      "role": "edit-adapter",
+      "device": {
+        "npu_usage": 19,
+        "size_bytes": 7183966998,
+        "steps": 4,
+        "guidance_scale": "1.0",
+        "input": "Text,Image",
+        "output": "Image",
+        "supported": [
+          "Image Editing"
+        ],
+        "context_window": null,
+        "image_size": "512x512 (fastest), up to 1536x1536",
+        "status": "not_downloaded",
+        "version_label": "20261106",
+        "load_time": 4
+      },
+      "specialty": {
+        "artifact": [
+          "edit"
+        ],
+        "alpha": false,
+        "alpha_kind": null,
+        "text_rendering": "n/a",
+        "style": [
+          "n/a"
+        ],
+        "edit_ops": [
+          "object_remove",
+          "inpaint"
+        ],
+        "max_refs": null,
+        "quality": "n/a",
+        "speed": "fastest"
+      },
+      "prompting": {
+        "dialect": "Not a generator. Operates on an input image.",
+        "sizes_verified": [
+          "512x512",
+          "1024x1024",
+          "1280x768",
+          "1152x768",
+          "1024x768"
+        ],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": null
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 74,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "Removes marked objects and fills the area contextually.",
+      "provenance": "d"
+    },
+    {
+      "id": "fal/FLUX.2-klein-4B-Outpaint",
+      "name": "FLUX.2-klein-4B-Outpaint",
+      "kind": "image_generator",
+      "role": "edit-adapter",
+      "device": {
+        "npu_usage": 20,
+        "size_bytes": 7184107897,
+        "steps": 4,
+        "guidance_scale": "1.0",
+        "input": "Text,Image",
+        "output": "Image",
+        "supported": [
+          "Image Editing"
+        ],
+        "context_window": null,
+        "image_size": "512x512 (fastest), up to 1536x1536",
+        "status": "not_downloaded",
+        "version_label": "20261106",
+        "load_time": 4
+      },
+      "specialty": {
+        "artifact": [
+          "edit"
+        ],
+        "alpha": false,
+        "alpha_kind": null,
+        "text_rendering": "n/a",
+        "style": [
+          "n/a"
+        ],
+        "edit_ops": [
+          "outpaint"
+        ],
+        "max_refs": null,
+        "quality": "n/a",
+        "speed": "fastest"
+      },
+      "prompting": {
+        "dialect": "Not a generator. Operates on an input image.",
+        "sizes_verified": [
+          "512x512",
+          "1024x1024",
+          "1280x768",
+          "1152x768",
+          "1024x768"
+        ],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": null
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 75,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "Extends past the original borders, matching the scene.",
+      "provenance": "d"
+    },
+    {
+      "id": "fal/FLUX.2-klein-4B-Zoom",
+      "name": "FLUX.2-klein-4B-Zoom",
+      "kind": "image_generator",
+      "role": "edit-adapter",
+      "device": {
+        "npu_usage": 20,
+        "size_bytes": 7183887812,
+        "steps": 4,
+        "guidance_scale": "1.0",
+        "input": "Text,Image",
+        "output": "Image",
+        "supported": [
+          "Image Editing"
+        ],
+        "context_window": null,
+        "image_size": "512x512 (fastest), up to 1536x1536",
+        "status": "not_downloaded",
+        "version_label": "20261106",
+        "load_time": 4
+      },
+      "specialty": {
+        "artifact": [
+          "edit"
+        ],
+        "alpha": false,
+        "alpha_kind": null,
+        "text_rendering": "n/a",
+        "style": [
+          "n/a"
+        ],
+        "edit_ops": [
+          "detail_regen"
+        ],
+        "max_refs": null,
+        "quality": "n/a",
+        "speed": "fastest"
+      },
+      "prompting": {
+        "dialect": "Not a generator. Operates on an input image.",
+        "sizes_verified": [
+          "512x512",
+          "1024x1024",
+          "1280x768",
+          "1152x768",
+          "1024x768"
+        ],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": null
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 75,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "Regenerates a marked region enlarged WITH added detail. Not an upscaler \u2014 it re-imagines the region.",
+      "provenance": "d"
+    },
+    {
+      "id": "TaoBaiBai2025/Z-Image-Turbo-Creating-Realistic",
+      "name": "Z-Image-Turbo-Creating-Realistic",
+      "kind": "image_generator",
+      "role": "specialist",
+      "device": {
+        "npu_usage": 23,
+        "size_bytes": 10233954083,
+        "steps": 8,
+        "guidance_scale": 1,
+        "input": "Text",
+        "output": "Image",
+        "supported": [],
+        "context_window": null,
+        "image_size": "512x512 (fastest), up to 1536x1536",
+        "status": "downloaded",
+        "version_label": "20261106",
+        "load_time": 4
+      },
+      "specialty": {
+        "artifact": [
+          "photo",
+          "illustration"
+        ],
+        "alpha": false,
+        "alpha_kind": null,
+        "text_rendering": "weak",
+        "style": [
+          "photoreal",
+          "realistic-people"
+        ],
+        "edit_ops": [],
+        "max_refs": null,
+        "quality": "high",
+        "speed": "fast"
+      },
+      "prompting": {
+        "dialect": "Name the person concretely \u2014 age range, hair, skin, fabric, expression. Describing the person as an object produces a mannequin.",
+        "sizes_verified": [
+          "512x512",
+          "1024x1024",
+          "1280x768",
+          "1152x768",
+          "1024x768"
+        ],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": null
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 78,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "Same adapter family and NPU cost as the base. The device's own description for this model is wrong (it carries the CharacterDesignSheet text) \u2014 trust the name, not `desc`.",
+      "provenance": "d,m"
+    },
+    {
+      "id": "Tongyi-MAI/Z-Image-Turbo",
+      "name": "Z-Image-Turbo",
+      "kind": "image_generator",
+      "role": "default",
+      "device": {
+        "npu_usage": 23,
+        "size_bytes": 10234035722,
+        "steps": 8,
+        "guidance_scale": 1,
+        "input": "Text",
+        "output": "Image",
+        "supported": [],
+        "context_window": null,
+        "image_size": "512x512 (fastest), up to 1536x1536",
+        "status": "downloaded",
+        "version_label": "20261106",
+        "load_time": 4
+      },
+      "specialty": {
+        "artifact": [
+          "illustration",
+          "photo",
+          "logo",
+          "poster",
+          "texture"
+        ],
+        "alpha": false,
+        "alpha_kind": null,
+        "text_rendering": "strong",
+        "style": [
+          "photoreal",
+          "general"
+        ],
+        "edit_ops": [],
+        "max_refs": null,
+        "quality": "high",
+        "speed": "fast"
+      },
+      "prompting": {
+        "dialect": "Plain descriptive English. Subject first, then modifiers, then lighting and mood. No prompt-engineering keywords, no quality booster tokens, no comma salad.",
+        "sizes_verified": [
+          "512x512",
+          "1024x1024",
+          "1280x768",
+          "1152x768",
+          "1024x768"
+        ],
+        "sizes_rejected": [
+          "1536x1024",
+          "1024x1536",
+          "1792x1024"
+        ],
+        "rejected_reason": "exceeds max transformer tokens 5760 / max_width 1536",
+        "size_rule": null
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 78,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "8 steps, guidance 0.0. ~9s at 512px, ~55s at 1024px. The default for good reason \u2014 cheapest iteration loop in the catalogue.",
+      "provenance": "d,m"
+    },
+    {
+      "id": "Tongyi-MAI/Z-Image-Turbo-Children-Drawing",
+      "name": "Z-Image-Turbo-Children-Drawing",
+      "kind": "image_generator",
+      "role": "style",
+      "device": {
+        "npu_usage": 23,
+        "size_bytes": 10233735806,
+        "steps": 8,
+        "guidance_scale": 1,
+        "input": "Text",
+        "output": "Image",
+        "supported": [],
+        "context_window": null,
+        "image_size": "512x512 (fastest), up to 1536x1536",
+        "status": "not_downloaded",
+        "version_label": "20261106",
+        "load_time": 5
+      },
+      "specialty": {
+        "artifact": [
+          "illustration"
+        ],
+        "alpha": false,
+        "alpha_kind": null,
+        "text_rendering": "weak",
+        "style": [
+          "crayon",
+          "marker",
+          "childrens-drawing"
+        ],
+        "edit_ops": [],
+        "max_refs": null,
+        "quality": "medium",
+        "speed": "fast"
+      },
+      "prompting": {
+        "dialect": "None needed. The style applies automatically regardless of prompt content \u2014 the only model in the catalogue where style is guaranteed to apply.",
+        "sizes_verified": [
+          "512x512",
+          "1024x1024",
+          "1280x768",
+          "1152x768",
+          "1024x768"
+        ],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": null
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 78,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "A LoRA that drops into any existing prompt unmodified.",
+      "provenance": "d"
+    },
+    {
+      "id": "YeiYeiArt/Z-Image-Turbo-CharacterDesignSheet",
+      "name": "Z-Image-Turbo-CharacterDesignSheet",
+      "kind": "image_generator",
+      "role": "specialist",
+      "device": {
+        "npu_usage": 23,
+        "size_bytes": 10233881254,
+        "steps": 8,
+        "guidance_scale": 1,
+        "input": "Text",
+        "output": "Image",
+        "supported": [],
+        "context_window": null,
+        "image_size": "512x512 (fastest), up to 1536x1536",
+        "status": "downloaded",
+        "version_label": "20261106",
+        "load_time": 4
+      },
+      "specialty": {
+        "artifact": [
+          "character_sheet"
+        ],
+        "alpha": false,
+        "alpha_kind": null,
+        "text_rendering": "weak",
+        "style": [
+          "character-reference"
+        ],
+        "edit_ops": [],
+        "max_refs": null,
+        "quality": "high",
+        "speed": "fast"
+      },
+      "prompting": {
+        "dialect": "Ask for the sheet explicitly: multiple views, expression variants, a palette swatch. One character, consistent across panels.",
+        "sizes_verified": [
+          "512x512",
+          "1024x1024",
+          "1280x768",
+          "1152x768",
+          "1024x768"
+        ],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": null
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 78,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "For concept artists and game character designers.",
+      "provenance": "d"
+    },
+    {
+      "id": "baidu/ERNIE-Image-Turbo",
+      "name": "ERNIE-Image-Turbo",
+      "kind": "image_generator",
+      "role": "specialist",
+      "device": {
+        "npu_usage": 27,
+        "size_bytes": 11429631451,
+        "steps": 8,
+        "guidance_scale": "0.0",
+        "input": "Text",
+        "output": "Image",
+        "supported": [],
+        "context_window": null,
+        "image_size": "512x512 (fastest), up to 1536x1536",
+        "status": "downloaded",
+        "version_label": "20261013",
+        "load_time": 28
+      },
+      "specialty": {
+        "artifact": [
+          "poster",
+          "infographic",
+          "comic",
+          "logo"
+        ],
+        "alpha": false,
+        "alpha_kind": null,
+        "text_rendering": "best",
+        "style": [
+          "layout",
+          "structured"
+        ],
+        "edit_ops": [],
+        "max_refs": null,
+        "quality": "high",
+        "speed": "fast"
+      },
+      "prompting": {
+        "dialect": "Give the exact text verbatim, and say where it goes: 'title reads X, top banner reads Y'. Layout instructions matter more than visual adjectives for this model.",
+        "sizes_verified": [
+          "512x512",
+          "1024x1024",
+          "1280x768",
+          "1152x768",
+          "1024x768"
+        ],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": null
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 82,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "The typography specialist. 8 steps, guidance 0.0.",
+      "provenance": "d"
+    },
+    {
+      "id": "HiDream-ai/HiDream-O1-Image-Dev",
+      "name": "HiDream-O1-Image-Dev",
+      "kind": "image_generator",
+      "role": "quality-leader",
+      "device": {
+        "npu_usage": 30,
+        "size_bytes": 15210519879,
+        "steps": 28,
+        "guidance_scale": "0.0",
+        "input": "Text,Image",
+        "output": "Image",
+        "supported": [],
+        "context_window": null,
+        "image_size": "2048x2048 (recommended), up to 3104 per side; width and height multiples of 32 with (w/32)*(h/32) <= 4096",
+        "status": "downloaded",
+        "version_label": "20261013",
+        "load_time": 18
+      },
+      "specialty": {
+        "artifact": [
+          "photo",
+          "illustration"
+        ],
+        "alpha": false,
+        "alpha_kind": null,
+        "text_rendering": "weak",
+        "style": [
+          "photoreal",
+          "high-detail"
+        ],
+        "edit_ops": [
+          "instruction_edit",
+          "subject_personalization"
+        ],
+        "max_refs": null,
+        "quality": "highest",
+        "speed": "slow"
+      },
+      "prompting": {
+        "dialect": "Dense and specific. Name materials, textures, the light source, and the lens. 28 steps \u2014 it rewards a fuller prompt than the 8-step models do.",
+        "sizes_verified": [
+          "1024x1024",
+          "2048x2048"
+        ],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": "multiples of 32; (w/32)*(h/32) <= 4096"
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 85,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "The fidelity ceiling in the catalogue \u2014 fur, foliage, reflections. ~34s at 1024x1024. Earns its keep only when detail IS the subject.",
+      "provenance": "d,m"
+    },
+    {
+      "id": "SenseTime/SenseNova-U1.5-8B-MoT",
+      "name": "SenseNova-U1.5-8B-MoT",
+      "kind": "image_generator",
+      "role": "unified",
+      "device": {
+        "npu_usage": 48,
+        "size_bytes": 26193521247,
+        "steps": 30,
+        "guidance_scale": "0.0",
+        "input": "Text,Image",
+        "output": "Image",
+        "supported": [],
+        "context_window": null,
+        "image_size": "2048x2048 (recommended); also 2304x1728, 1728x2304, 2560x1440, 1440x2560, 2496x1664, 1664x2496, 3104x1312, 1312x3104, 2304x1792, 1792x2304; width and height multiples of 32 with (w/32)*(h/32) <= 4096",
+        "status": "not_downloaded",
+        "version_label": "20260920",
+        "load_time": 37
+      },
+      "specialty": {
+        "artifact": [
+          "poster",
+          "illustration",
+          "photo"
+        ],
+        "alpha": false,
+        "alpha_kind": null,
+        "text_rendering": "strong",
+        "style": [
+          "general",
+          "high-detail"
+        ],
+        "edit_ops": [
+          "instruction_edit"
+        ],
+        "max_refs": null,
+        "quality": "high",
+        "speed": "slow"
+      },
+      "prompting": {
+        "dialect": "Instruction-shaped: what to put, where, and how it should read.",
+        "sizes_verified": [
+          "1024x1024",
+          "2048x2048"
+        ],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": "multiples of 32; (w/32)*(h/32) <= 4096"
+      },
+      "residency": {
+        "co_resident_with_planner": false,
+        "combined_npu_pct": 103,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "Generates in pixel space, no separate VAE decoder. 48% NPU \u2014 needs a swap alongside a 55% planner.",
+      "provenance": "d"
+    },
+    {
+      "id": "Qwen/Qwen-Image-2.1",
+      "name": "Qwen-Image-2.1",
+      "kind": "image_generator",
+      "role": "flagship",
+      "device": {
+        "npu_usage": 62,
+        "size_bytes": 15582788900,
+        "steps": 40,
+        "guidance_scale": 1,
+        "input": "Text,Image",
+        "output": "Image",
+        "supported": [
+          "Image Editing"
+        ],
+        "context_window": null,
+        "image_size": "512x512 (fastest), up to 2048x2048",
+        "status": "downloaded",
+        "version_label": "20261102",
+        "load_time": 5
+      },
+      "specialty": {
+        "artifact": [
+          "icon",
+          "logo",
+          "sticker",
+          "cutout",
+          "illustration",
+          "photo"
+        ],
+        "alpha": true,
+        "alpha_kind": "native-rgba",
+        "text_rendering": "strong",
+        "style": [
+          "general",
+          "flat",
+          "illustration"
+        ],
+        "edit_ops": [
+          "instruction_edit",
+          "local_edit",
+          "identity_preservation"
+        ],
+        "max_refs": 10,
+        "quality": "highest",
+        "speed": "slow"
+      },
+      "prompting": {
+        "dialect": "Conversational and specific. 'A flat vector icon of a fox head, front-facing, single solid fill, transparent background.' Negative space and shape language beat adjectives.",
+        "sizes_verified": [
+          "512x512",
+          "1024x1024",
+          "2048x2048",
+          "2400x1792",
+          "1536x960"
+        ],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": null
+      },
+      "residency": {
+        "co_resident_with_planner": false,
+        "combined_npu_pct": 117,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "THE transparency model. Native RGBA output \u2014 stickers, logos and cutouts come out ready to place, no background-removal step. 40 steps, 62% NPU: the most expensive image model here, and it cannot coexist with a 55% planner. Planning consequence, not a reason to avoid it.",
+      "provenance": "d"
+    },
+    {
+      "id": "Qwen/Qwen-Image-2.1-PE-T2I",
+      "name": "Qwen-Image-2.1-PE-T2I",
+      "kind": "prompt_enhancer",
+      "role": "prompt-enhancer",
+      "device": {
+        "npu_usage": 23,
+        "size_bytes": 5893071298,
+        "steps": null,
+        "guidance_scale": null,
+        "input": "Text",
+        "output": "Text",
+        "supported": [
+          "Prompt Enhance"
+        ],
+        "context_window": 262144,
+        "image_size": null,
+        "status": "downloaded",
+        "version_label": "20261021",
+        "load_time": 8
+      },
+      "specialty": {
+        "artifact": [
+          "prompt_expansion"
+        ],
+        "alpha": false,
+        "alpha_kind": null,
+        "text_rendering": "n/a",
+        "style": [
+          "n/a"
+        ],
+        "edit_ops": [],
+        "max_refs": null,
+        "quality": "n/a",
+        "speed": "fast"
+      },
+      "prompting": {
+        "dialect": "Takes a short image request and returns a full English scene description of roughly 20 sentences, plus a recommended aspect ratio. The output is designed to be passed straight to Qwen-Image-2.1 \u2014 it IS the dialect.",
+        "sizes_verified": [],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": null
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 78,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "7B, 262144 ctx, 23% NPU. Coexists with Qwen-Image-2.1 (62%) at 85%. This is the device's own answer to prompt translation \u2014 use it instead of hand-writing a dialect.",
+      "provenance": "d"
+    },
+    {
+      "id": "Qwen/Qwen-Image-2.1-PE-I2I",
+      "name": "Qwen-Image-2.1-PE-I2I",
+      "kind": "prompt_enhancer",
+      "role": "prompt-enhancer",
+      "device": {
+        "npu_usage": 24,
+        "size_bytes": 5893126430,
+        "steps": null,
+        "guidance_scale": null,
+        "input": "Text,Image",
+        "output": "Text",
+        "supported": [
+          "Prompt Enhance"
+        ],
+        "context_window": 262144,
+        "image_size": null,
+        "status": "not_downloaded",
+        "version_label": "20261021",
+        "load_time": 9
+      },
+      "specialty": {
+        "artifact": [
+          "prompt_expansion"
+        ],
+        "alpha": false,
+        "alpha_kind": null,
+        "text_rendering": "n/a",
+        "style": [
+          "n/a"
+        ],
+        "edit_ops": [],
+        "max_refs": null,
+        "quality": "n/a",
+        "speed": "fast"
+      },
+      "prompting": {
+        "dialect": "Takes one or more images plus a vague editing instruction and returns a precise rewrite that spells out what to change, what to leave untouched, and the aspect ratio.",
+        "sizes_verified": [],
+        "sizes_rejected": [],
+        "rejected_reason": null,
+        "size_rule": null
+      },
+      "residency": {
+        "co_resident_with_planner": true,
+        "combined_npu_pct": 79,
+        "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
+      },
+      "notes": "7B, 262144 ctx, 24% NPU. The image-to-image counterpart of PE-T2I. NOT downloaded on this device as of 2026-11-05.",
+      "provenance": "d"
+    }
+  ]
+}

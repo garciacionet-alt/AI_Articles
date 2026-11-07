@@ -72,6 +72,31 @@ SKILL_ROOT = HERE.parent
 HERMES_HOME = Path(os.environ.get("HERMES_HOME", "~/.hermes")).expanduser()
 
 
+def _shared_home() -> Path:
+    """The BASE Hermes home, even when HERMES_HOME points at a profile.
+
+    Four files are shared state across every profile: the plan, the
+    cross-agent lock, the hold file, and the catalogue snapshot.
+
+    Two readers live in the base home and will not look anywhere else:
+
+    - the delegation plugin reads the plan from ``~/.hermes/tiiny-plan.json``
+      on purpose — "every profile's manager agent must see the same plan";
+    - the watchdog reads the hold from ``~/.hermes/tiiny-hold``.
+
+    When HERMES_HOME is a profile directory (``.../hermes/profiles/<name>``)
+    a naive ``HERMES_HOME / "tiiny-hold"`` writes the hold somewhere the
+    watchdog never reads. The hold then does not hold: the watchdog reloads
+    its required set mid-swap and evicts whatever was deliberately loaded.
+    This is the failure the hold file exists to prevent, so the shared
+    files have to be resolved against the base home, not the profile.
+    """
+    home = HERMES_HOME
+    if home.name != "profiles" and home.parent.name == "profiles":
+        return home.parent.parent
+    return home
+
+
 def _dotenv_value(name: str) -> str:
     """Read one value out of ``~/.hermes/.env`` without printing anything else."""
     try:
@@ -82,6 +107,60 @@ def _dotenv_value(name: str) -> str:
     except Exception:
         pass
     return ""
+
+
+def _caller_owner() -> str:
+    """Who is calling.
+
+    The lock is between AGENTS, not between processes: two Hermes profiles on
+    one machine are two agents sharing one appliance. TIINY_OWNER wins;
+    otherwise the active profile's name, because that is what identifies the
+    agent. Falls back to the OS user.
+
+    An empty string means "unknown", and unknown callers are treated as
+    NOT the owner of anything — an unidentified agent must not be able to
+    take a device another agent is holding.
+    """
+    env = os.environ.get("TIINY_OWNER", "").strip()
+    if env:
+        return env
+    home = HERMES_HOME
+    if home.name != "profiles" and home.parent.name == "profiles":
+        return home.name
+    return os.environ.get("USER", "").strip()
+
+
+def _lock_holder() -> dict | None:
+    """The lock payload while it is held by someone, or None.
+
+    "Held" means: state is held AND it has not expired. An expired lock is
+    free for the taking — that is how a crashed agent does not hold the
+    device forever.
+    """
+    current = lock_read() or {}
+    if current.get("state") != "held":
+        return None
+    try:
+        expires = float(current.get("expires") or 0)
+    except (TypeError, ValueError):
+        expires = 0
+    if expires <= time.time():
+        return None
+    return current
+
+
+def _held_by_other(owner: str, holder: dict | None) -> bool:
+    """True when the device is held by an agent that is not ``owner``.
+
+    An empty ``owner`` is "unknown caller" and never matches the holder, so
+    an agent that cannot identify itself cannot disturb another agent's
+    device.
+    """
+    if not holder:
+        return False
+    held_by = holder.get("owner") or ""
+    return held_by != owner
+
 
 
 def _find_vault() -> Path | None:
@@ -117,10 +196,13 @@ def _find_vault() -> Path | None:
 
 VAULT = _find_vault()
 
-LOCK_FILE = HERMES_HOME / "tiiny-lock.json"
-PLAN_FILE = Path(os.environ.get("TIINY_PLAN_FILE", str(HERMES_HOME / "tiiny-plan.json")))
-HOLD_FILE = HERMES_HOME / "tiiny-hold"
-SNAPSHOT_FILE = HERMES_HOME / "tiiny-catalogue.json"
+#: Shared state. These live in the BASE Hermes home, not the profile — see
+#: `_shared_home` for why, and for the failure that follows if they do not.
+SHARED_HOME = _shared_home()
+LOCK_FILE = SHARED_HOME / "tiiny-lock.json"
+PLAN_FILE = Path(os.environ.get("TIINY_PLAN_FILE", str(SHARED_HOME / "tiiny-plan.json")))
+HOLD_FILE = SHARED_HOME / "tiiny-hold"
+SNAPSHOT_FILE = SHARED_HOME / "tiiny-catalogue.json"
 
 TIINY_BIN = Path(os.environ.get("TIINY_BIN", "~/.local/tiiny/bin/tiiny")).expanduser()
 INFERENCE_BASE = os.environ.get("TIINY_BASE_URL", "http://openai.api.tiiny/v1").rstrip("/")
@@ -453,6 +535,18 @@ def lock_acquire(owner: str, task: str, ttl: int, models: list[str] | None = Non
         if current and current.get("state") == "held":
             expires = float(current.get("expires") or 0)
             if expires > now:
+                if current.get("owner") == owner:
+                    # RENEW. The holder extends its own lock. Without this a
+                    # long build has to either release the device mid-build
+                    # or lose the device to an agent that takes over when the
+                    # TTL runs out.
+                    payload = dict(current)
+                    payload["expires"] = now + ttl
+                    payload["models"] = models or current.get("models") or []
+                    payload["task"] = task or current.get("task", "")
+                    payload["pid"] = os.getpid()
+                    _lock_write(fd, payload)
+                    return payload, ""
                 return None, (
                     f"the device is held by {current.get('owner')} "
                     f"({current.get('task') or 'no task recorded'}) "
@@ -491,7 +585,10 @@ def lock_release(owner: str, force: bool = False) -> tuple[bool, str]:
             return False, "another process is holding the lock right now"
         current = lock_read() or {}
         if current.get("state") == "held":
-            if not force and current.get("owner") not in (owner, "", None):
+            # Strict: the owner must match exactly. An empty owner is not a
+            # wildcard — it is "unknown caller", and an unknown caller must
+            # not be able to release somebody else's lock.
+            if not force and current.get("owner") != owner:
                 return False, (
                     f"the lock is held by {current.get('owner')}, not {owner}. "
                     "Use --force if that is wrong."
@@ -784,6 +881,20 @@ def cmd_reserve(args) -> int:
 
 
 def cmd_load(args) -> int:
+    # GUARD FIRST. A load is a swap on a device with one shared NPU pool, so
+    # loading while another agent holds the device silently evicts whatever
+    # that agent deliberately loaded. Check before touching anything.
+    owner = args.owner or _caller_owner()
+    holder = _lock_holder()
+    if holder and _held_by_other(owner, holder) and not args.force:
+        expires = float(holder.get("expires") or 0)
+        print(f"tiiny_ctl: the device is held by {holder.get('owner')} "
+              f"({holder.get('task') or 'no task recorded'}) until "
+              f"{time.strftime('%H:%M:%S', time.localtime(expires))} — "
+              f"refusing to load. Use --force if that is wrong.",
+              file=sys.stderr)
+        return 1
+
     models = list(args.model or [])
     if not models:
         plan = plan_read()
@@ -854,8 +965,26 @@ def cmd_load(args) -> int:
 
 
 def cmd_release(args) -> int:
-    lock = lock_read() or {}
-    owner = args.owner or lock.get("owner") or ""
+    # GUARD FIRST, and this used to be the whole bug.
+    #
+    # The old order was: clear the hold, restore the required set, THEN
+    # check the lock. So another agent running `release` cleared the hold and
+    # evicted the held model before it discovered the lock was not its own.
+    # Worse, the old code defaulted the owner to the lock's current owner, so
+    # a bare `release` adopted somebody else's lock and released it happily.
+    #
+    # Ownership is now checked before ANY mutation, and the owner is never
+    # inherited from the lock.
+    owner = args.owner or _caller_owner()
+    holder = _lock_holder()
+    if holder and _held_by_other(owner, holder) and not args.force:
+        expires = float(holder.get("expires") or 0)
+        print(f"tiiny_ctl: the device is held by {holder.get('owner')} "
+              f"({holder.get('task') or 'no task recorded'}) until "
+              f"{time.strftime('%H:%M:%S', time.localtime(expires))} — "
+              f"refusing to release. Use --force if that is wrong.",
+              file=sys.stderr)
+        return 1
 
     # Restore the required set FIRST is wrong: the hold is what stops the
     # watchdog from fighting the restore. Clear it, then restore.
@@ -1020,9 +1149,14 @@ def main() -> int:
     load = sub.add_parser("load", help="load what the batch needs")
     load.add_argument("--model", action="append", help="a model to load")
     load.add_argument("--wave", type=int, help="load only this wave of the plan")
+    load.add_argument("--owner", default=os.environ.get("TIINY_OWNER", ""),
+                      help="who is loading; defaults to the active profile")
+    load.add_argument("--force", action="store_true",
+                      help="load even if another agent holds the device")
 
     release = sub.add_parser("release", help="restore the device and clear the lock")
-    release.add_argument("--owner", default="", help="who is releasing")
+    release.add_argument("--owner", default=os.environ.get("TIINY_OWNER", ""),
+                         help="who is releasing; defaults to the active profile")
     release.add_argument("--force", action="store_true", help="release a lock held by someone else")
 
     catalog = sub.add_parser("catalog", help="diff the live Model Store against the snapshot")

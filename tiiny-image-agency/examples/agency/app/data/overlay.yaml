@@ -1,0 +1,400 @@
+models:
+  Tongyi-MAI/Z-Image-Turbo:
+    role: default
+    artifact:
+    - illustration
+    - photo
+    - logo
+    - poster
+    - texture
+    alpha: false
+    text_rendering: strong
+    style:
+    - photoreal
+    - general
+    edit_ops: []
+    quality: high
+    speed: fast
+    dialect: |
+      Plain descriptive English. Subject first, then modifiers, then lighting and mood. No prompt-engineering keywords, no quality booster tokens, no comma salad.
+    sizes_verified:
+    - 512x512
+    - 1024x1024
+    - 1280x768
+    - 1152x768
+    - 1024x768
+    sizes_rejected:
+    - 1536x1024
+    - 1024x1536
+    - 1792x1024
+    rejected_reason: exceeds max transformer tokens 5760 / max_width 1536
+    notes: |
+      8 steps, guidance 0.0. ~9s at 512px, ~55s at 1024px. The default for good reason — cheapest iteration loop in the catalogue.
+    provenance: d,m
+  TaoBaiBai2025/Z-Image-Turbo-Creating-Realistic:
+    role: specialist
+    artifact:
+    - photo
+    - illustration
+    alpha: false
+    text_rendering: weak
+    style:
+    - photoreal
+    - realistic-people
+    edit_ops: []
+    quality: high
+    speed: fast
+    dialect: |
+      Name the person concretely — age range, hair, skin, fabric, expression. Describing the person as an object produces a mannequin.
+    sizes_verified:
+    - 512x512
+    - 1024x1024
+    - 1280x768
+    - 1152x768
+    - 1024x768
+    notes: |
+      Same adapter family and NPU cost as the base. The device's own description for this model is wrong (it carries the CharacterDesignSheet text) — trust the name, not `desc`.
+    provenance: d,m
+  Tongyi-MAI/Z-Image-Turbo-Children-Drawing:
+    role: style
+    artifact:
+    - illustration
+    alpha: false
+    text_rendering: weak
+    style:
+    - crayon
+    - marker
+    - childrens-drawing
+    edit_ops: []
+    quality: medium
+    speed: fast
+    dialect: |
+      None needed. The style applies automatically regardless of prompt content — the only model in the catalogue where style is guaranteed to apply.
+    sizes_verified:
+    - 512x512
+    - 1024x1024
+    - 1280x768
+    - 1152x768
+    - 1024x768
+    notes: |
+      A LoRA that drops into any existing prompt unmodified.
+    provenance: d
+  YeiYeiArt/Z-Image-Turbo-CharacterDesignSheet:
+    role: specialist
+    artifact:
+    - character_sheet
+    alpha: false
+    text_rendering: weak
+    style:
+    - character-reference
+    edit_ops: []
+    quality: high
+    speed: fast
+    dialect: |
+      Ask for the sheet explicitly: multiple views, expression variants, a palette swatch. One character, consistent across panels.
+    sizes_verified:
+    - 512x512
+    - 1024x1024
+    - 1280x768
+    - 1152x768
+    - 1024x768
+    notes: |
+      For concept artists and game character designers.
+    provenance: d
+  baidu/ERNIE-Image-Turbo:
+    role: specialist
+    artifact:
+    - poster
+    - infographic
+    - comic
+    - logo
+    alpha: false
+    text_rendering: best
+    style:
+    - layout
+    - structured
+    edit_ops: []
+    quality: high
+    speed: fast
+    dialect: |
+      Give the exact text verbatim, and say where it goes: 'title reads X, top banner reads Y'. Layout instructions matter more than visual adjectives for this model.
+    sizes_verified:
+    - 512x512
+    - 1024x1024
+    - 1280x768
+    - 1152x768
+    - 1024x768
+    notes: |
+      The typography specialist. 8 steps, guidance 0.0.
+    provenance: d
+  black-forest-labs/FLUX.2-klein-4B:
+    role: fast-base
+    artifact:
+    - illustration
+    - photo
+    - texture
+    alpha: false
+    text_rendering: weak
+    style:
+    - general
+    - flat
+    edit_ops: []
+    quality: medium
+    speed: fastest
+    dialect: |
+      Short and literal. 4 diffusion steps, rectified flow — it rewards brevity over elaboration.
+    sizes_verified:
+    - 512x512
+    - 1024x1024
+    - 1280x768
+    - 1152x768
+    - 1024x768
+    notes: |
+      Fastest generating model in the catalogue — sub-second on the device's own terms. Apache 2.0. The only non-Z-Image generator with multi-reference support.
+    provenance: d
+  fal/FLUX.2-klein-4B-Background-Remove:
+    role: edit-adapter
+    artifact:
+    - cutout
+    alpha: true
+    text_rendering: n/a
+    style:
+    - n/a
+    edit_ops:
+    - background_remove
+    quality: n/a
+    speed: fastest
+    dialect: |
+      Not a generator. Operates on an input image.
+    sizes_verified:
+    - 512x512
+    - 1024x1024
+    - 1280x768
+    - 1152x768
+    - 1024x768
+    notes: |
+      Cuts the main subject out of a photo. Product photography and compositing without manual masking.
+    provenance: d,m
+  fal/FLUX.2-klein-4B-Object-Remove:
+    role: edit-adapter
+    artifact:
+    - edit
+    alpha: false
+    text_rendering: n/a
+    style:
+    - n/a
+    edit_ops:
+    - object_remove
+    - inpaint
+    quality: n/a
+    speed: fastest
+    dialect: |
+      Not a generator. Operates on an input image.
+    sizes_verified:
+    - 512x512
+    - 1024x1024
+    - 1280x768
+    - 1152x768
+    - 1024x768
+    notes: |
+      Removes marked objects and fills the area contextually.
+    provenance: d
+  fal/FLUX.2-klein-4B-Outpaint:
+    role: edit-adapter
+    artifact:
+    - edit
+    alpha: false
+    text_rendering: n/a
+    style:
+    - n/a
+    edit_ops:
+    - outpaint
+    quality: n/a
+    speed: fastest
+    dialect: |
+      Not a generator. Operates on an input image.
+    sizes_verified:
+    - 512x512
+    - 1024x1024
+    - 1280x768
+    - 1152x768
+    - 1024x768
+    notes: |
+      Extends past the original borders, matching the scene.
+    provenance: d
+  fal/FLUX.2-klein-4B-Zoom:
+    role: edit-adapter
+    artifact:
+    - edit
+    alpha: false
+    text_rendering: n/a
+    style:
+    - n/a
+    edit_ops:
+    - detail_regen
+    quality: n/a
+    speed: fastest
+    dialect: |
+      Not a generator. Operates on an input image.
+    sizes_verified:
+    - 512x512
+    - 1024x1024
+    - 1280x768
+    - 1152x768
+    - 1024x768
+    notes: |
+      Regenerates a marked region enlarged WITH added detail. Not an upscaler — it re-imagines the region.
+    provenance: d
+  HiDream-ai/HiDream-O1-Image-Dev:
+    role: quality-leader
+    artifact:
+    - photo
+    - illustration
+    alpha: false
+    text_rendering: weak
+    style:
+    - photoreal
+    - high-detail
+    edit_ops:
+    - instruction_edit
+    - subject_personalization
+    quality: highest
+    speed: slow
+    dialect: |
+      Dense and specific. Name materials, textures, the light source, and the lens. 28 steps — it rewards a fuller prompt than the 8-step models do.
+    sizes_verified:
+    - 1024x1024
+    - 2048x2048
+    size_rule: multiples of 32; (w/32)*(h/32) <= 4096
+    notes: |
+      The fidelity ceiling in the catalogue — fur, foliage, reflections. ~34s at 1024x1024. Earns its keep only when detail IS the subject.
+    provenance: d,m
+  SenseTime/SenseNova-U1.5-8B-MoT:
+    role: unified
+    artifact:
+    - poster
+    - illustration
+    - photo
+    alpha: false
+    text_rendering: strong
+    style:
+    - general
+    - high-detail
+    edit_ops:
+    - instruction_edit
+    quality: high
+    speed: slow
+    dialect: |
+      Instruction-shaped: what to put, where, and how it should read.
+    sizes_verified:
+    - 1024x1024
+    - 2048x2048
+    size_rule: multiples of 32; (w/32)*(h/32) <= 4096
+    notes: |
+      Generates in pixel space, no separate VAE decoder. 48% NPU — needs a swap alongside a 55% planner.
+    provenance: d
+  Qwen/Qwen-Image-2.1:
+    role: flagship
+    artifact:
+    - icon
+    - logo
+    - sticker
+    - cutout
+    - illustration
+    - photo
+    alpha: true
+    alpha_kind: native-rgba
+    text_rendering: strong
+    style:
+    - general
+    - flat
+    - illustration
+    edit_ops:
+    - instruction_edit
+    - local_edit
+    - identity_preservation
+    max_refs: 10
+    quality: highest
+    speed: slow
+    dialect: |
+      Conversational and specific. 'A flat vector icon of a fox head, front-facing, single solid fill, transparent background.' Negative space and shape language beat adjectives.
+    sizes_verified:
+    - 512x512
+    - 1024x1024
+    - 2048x2048
+    - 2400x1792
+    - 1536x960
+    notes: |
+      THE transparency model. Native RGBA output — stickers, logos and cutouts come out ready to place, no background-removal step. 40 steps, 62% NPU: the most expensive image model here, and it cannot coexist with a 55% planner. Planning consequence, not a reason to avoid it.
+    provenance: d
+  abenzerps/Qwen-Image-2.1-Uncensored-Quantized:
+    role: flagship-co-resident
+    artifact:
+    - icon
+    - logo
+    - sticker
+    - cutout
+    - illustration
+    - photo
+    alpha: true
+    alpha_kind: native-rgba
+    text_rendering: strong
+    style:
+    - general
+    - flat
+    - illustration
+    edit_ops:
+    - instruction_edit
+    - local_edit
+    - identity_preservation
+    max_refs: 10
+    quality: highest
+    speed: slow
+    dialect: |
+      Same family as Qwen-Image-2.1. Same dialect guidance applies.
+    sizes_verified:
+    - 512x512
+    - 1024x1024
+    - 2048x2048
+    - 2560x1600
+    - 2752x1536
+    size_rule: width % 16 == 0; area <= 16896 px
+    notes: |
+      Community uncensored quant build of Qwen-Image-2.1 with its own packaged runtime. Reports 0% NPU, so it coexists with a resident planner. Treat as a research build: the quantization is community-run, not vendor-supported.
+    provenance: d
+  Qwen/Qwen-Image-2.1-PE-T2I:
+    role: prompt-enhancer
+    kind: prompt_enhancer
+    artifact:
+    - prompt_expansion
+    alpha: false
+    text_rendering: n/a
+    style:
+    - n/a
+    edit_ops: []
+    quality: n/a
+    speed: fast
+    dialect: |
+      Takes a short image request and returns a full English scene description of roughly 20 sentences, plus a recommended aspect ratio. The output is designed to be passed straight to Qwen-Image-2.1 — it IS the dialect.
+    sizes_verified: []
+    notes: |
+      7B, 262144 ctx, 23% NPU. Coexists with Qwen-Image-2.1 (62%) at 85%. This is the device's own answer to prompt translation — use it instead of hand-writing a dialect.
+    provenance: d
+  Qwen/Qwen-Image-2.1-PE-I2I:
+    role: prompt-enhancer
+    kind: prompt_enhancer
+    artifact:
+    - prompt_expansion
+    alpha: false
+    text_rendering: n/a
+    style:
+    - n/a
+    edit_ops: []
+    quality: n/a
+    speed: fast
+    dialect: |
+      Takes one or more images plus a vague editing instruction and returns a precise rewrite that spells out what to change, what to leave untouched, and the aspect ratio.
+    sizes_verified: []
+    notes: |
+      7B, 262144 ctx, 24% NPU. The image-to-image counterpart of PE-T2I. NOT downloaded on this device as of 2026-11-05.
+    provenance: d

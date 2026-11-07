@@ -1,0 +1,358 @@
+/* Tiiny Image Agency — the work surface.
+   No build step: plain CSS, no framework, no preprocessor. */
+
+:root {
+    --ink: #1c1f24;
+    --muted: #6b7280;
+    --line: #e3e6ea;
+    --panel: #ffffff;
+    --page: #f4f5f7;
+    --accent: #0a63d8;
+    --warn: #b45309;
+    --warn-bg: #fef3c7;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: var(--page);
+    color: var(--ink);
+    height: 100vh;
+    overflow: hidden;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 16px;
+    gap: 12px;
+}
+
+/* -- THE THREE PERSISTENT ELEMENTS --------------------------------------- */
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex: 0 0 auto;
+}
+
+.model-badge, .npu-meter {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.model-badge { flex: 2 1 0; }
+.npu-meter { flex: 1 1 0; }
+
+.model-badge h2, .npu-meter h2 {
+    margin: 0 0 6px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.model-id {
+    font-weight: 650;
+    font-size: 16px;
+    margin: 0 0 2px;
+    overflow-wrap: anywhere;
+}
+
+.model-justification {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.45;
+    margin: 0;
+    max-height: 72px;
+    overflow-y: auto;
+}
+
+/* What the model was MEASURED to do, from the research card. */
+.model-measured {
+    font-size: 12px;
+    color: var(--accent);
+    margin: 6px 0 0;
+    line-height: 1.4;
+}
+
+.npu-bar {
+    width: 100%;
+    height: 10px;
+    background: #e8eaed;
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 4px 0 6px;
+}
+
+.npu-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #38bdf8, var(--accent));
+    border-radius: 5px;
+    transition: width 0.4s ease;
+    width: 0%;
+}
+
+.npu-text { font-size: 14px; font-weight: 600; margin: 0; }
+.npu-resident {
+    font-size: 11px;
+    color: var(--muted);
+    margin: 2px 0 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* -- THE SCREEN --------------------------------------------------------- */
+
+.main-content {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) minmax(360px, 1.4fr);
+    gap: 12px;
+    min-height: 0;
+}
+
+/* THE CONVERSATION */
+
+.conversation {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.log {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.line {
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 7px 10px;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.line.ask {
+    background: var(--accent);
+    color: #fff;
+    align-self: flex-end;
+    max-width: 85%;
+}
+.line.event { background: #f1f3f5; color: var(--muted); }
+.line.warn { background: var(--warn-bg); color: var(--warn); }
+.line.bad { background: #fee2e2; color: #991b1b; }
+
+.composer {
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    border-top: 1px solid var(--line);
+}
+
+.composer input, .feedback input {
+    flex: 1 1 auto;
+    min-width: 0;
+    font: inherit;
+    font-size: 13px;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: #fbfbfc;
+}
+
+.composer input:focus, .feedback input:focus {
+    outline: 2px solid rgba(10, 99, 216, 0.35);
+    outline-offset: -1px;
+}
+
+button {
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 14px;
+    border: 0;
+    border-radius: 7px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+}
+
+button:hover { filter: brightness(1.08); }
+
+/* THE CANVAS */
+
+.canvas-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+}
+
+.image-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    /* The checkerboard is the alpha, shown honestly: what you see is
+       what the PNG actually carries. */
+    background-color: #fff;
+    background-image:
+        linear-gradient(45deg, #e9ebee 25%, transparent 25%),
+        linear-gradient(-45deg, #e9ebee 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e9ebee 75%),
+        linear-gradient(-45deg, transparent 75%, #e9ebee 75%);
+    background-size: 18px 18px;
+    background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+}
+
+.placeholder {
+    color: var(--muted);
+    text-align: center;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.82);
+    border-radius: 8px;
+}
+
+#generated-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+/* The image is hidden until it has loaded, and shown after. The rule
+   above sets display:block, so the hidden state has to win with
+   !important — otherwise the image is laid out at zero size and never
+   appears. */
+.hidden { display: none !important; }
+
+/* THE ITERATION STRIP */
+
+.strip, .lineage {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    flex: 0 0 auto;
+}
+
+.strip h3, .lineage h3 {
+    margin: 0 0 8px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.thumbs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    min-height: 44px;
+}
+
+.thumb {
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    overflow: hidden;
+    background: none;
+    cursor: pointer;
+    flex: 0 0 auto;
+    line-height: 0;
+}
+
+.thumb img {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    display: block;
+}
+
+.thumb:hover { border-color: var(--accent); }
+
+.feedback {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.lineage pre {
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: #3f4650;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 132px;
+    overflow-y: auto;
+}
+
+/* -- THE BANNER. Never a silent stall. ---------------------------------- */
+
+.swap-banner {
+    flex: 0 0 auto;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.swap-banner.active { display: flex; }
+
+.swap-banner.download {
+    border-left-color: var(--warn);
+    background: var(--warn-bg);
+}
+
+.swap-text { font-size: 13px; margin: 0; font-weight: 500; }
+
+.swap-time {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 15px;
+    margin: 0;
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.swap-banner.download .swap-time { color: var(--warn); }
+
+@media (max-width: 860px) {
+    body { overflow: auto; }
+    .main-content { grid-template-columns: 1fr; }
+    .header { flex-direction: column; }
+    .image-container { min-height: 46vh; }
+}

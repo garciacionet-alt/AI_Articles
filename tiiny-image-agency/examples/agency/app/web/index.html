@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tiiny Image Agency</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+
+        <!-- THE THREE PERSISTENT ELEMENTS. These are always visible: they
+             are what makes the product honest about the constraint that
+             shapes it. -->
+        <div class="header">
+            <div class="model-badge" id="model-badge">
+                <h2>Model</h2>
+                <p class="model-id" id="model-id">—</p>
+                <p class="model-justification" id="model-justification">
+                    The model and why it was chosen appear here.
+                </p>
+                <p class="model-measured" id="model-measured"></p>
+            </div>
+            <div class="npu-meter" id="npu-meter">
+                <h2>NPU Usage</h2>
+                <div class="npu-bar">
+                    <div class="npu-fill" id="npu-fill"></div>
+                </div>
+                <p class="npu-text" id="npu-text">—</p>
+                <p class="npu-resident" id="npu-resident">—</p>
+            </div>
+        </div>
+
+        <div class="main-content">
+
+            <!-- THE CONVERSATION -->
+            <div class="conversation" id="conversation">
+                <div class="log" id="log"></div>
+                <form class="composer" id="composer">
+                    <input id="request" autocomplete="off"
+                           placeholder="an app icon of a fox head, flat, transparent background">
+                    <button type="submit" id="send">Make it</button>
+                </form>
+            </div>
+
+            <!-- THE CANVAS -->
+            <div class="canvas-column">
+                <div class="image-container">
+                    <div class="placeholder" id="image-placeholder">
+                        Nothing generated yet.
+                    </div>
+                    <img id="generated-image" class="hidden" alt="Generated image">
+                </div>
+
+                <!-- THE ITERATION STRIP -->
+                <div class="strip" id="strip">
+                    <h3>Iterations</h3>
+                    <div class="thumbs" id="thumbs"></div>
+                    <form class="feedback" id="feedback-form">
+                        <input id="feedback" autocomplete="off"
+                               placeholder="make the ears sharper and the fill warmer">
+                        <button type="submit" id="revise">Revise</button>
+                    </form>
+                </div>
+
+                <!-- THE LINEAGE -->
+                <div class="lineage" id="lineage">
+                    <h3>Lineage</h3>
+                    <pre id="lineage-body">The requirements, the model, the
+prompt that was actually sent, the attempts and the critique appear
+here.</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- THE BANNER. Never a silent stall: a swap is ~20 s to load
+             and ~200 s to generate, and a download is about five
+             minutes. The user must be able to tell "working" from
+             "stuck". -->
+        <div class="swap-banner" id="swap-banner">
+            <p class="swap-text" id="swap-text">Working…</p>
+            <p class="swap-time" id="swap-time">00:00</p>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
