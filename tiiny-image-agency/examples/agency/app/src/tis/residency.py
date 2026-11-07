@@ -257,6 +257,17 @@ class ResidencyManager:
             total -= self._cost(model)
         return evictions
 
+    def fits_with_judge(self, model_id: str, judge_id: str) -> bool:
+        """Whether a model and the judge can be resident AND run together.
+
+        This is the EXECUTION question, not the admission one. The pool
+        holds a hundred percent, but a generation that runs above 81%
+        is admitted and then refused. So a model that is too big beside
+        the judge cannot be used for a job that wants a verdict — it
+        would produce an image with no critique.
+        """
+        return can_execute(self._cost(model_id) + self._cost(judge_id))
+
     def _target_set(self, model_id: str, also_resident: tuple[str, ...]) -> list[str]:
         """The models that should be resident for this job.
 

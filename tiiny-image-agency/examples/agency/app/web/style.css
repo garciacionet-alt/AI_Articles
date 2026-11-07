@@ -398,6 +398,45 @@ button:hover { filter: brightness(1.08); }
 
 .role-note.sees { color: #047857; }
 
+/* -- THE OTHER MODELS ---------------------------------------------------- */
+
+.alternatives {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.alternatives:empty {
+    display: none;
+}
+
+.alt-label {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    width: 100%;
+}
+
+.alt {
+    font: inherit;
+    font-size: 11.5px;
+    padding: 5px 9px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fbfbfc;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.alt:hover { border-color: #94a3b8; }
+.alt.current {
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+}
+
 /* -- THE BANNER. Never a silent stall. ---------------------------------- */
 
 .swap-banner {

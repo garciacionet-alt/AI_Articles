@@ -353,3 +353,37 @@ def test_the_surface_says_when_the_judge_is_blind(app_js: str):
     assert "judges the" in app_js and "PROMPT" in app_js, (
         "the surface does not say that a blind judge judges the prompt only"
     )
+
+
+# -- the judge, and the models ---------------------------------------------
+
+
+def test_the_surface_says_what_the_judge_actually_said(app_js: str):
+    """Not "the judge compared the image against the requirements".
+
+    That sentence is true of a pass, a fail, and a judge that was never
+    called. It tells the user nothing they can act on.
+    """
+    assert "describeVerdict" in app_js, (
+        "the surface does not read the judge's verdict")
+    assert "suggested_changes" in app_js, (
+        "the surface ignores what the judge asked for")
+    assert "The judge asked for" in app_js, (
+        "the surface does not tell the user what the judge wanted")
+    assert "The judge passed it" in app_js, (
+        "the surface does not say when the judge was satisfied")
+
+
+def test_the_surface_offers_the_other_models(app_js: str, index_html: str):
+    """The resolver picks one; the user has to be able to pick another."""
+    assert 'id="model-alternatives"' in index_html, (
+        "the surface has nowhere to offer the other models")
+    assert "renderAlternatives" in app_js, (
+        "the surface does not render the alternatives")
+    assert "model_id" in app_js, (
+        "the surface cannot pass a chosen model to the API")
+
+
+def test_the_surface_says_when_the_job_moves_to_another_model(app_js: str):
+    assert "model.changed" in app_js, (
+        "the surface does not know the job moved to another model")

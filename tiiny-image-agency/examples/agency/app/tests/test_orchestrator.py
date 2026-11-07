@@ -32,12 +32,14 @@ def registry() -> Registry:
     return Registry.load(REGISTRY_PATH)
 
 
-def _build(registry: Registry, tmp_path: Path, replies=None
+def _build(registry: Registry, tmp_path: Path, replies=None,
+           default_reply=None, judge: str | None = None
            ) -> tuple[Orchestrator, FakeDevice]:
-    device = FakeDevice(registry, replies=replies or {})
+    device = FakeDevice(registry, replies=replies or {},
+                        default_reply=default_reply)
     resolver = Resolver(registry)
     translator = DialectTranslator(registry)
-    critic = Critic(device, registry.planner.id)
+    critic = Critic(device, judge or registry.planner.id)
     residency = ResidencyManager(
         device, registry, HoldFile(tmp_path / "tiiny-hold"),
         tmp_path / "tiiny-watch.lock")
@@ -79,19 +81,75 @@ def test_a_passing_critic_ends_the_loop_after_one_attempt(registry, tmp_path):
 
 def test_a_failing_critic_causes_a_second_generation_with_adjustments(registry, tmp_path):
     orchestrator, device = _build(registry, tmp_path,
-                                   {registry.planner.id: [FAIL, PASS]})
+                                   {registry.planner.id: [FAIL, PASS]},
+                                   default_reply=PASS)
     result = orchestrator.generate(RequirementVector(), _scene())
 
     assert result.attempts == 2
-    assert "Adjustments:" in result.prompt
-    assert "remove the background" in result.prompt
+    # The changes go back through the DIALECT TRANSLATOR, not onto the
+    # end of the prompt. Appending them to an already-translated prompt
+    # is how a request arrives in the wrong dialect.
+    assert "remove the background" in result.prompt.lower()
     assert result.critique is not None
     assert result.critique.passed is True
 
 
+def test_the_same_model_is_tried_again_before_another_one(registry, tmp_path):
+    """The first retry fixes the PROMPT. A prompt that was wrong is
+    worth one more try on the model that wrote it."""
+    orchestrator, device = _build(registry, tmp_path,
+                                   {registry.planner.id: [FAIL, PASS]},
+                                   default_reply=PASS)
+    result = orchestrator.generate(RequirementVector(), _scene())
+
+    generated = [call[1] for call in device.calls if call[0] == "generate"]
+    assert len(generated) == 2
+    assert generated[0] == generated[1], (
+        "the second attempt must be the same model with a corrected prompt")
+
+
+def test_a_second_failure_moves_the_job_to_another_model(registry, tmp_path):
+    """If the prompt is now right and the image is still wrong, the
+    prompt is not the problem.
+
+    The judge here is the 27% chat model rather than the 55% planner,
+    because the alternative has to be able to RUN beside the judge: a
+    30% generator and a 55% judge is 85%, which the appliance admits
+    and then refuses. That constraint is real and the escalation has to
+    respect it.
+    """
+    orchestrator, device = _build(registry, tmp_path,
+                                   {registry.planner.id: [FAIL, FAIL]},
+                                   default_reply=FAIL,
+                                   judge="openai/gpt-oss-20b")
+    result = orchestrator.generate(RequirementVector(), _scene())
+
+    generated = [call[1] for call in device.calls if call[0] == "generate"]
+    assert len(generated) >= 2
+    assert generated[0] != generated[1], (
+        "a model that failed twice must not be asked a third time")
+    assert result.models_used == generated[:len(result.models_used)]
+    assert len(set(result.models_used)) > 1
+
+
+def test_an_alternative_too_big_for_the_judge_is_not_used(registry, tmp_path):
+    """The 55% planner as the judge leaves 26% for a generator, and the
+    only 23% models are the ones already chosen or not on disk."""
+    orchestrator, device = _build(registry, tmp_path,
+                                   {registry.planner.id: [FAIL, FAIL]},
+                                   default_reply=FAIL)
+    result = orchestrator.generate(RequirementVector(), _scene())
+
+    generated = [call[1] for call in device.calls if call[0] == "generate"]
+    assert len(set(generated)) == 1, (
+        "no alternative fits beside a 55% judge, so the job must stay on "
+        "one model rather than pick one that cannot run")
+
+
 def test_the_loop_stops_at_three_attempts(registry, tmp_path):
     orchestrator, device = _build(registry, tmp_path,
-                                   {registry.planner.id: [FAIL]})
+                                   {registry.planner.id: [FAIL]},
+                                   default_reply=FAIL)
     result = orchestrator.generate(RequirementVector(), _scene())
 
     assert result.attempts == 3

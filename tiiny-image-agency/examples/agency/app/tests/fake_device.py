@@ -88,6 +88,7 @@ class FakeDevice:
         *,
         resident: Iterable[str] | None = None,
         replies: dict[str, str] | None = None,
+        default_reply: str | None = None,
     ):
         self.registry = (
             registry if isinstance(registry, Registry) else Registry.load(Path(registry))
@@ -100,6 +101,11 @@ class FakeDevice:
             DEFAULT_RESIDENT if resident is None else resident
         )
         self._replies = dict(replies or {})
+        #: What to say when a model has no scripted reply. The orchestrator
+        #: can escalate to a model the test never named, and a judge with
+        #: no verdict is inconclusive - which stops the loop and makes a
+        #: test look like it failed for a reason it did not have.
+        self._default_reply = default_reply
         self.calls: list[tuple[str, ...]] = []
         #: The prompts passed to chat(), in order. Useful for asserting that
         #: a component told the judge what it was judging.
@@ -268,6 +274,8 @@ class FakeDevice:
             reply = entry.pop(0) if len(entry) > 1 else entry[0]
         elif entry is not None:
             reply = entry
+        elif self._default_reply is not None:
+            reply = self._default_reply
         else:
             reply = f"{model} received: {prompt}"
         return {

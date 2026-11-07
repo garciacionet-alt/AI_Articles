@@ -483,6 +483,11 @@ def test_the_events_for_a_session_arrive_in_order(registry, tmp_path):
             "swap.started",
             "generate.started",
             "generate.finished",
+            # The judge was CALLED, and then it gave a VERDICT. These are
+            # two events because they are two facts: the call happened at
+            # the device, and the verdict was parsed here. The first one
+            # carries the prompt; the second carries the answer.
+            "judge.called",
             # Exactly one critique: the planner's own chat did not produce
             # one, because the planner talks to the raw device.
             "critique.ready",

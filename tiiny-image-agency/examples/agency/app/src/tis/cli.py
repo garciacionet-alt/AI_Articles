@@ -165,8 +165,13 @@ def plan(args: argparse.Namespace, target: Target) -> int:
 
 def generate(args: argparse.Namespace, target: Target) -> int:
     """Make an image, watch it happen, and save it."""
+    body = {"request": args.prompt}
+    if getattr(args, "model", None):
+        # A model the user chose. The agency honours it when it can do
+        # the job, and says so when it cannot.
+        body["model_id"] = args.model
     try:
-        data = _post(target, "/v1/generate", {"request": args.prompt})
+        data = _post(target, "/v1/generate", body)
     except httpx.RequestError:
         return _not_running()
 
@@ -487,6 +492,11 @@ def build_parser() -> argparse.ArgumentParser:
     generate_parser.add_argument("prompt", help="What you want, in words")
     generate_parser.add_argument("--out", default=None,
                                  help="Where to write the PNG")
+    generate_parser.add_argument(
+        "--model", default=None,
+        help="the model to use, instead of the one the resolver picks. "
+             "Honoured when it can do the job; the agency says so when "
+             "it cannot. Run 'tis plan' to see the alternatives.")
 
     iterate_parser = subparsers.add_parser(
         "iterate", parents=[common], help="Revise an existing image")

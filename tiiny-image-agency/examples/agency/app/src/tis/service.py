@@ -143,21 +143,26 @@ class _ObservedDevice:
         # After the call, not before: a chat that raised produced no
         # critique, and an event claiming otherwise would be a lie. Only
         # the judge talks through this wrapper — the planner talks to the
-        # raw device — so a "critique.ready" event really is a critique.
-        self._events.publish("critique.ready", self._session(),
+        # raw device — so a "judge.called" event really is a judge.
+        #
+        # This event says the judge was CALLED and carries the prompt it
+        # was given. It does not carry the verdict, because at this level
+        # there is no verdict yet — only a reply to be parsed. The
+        # orchestrator publishes "critique.ready" with the parsed
+        # verdict, which is the event a client should act on.
+        self._events.publish("judge.called", self._session(),
                              {"model": model, "prompt": prompt})
         return response
 
     def vision(self, model: str, question: str, image: bytes) -> str:
         """Ask a model about an image, and say so when it has answered.
 
-        The same event as chat(), for the same reason: a critique that
-        the client was never told about is a critique the client cannot
-        show. A judge that can SEE the image is still a judge, and its
-        verdict is still worth an event.
+        The same event as chat(), for the same reason: a judge that can
+        SEE the image is still a judge, and the fact that it was called
+        is worth an event.
         """
         answer = self._device.vision(model, question, image)
-        self._events.publish("critique.ready", self._session(),
+        self._events.publish("judge.called", self._session(),
                              {"model": model, "prompt": question,
                               "vision": True})
         return answer
@@ -241,6 +246,10 @@ class _Work:
     height: int
     asset_id: str = ""
     feedback: str = ""
+    #: The model the user asked for, if any. Empty means "the resolver
+    #: chooses". A model the user chose is honoured when it can do the
+    #: job, and the resolver says so when it cannot.
+    model_id: str = ""
 
 
 class Agency:
@@ -300,7 +309,14 @@ class Agency:
             # against without pretending the wrapper IS the manager.
             cast(ResidencyManager,
                  _ObservedResidency(self.residency, self.events,
-                                    self._session.get)))
+                                    self._session.get)),
+            # The orchestrator publishes the judge's VERDICT. Without this
+            # the event stream carries the prompt the judge was given and
+            # nothing about what it concluded, and a surface can only say
+            # "the judge compared the image against the requirements" -
+            # which is true whether the judge passed, failed, or was
+            # never called.
+            events=self.events, session=self._session.get)
 
         self._queue: queue.Queue[_Work | None] = queue.Queue()
         self._worker: threading.Thread | None = None
@@ -521,18 +537,22 @@ class Agency:
         return result
 
     def plan(self, request: str, width: int = 1024, height: int = 1024,
-             session_id: str = "default") -> dict:
+             session_id: str = "default", model_id: str = "") -> dict:
         """Plan a request without generating anything.
 
         A plan is a read: it does not touch the appliance beyond the
         planner's own call, and it publishes no events — the event stream
         is the story of a generation, and this is not one. The session is
         accepted so that every entry point looks the same to a caller.
+
+        ``model_id`` is a model the user chose. It is honoured when it can
+        do the job, and the plan says so when it cannot.
         """
         plan = self.planner.plan(request, width, height)
         self._refresh_status()
         try:
-            resolution = self.resolver.resolve(plan.requirements)
+            resolution = self.resolver.resolve(plan.requirements,
+                                               preferred=model_id or None)
         except ResolverError as exc:
             model = self.resolver.best_unavailable(plan.requirements)
             if model is None:
@@ -585,19 +605,23 @@ class Agency:
         }
 
     def generate(self, request: str, session_id: str = "default",
-                 width: int = 1024, height: int = 1024) -> str:
+                 width: int = 1024, height: int = 1024,
+                 model_id: str = "") -> str:
         """Accept a generation and return its job id, immediately.
 
         The appliance needs a minute and sometimes three. A caller that
         waited on it would be stuck, not waiting, so the work is handed to
         the one worker and the id comes back now.
+
+        ``model_id`` is a model the user chose, or empty to let the
+        resolver decide.
         """
         job = self.jobs.create(session_id, "generate", request)
         self.events.publish("job.queued", session_id,
                             {"job_id": job.id, "kind": "generate"})
         self._enqueue(_Work(job_id=job.id, session_id=session_id,
                             kind="generate", request=request,
-                            width=width, height=height))
+                            width=width, height=height, model_id=model_id))
         return job.id
 
     def iterate(self, asset_id: str, feedback: str,
@@ -777,7 +801,8 @@ class Agency:
         plan = self.planner.plan(work.request, work.width, work.height)
         self._resolve(work, plan.requirements, plan.source)
         scene = SceneDescription(subject=work.request)
-        result = self.orchestrator.generate(plan.requirements, scene)
+        result = self.orchestrator.generate(plan.requirements, scene,
+                                             preferred=work.model_id or None)
         self._deliver(work, result, plan.requirements, plan.source,
                       work.request, scene.modifiers)
 

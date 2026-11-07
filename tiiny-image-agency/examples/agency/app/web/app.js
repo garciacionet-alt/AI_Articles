@@ -52,7 +52,13 @@ const els = {
     roleConversation: $('role-conversation'),
     roleCritic: $('role-critic'),
     roleNote: $('role-note'),
+    modelAlternatives: $('model-alternatives'),
 };
+
+// The model the user chose, if any. Empty means "the resolver decides".
+// It survives between requests: choosing a model is a standing
+// preference, not a one-off.
+let chosenModelId = '';
 
 let currentJobId = null;
 let currentAssetId = null;
@@ -120,7 +126,7 @@ async function submit(event) {
         // Plan first: it costs one planner call and it tells the user
         // which model, whether a swap is coming, and whether a DOWNLOAD
         // is coming — before any of that starts.
-        const plan = await apiPost('/v1/plan', {request});
+        const plan = await apiPost('/v1/plan', {request, model_id: chosenModelId});
         renderPlan(plan);
     } catch (error) {
         say('The plan failed: ' + error.message, 'bad');
@@ -128,7 +134,7 @@ async function submit(event) {
     }
 
     try {
-        const queued = await apiPost('/v1/generate', {request});
+        const queued = await apiPost('/v1/generate', {request, model_id: chosenModelId});
         currentJobId = queued.job_id;
         watch(currentJobId);
     } catch (error) {
@@ -173,6 +179,36 @@ function renderPlan(plan) {
             + 'downloaded first — about five minutes.', 'warn');
     }
     loadCard(model.id);
+    renderAlternatives(plan.alternatives || [], model.id);
+}
+
+// The models the resolver ranked behind its choice, as things the user
+// can PICK. The resolver picks one and explains why; a user who knows
+// the appliance better than the resolver does has to be able to say so.
+function renderAlternatives(alternatives, currentId) {
+    const box = els.modelAlternatives;
+    box.innerHTML = '';
+    if (!alternatives.length) {
+        return;
+    }
+    const label = document.createElement('div');
+    label.className = 'alt-label';
+    label.textContent = 'or use another model';
+    box.appendChild(label);
+    for (const alternative of alternatives) {
+        const button = document.createElement('button');
+        const onDevice = alternative.downloaded ? '' : ', not on the device';
+        button.className = 'alt'
+            + (alternative.id === currentId ? ' current' : '');
+        button.textContent = alternative.id + '  ('
+            + alternative.npu_usage + '%' + onDevice + ')';
+        button.addEventListener('click', () => {
+            chosenModelId = alternative.id;
+            say('The next image will use ' + alternative.id + '.', 'event');
+            renderAlternatives(alternatives, alternative.id);
+        });
+        box.appendChild(button);
+    }
 }
 
 async function loadCard(modelId) {
@@ -298,8 +334,20 @@ function handle(event) {
             break;
 
         case 'critique.ready':
+            // The VERDICT, not the fact of a comparison. "The judge
+            // compared the image against the requirements" is true of a
+            // pass, a fail, and a judge that was never called - it tells
+            // the user nothing they can act on.
             if (armed) {
-                say('The judge compared the image against the requirements.',
+                say(describeVerdict(data), 'event');
+            }
+            break;
+
+        case 'model.changed':
+            // The judge failed twice, so the job moved to another model.
+            if (armed) {
+                say('The judge was not satisfied, so this is being tried '
+                    + 'with ' + (data.to || 'another model') + ' instead.',
                     'event');
             }
             break;
@@ -459,6 +507,31 @@ async function updateNpu() {
         ? resident.join(', ')
         : 'nothing resident';
     els.npuResident.title = resident.join('\n');
+}
+
+// -- what the judge said ---------------------------------------------------
+//
+// The judge's verdict is the one piece of feedback a user can act on.
+// It arrives as a verdict, some reasons, and the changes the judge
+// wants. Written out, because "the judge compared the image against the
+// requirements" is true whether it passed, failed, or never ran.
+
+function describeVerdict(data) {
+    const reasons = data.reasons || [];
+    const changes = data.suggested_changes || [];
+    if (data.passed) {
+        const why = reasons.length ? ' ' + reasons[0] : '';
+        return 'The judge passed it.' + why;
+    }
+    if (data.inconclusive) {
+        return 'The judge could not decide' + (reasons.length
+            ? ': ' + reasons[0] : '') + '.';
+    }
+    if (changes.length) {
+        return 'The judge asked for: ' + changes.join('; ') + '.';
+    }
+    return 'The judge was not satisfied' + (reasons.length
+        ? ': ' + reasons[0] : '') + '.';
 }
 
 // -- who talks, and who judges ---------------------------------------------

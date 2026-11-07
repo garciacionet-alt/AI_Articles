@@ -99,6 +99,11 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
                 "styles": model_spec.style,
                 "dialect": model_spec.dialect,
                 "sizes_verified": model_spec.sizes_verified,
+                # Listed is not installed. The resolver will not pick a
+                # model that is not on disk, and a client that cannot
+                # see that cannot explain why the same request always
+                # gets the same model.
+                "downloaded": model_spec.downloaded,
             }
             models.append(model_dict)
         
@@ -166,7 +171,8 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
                 request.request,
                 request.width,
                 request.height,
-                request.session_id
+                request.session_id,
+                request.model_id
             )
             return result
         except PlannerError as exc:
@@ -194,7 +200,8 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
             request.request,
             session_id=request.session_id,
             width=request.width,
-            height=request.height
+            height=request.height,
+            model_id=request.model_id
         )
 
         # Return the job info immediately without waiting
@@ -345,6 +352,9 @@ class PlanRequest(BaseModel):
     width: int = 1024
     height: int = 1024
     session_id: str = "default"
+    #: A model the user chose. Honoured when it can do the job; the
+    #: plan says so when it cannot.
+    model_id: str = ""
 
 
 class RoleRequest(BaseModel):
@@ -362,6 +372,8 @@ class GenerateRequest(BaseModel):
     width: int = 1024
     height: int = 1024
     session_id: str = "default"
+    #: A model the user chose, or empty to let the resolver decide.
+    model_id: str = ""
 
 
 class IterateRequest(BaseModel):

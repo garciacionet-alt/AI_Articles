@@ -70,6 +70,47 @@ _DIMENSION_CHANGE = re.compile(
     re.IGNORECASE,
 )
 
+#: A change that talks about THE PROMPT rather than about THE PICTURE is
+#: not an instruction the model can obey. The judge is asked for a
+#: visible change, and it sometimes answers with a note about the
+#: prompt instead: 'Add "in the style of an illustration" to the prompt'.
+#:
+#: Passed to the model verbatim, that text is drawn or described rather
+#: than done - and the next judge reads the meta-text and complains
+#: about THAT, and the loop spends its generations arguing with itself.
+#:
+#: The instruction is recoverable. Strip the meta-prefix and what is
+#: left is the visible change the judge meant: "in the style of an
+#: illustration".
+_PROMPT_META = re.compile(
+    r"^\s*(?:please\s+)?(?:add|include|mention|append|put)\s+"
+    r"(?:the\s+(?:phrase|words?|text)?\s*)?"
+    r"(?P<quoted>\"[^\"]+\"|'[^']+'|[^,]+?)"
+    r"\s+(?:to|in|into)\s+the\s+prompt\s*\.?\s*$",
+    re.IGNORECASE,
+)
+
+#: ...and anything still talking about the prompt after that is about the
+#: prompt, not the picture, and cannot be sent to a model.
+_STILL_ABOUT_THE_PROMPT = re.compile(r"\bthe\s+prompt\b", re.IGNORECASE)
+
+
+def _strip_prompt_meta(change: str) -> str:
+    """Turn a note about the prompt into the instruction it meant.
+
+    'Add "in the style of an illustration" to the prompt' becomes
+    'in the style of an illustration'. A change that is still talking
+    about the prompt after that is returned unchanged, and the caller
+    drops it.
+    """
+    match = _PROMPT_META.match(change)
+    if not match:
+        return change
+    inner = match.group("quoted").strip()
+    if len(inner) >= 2 and inner[0] == inner[-1] and inner[0] in "\"'":
+        inner = inner[1:-1].strip()
+    return inner or change
+
 
 def _is_usable_change(change: str) -> bool:
     """Can this change be appended to the prompt and sent to the model?
@@ -77,8 +118,16 @@ def _is_usable_change(change: str) -> bool:
     A change that asks for the output's dimensions cannot: the model
     already has the size as an argument, and the prompt repeating it
     makes the model draw the numbers.
+
+    A change that is about the PROMPT rather than the PICTURE cannot
+    either, for the same reason in a different way: the model cannot
+    obey a note about its own instructions.
     """
-    return not _DIMENSION_CHANGE.search(change)
+    if _DIMENSION_CHANGE.search(change):
+        return False
+    if _STILL_ABOUT_THE_PROMPT.search(_strip_prompt_meta(change)):
+        return False
+    return True
 
 
 class Critique(BaseModel):
@@ -251,7 +300,17 @@ class Critic:
         # size is an argument to the model, not prompt text, and repeating
         # it in the prompt makes the model draw the numbers. The judge's
         # own words stay in `raw`, so nothing is lost.
-        usable = [change for change in changes if _is_usable_change(change)]
+        #
+        # A change that is about the PROMPT rather than the PICTURE is
+        # stripped of its meta-prefix and kept as the visible instruction
+        # it meant: 'Add "in the style of an illustration" to the prompt'
+        # becomes 'in the style of an illustration'. If what is left is
+        # still about the prompt, it is dropped like a dimension request.
+        usable = []
+        for change in changes:
+            if not _is_usable_change(change):
+                continue
+            usable.append(_strip_prompt_meta(change))
 
         # If every change was dropped, there is nothing left to act on.
         # The judge asked for something unusable, so this is a broken

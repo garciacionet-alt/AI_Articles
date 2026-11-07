@@ -496,11 +496,30 @@ class DialectTranslator:
         if profile.max_words is None or len(prompt.split()) <= profile.max_words:
             return prompt, notes, removed
 
-        reduced = scene.model_copy(update={"modifiers": ()})
-        shorter, removed = self._compose(reduced, profile)
-        if len(shorter.split()) <= profile.max_words:
-            notes.append("Dropped the modifiers to fit the model's brevity target.")
-            return shorter, notes, removed
+        # THE MOST RECENT INSTRUCTION WINS.
+        # A modifier list can carry a judge's changes at the end, and a
+        # judge's change is the last word on the picture - it is what the
+        # retry is FOR. So when the prompt is too long, the OLDEST
+        # modifiers go first, and the newest survive as long as they can.
+        # Dropping the whole list instead would throw away the one
+        # instruction the user most needs acted on.
+        modifiers = tuple(scene.modifiers)
+        for keep_count in range(len(modifiers), -1, -1):
+            kept = modifiers[len(modifiers) - keep_count:] if keep_count else ()
+            reduced = scene.model_copy(update={"modifiers": kept})
+            shorter, removed = self._compose(reduced, profile)
+            if len(shorter.split()) <= profile.max_words:
+                if keep_count == 0:
+                    notes.append(
+                        "Dropped the modifiers to fit the model's brevity target."
+                    )
+                else:
+                    notes.append(
+                        f"Dropped the {len(modifiers) - keep_count} oldest "
+                        f"modifier(s) to fit the model's brevity target; the "
+                        f"most recent instruction was kept."
+                    )
+                return shorter, notes, removed
 
         subject_words = scene.subject.split()
         overhead = len(shorter.split()) - len(subject_words)

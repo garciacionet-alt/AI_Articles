@@ -91,15 +91,39 @@ class Resolver:
     # -- public ---------------------------------------------------------
 
     def resolve(self, requirements: RequirementVector,
-                resident: Collection[str] | None = None) -> Resolution:
+                resident: Collection[str] | None = None,
+                preferred: str | None = None) -> Resolution:
         """Choose a model for ``requirements``.
 
         ``resident`` is the set of model ids currently loaded on the device.
         When it is None the resolver assumes the hot-path baseline — the
         planner plus the default model — so the swap plan it produces is the
         one the residency manager would act on.
+
+        ``preferred`` is a model the USER chose. It wins, if it can do the
+        job — the capability filter still applies, because a user asking
+        for a transparent background cannot be given a model that cannot
+        render one. If it cannot do the job, the resolver says so in the
+        justification rather than quietly ignoring the request.
         """
         ranked = self._rank(requirements)
+        preferred_note = None
+        if preferred:
+            spec = next((m for m in ranked if m.id == preferred), None)
+            if spec is None:
+                # Not in the registry at all, or filtered out because it
+                # cannot do this job. Either way the user asked for
+                # something impossible, and saying so is the whole
+                # point of saying it.
+                preferred_note = (
+                    f"You asked for {preferred}, and it cannot make this "
+                    f"image, so a model that can was chosen instead."
+                )
+            else:
+                ranked = [spec] + [m for m in ranked if m.id != spec.id]
+                preferred_note = (
+                    f"You chose {preferred}, and it can make this image."
+                )
         chosen = self._winner(ranked)
         alternatives = [self._choice(m) for m in ranked if m.id != chosen.id][:3]
         unavailable = [self._choice(m) for m in self._unavailable(requirements)][:3]
@@ -108,6 +132,10 @@ class Resolver:
         occupancy = self._occupancy(chosen, planner_resident)
         swap_plan = self._swap_plan(chosen, resident, planner_resident)
         reasons = self._reasons(chosen, requirements)
+        if preferred_note:
+            # The user's own choice, or the reason it could not be
+            # honoured, belongs with the reasons the model was picked.
+            reasons = [preferred_note] + list(reasons)
 
         return Resolution(
             chosen=self._choice(chosen),

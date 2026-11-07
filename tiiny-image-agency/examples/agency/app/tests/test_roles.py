@@ -147,6 +147,60 @@ def test_the_dimension_rule_holds_for_a_vision_critic_too(registry: Registry):
     assert "Never ask for the image SIZE or RESOLUTION" in device.prompts[-1]
 
 
+# -- a change that is about the prompt, not the picture --------------------
+
+
+META = (
+"VERDICT: fail\n"
+"REASON: the prompt does not ask for an illustration\n"
+'CHANGE: Add "in the style of an illustration" to the prompt\n'
+'CHANGE: Add "with a solid background" to the prompt'
+)
+
+
+def test_a_note_about_the_prompt_becomes_the_instruction_it_meant(
+        registry: Registry):
+    """'Add X to the prompt' is how a judge says 'X'."""
+    device = _device(registry, META)
+    critique = Critic(device, JUDGE).judge(
+        b"\x89PNG", RequirementVector(), "A friendly robot.")
+
+    assert critique.suggested_changes == [
+        "in the style of an illustration",
+        "with a solid background",
+    ]
+    assert not any("the prompt" in change
+                   for change in critique.suggested_changes), (
+        "meta-text about the prompt cannot be sent to a model")
+
+
+def test_a_change_still_about_the_prompt_is_dropped(registry: Registry):
+    device = _device(registry, (
+        "VERDICT: fail\n"
+        "REASON: the prompt is wrong\n"
+        "CHANGE: Rewrite the prompt to remove the contradictory instruction"
+    ))
+    critique = Critic(device, JUDGE).judge(
+        b"\x89PNG", RequirementVector(), "A friendly robot.")
+
+    assert critique.suggested_changes == []
+    assert critique.inconclusive is True, (
+        "a verdict with nothing actionable is inconclusive, not a failure")
+
+
+def test_a_visible_change_is_left_alone(registry: Registry):
+    """The filter must not eat real art direction."""
+    device = _device(registry, (
+        "VERDICT: fail\n"
+        "REASON: the subject is too small\n"
+        "CHANGE: make the subject larger in the frame"
+    ))
+    critique = Critic(device, JUDGE).judge(
+        b"\x89PNG", RequirementVector(), "A friendly robot.")
+
+    assert critique.suggested_changes == ["make the subject larger in the frame"]
+
+
 # -- the agency -----------------------------------------------------------
 
 
