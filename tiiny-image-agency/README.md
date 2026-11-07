@@ -211,6 +211,98 @@ thinking and returned nothing — which looks exactly like a model that
 cannot see. The judge now asks for no thinking at all, because a judge
 needs a verdict, not a deliberation.
 
+## Running it on Linux and Windows — a contribution wanted
+
+**This project was built and tested on macOS, and it will not run on Linux
+or Windows as it stands. A contributor with either machine would be doing
+the most useful thing anyone could do with it.**
+
+The reason is worth stating precisely, because it is not the usual reason.
+The application itself is portable: pure Python, four dependencies
+(`pydantic`, `httpx`, `fastapi`, `uvicorn`), no compiled extensions, no
+macOS APIs anywhere in the resolver, the planner, the registry, the
+orchestrator or the asset store. **The appliance is network-reachable and
+platform-neutral** — it answers both its inference API and its management
+API directly on the LAN, at an ordinary IP address.
+
+Three things stop it, and all three are small.
+
+**1. The `tiiny` CLI is a macOS binary.** Loading and unloading a model
+is not an HTTP call — it goes through the vendor's CLI, and the
+management API has no load or unload route. The build used here is
+`tiiny-cli-darwin-arm64`. The CLI itself takes a `--device-address` flag
+and works against the appliance's IP from any machine, so a Linux or
+Windows build of the same CLI is most of what is needed. The vendor's
+own local proxy carries a `WindowsCompatListener` setting, which
+suggests they build for more than one platform.
+
+**2. `script -q /dev/null` for the pty.** The CLI dies with *"could not
+open a new TTY"* unless it is given a pseudo-terminal, so every load,
+unload and download is wrapped in `script`. macOS ships the BSD
+version; Linux ships util-linux `script`, which takes the same idea with
+different flags. A platform check, or dropping `script` for a Python
+pty, fixes it.
+
+**3. `fcntl.flock` for the watchdog lock.** The application takes a lock
+so the appliance's own watchdog cannot evict a model in the middle of a
+generation. `fcntl` is POSIX, so Linux is fine and Windows needs
+`msvcrt.locking` or a `filelock` dependency.
+
+There is also a configuration detail that matters more than it looks: the
+default base URL is a hostname that resolves to `127.0.0.1` **on the
+machine where this was built**, because a local macOS proxy answers on
+it. On another machine that name will not resolve, and the appliance has
+to be addressed by its IP instead. The base URL needs to come from the
+environment.
+
+**A rough estimate of the work:** on Linux, a day. The three changes
+above are around thirty lines in total, and none of them touch the
+resolver, the planner or the orchestrator — the parts that carry the
+ideas. On Windows, longer, and gated on a Windows build of the vendor's
+CLI existing.
+
+### One design constraint a porter must decide about
+
+The hold file and the watchdog lock live in a per-machine home directory.
+That is fine while everything runs on one machine, and it is what makes
+the coordination work — the application and the appliance's watchdog
+exclude each other correctly. But it means that **running the Agency on
+one machine while the watchdog runs on another silently loses that
+coordination**: neither would see the other's lock, and two agents could
+drive the appliance at once.
+
+So there are two honest answers, and the choice belongs to whoever ports
+it:
+
+- **Run everything on the same machine.** The current design is already
+  correct, and the port is the work.
+- **Move the lock somewhere both machines can see** — a shared
+  filesystem, or a lock served by the appliance itself. This is a better
+  design and a much bigger piece of work, and it is worth doing
+  deliberately rather than by accident.
+
+### How to contribute
+
+The application is under `examples/agency/`, and the parts that carry
+the design are documented in **[PATTERN.md](PATTERN.md)** and
+**[IMPLEMENTATION.md](IMPLEMENTATION.md)**. A port is mostly a matter of
+making the three changes above and confirming that the suite still
+passes — `cd examples/agency/app && python -m pytest`.
+
+Two things a port must preserve, because they are the parts that took
+the work to get right:
+
+- **The bytes are never re-encoded.** An image goes to the appliance and
+  comes back as the same bytes. A round trip through an image library is
+  exactly where a transparent background quietly becomes an opaque one.
+- **The judge has to see.** A critic that cannot see the image judges the
+  prompt instead, and a prompt judge invents a defect rather than admit
+  the limit. Every invented defect costs a generation.
+
+If you port it, open a pull request with what you found. The appliance
+is the hard part of this project and it does not change; the port is
+three known edits and a machine you already own.
+
 ## What is in this folder
 
 - **[PATTERN.md](PATTERN.md)** — the portable design: the requirement vector,

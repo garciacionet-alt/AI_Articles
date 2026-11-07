@@ -1,10 +1,13 @@
 ---
 name: tiiny-image-agency
 description: "Generate images on the local Tiiny Pocket Lab through the Tiiny Image Agency. Plans the request, resolves the model, generates on the appliance, reads the critique, and reports which model made the image and why."
-version: 1.0.0
+version: 1.1.0
 author: Gary Garcia (garciacionet-alt), Hermes Agent
 license: MIT
 platforms: [linux, macos]
+# The Agency's Python runs on Linux. The vendor toolchain it shells out
+# to is macOS-built, so a Linux host needs the Linux CLI build - see
+# references/portability.md.
 metadata:
   hermes:
     tags: [tiiny, images, generation, local-inference, agency, alpha, transparent]
@@ -52,6 +55,13 @@ which model it chose and why.
 5. **Report the model.** Say which model produced the asset and why. The
    model choice is the interesting part of the answer.
 
+6. **Check `planner_source` before you trust a plan.** A plan carries
+   `"planner_source": "llm"` or `"fallback"`. If it says `fallback`, the
+   words in the request were thrown away — the keyword planner only
+   knows the catalogue's vocabulary, so a style nobody declares comes
+   back as "general" and never reaches the prompt. This looks exactly
+   like a routing bug and is not one.
+
 ## Before You Start
 
 Check the agency is up:
@@ -95,41 +105,43 @@ re-encodes, never resizes — because a round trip through an image library
 is exactly where a transparent background quietly becomes an opaque one. Use
 it to check a cut-out instead of trusting the prompt.
 
-## The Judge — and Whether It Can See
+## The Judge — It Always Sees
 
 The agency has two conversational roles. The **talker** turns the request
 into a requirement vector. The **judge** decides whether the result is
-good. By default they are the same model, and the judge sees only the
-prompt.
+good. They are separate choices, and they have different needs.
 
-That is enough to catch a prompt that does not ask for what was requested.
-It is **not** enough to catch a generation that simply came out wrong — and
-a blind judge will invent a defect rather than admit it cannot see, and
-every invented defect costs another generation.
+**The judge is always a vision model.** A judge that reads text only
+judges the PROMPT, and a prompt judge does not fail loudly — it invents a
+defect rather than admit the limit. Every invented defect becomes an
+instruction to regenerate, so a blind judge costs a generation each time
+it guesses wrong. The agency refuses a text-only judge and says why:
 
-Some models on the appliance can see an image. `tis roles` lists them all:
-
-```bash
-tis roles                                  # the guide
-tis roles --critic Qwen/Qwen3.6-35B-A3B    # a judge that SEES
+```
+openai/gpt-oss-20b cannot see an image, so it cannot be the judge. A judge
+that reads text only judges the PROMPT, and it will invent a defect rather
+than admit the limit. Choose a model marked as seeing one — 'tis roles'
+lists them.
 ```
 
-**When to switch the judge:** if the request is about how the image looks
-and the first result is close but wrong — a transparent background that is
-not transparent, text that is mangled, a subject that is not there — a
-judge that can see will find it, and a judge that reads the prompt will not.
+So `tis roles` lists only models that can see, under **Judges**, and
+`tis roles --critic <model>` accepts only those. The default judge is
+`Qwen/Qwen3.6-35B-A3B` at 47%.
+
+**The talker does NOT have to see.** It writes the plan and never looks at
+a pixel, so a small text model is right for it — the default is
+`openai/gpt-oss-20b` at 27%, which the watchdog already holds, so planning
+costs no swap at all. A 27% talker with the 47% judge and a 23% generator
+is 70%, under the 81% ceiling that a generation needs to actually run.
 
 **Read the fit line before you choose.** The guide says whether the judge
 and a generator fit in the NPU pool together, measured against the 81%
-ceiling that a generation needs to actually run. A judge that does not fit
-will be swapped in and out, and the generation may fail outright.
+ceiling. A judge that does not fit will be swapped in and out, and the
+generation may fail outright.
 
 The talker is not part of that sum: it has already written the scene
 description by the time the image is made, so its weights are swapped out
 while the judge and the generator have the pool to themselves.
-
-A judge that sees is slower and costs more. It is also the only kind that
-can answer "what is actually wrong with this image".
 
 ## Timing — and Why You Must Not Interrupt It
 
@@ -137,7 +149,7 @@ The appliance takes **54 to 200 seconds** for one image:
 
 | model | NPU | time |
 |---|---|---|
-| Z-Image-Turbo (the default) | 26% | ~55 s |
+| Z-Image-Turbo (the default) | 23% | ~55 s |
 | Qwen-Image-2.1 (the flagship, native alpha) | 62% | ~200 s |
 
 `tis generate` prints each progress event as it arrives. **Let it run.** A
@@ -186,30 +198,22 @@ If the request needs a transparent background, the plan will say so and
 it will cost a swap: the planner is released for the generation and
 restored afterwards.
 
-**The critique judges the PROMPT or the PIXELS — depending on the judge.**
-Two roles hold the conversation: the CONVERSATION AGENT, which turns a
-request into a requirement vector, and the CRITIC, which judges the
-result. They are separate choices, and `tis roles` shows which model holds
-each one right now.
+**The critique judges the PIXELS.** Two roles hold the conversation: the
+CONVERSATION AGENT, which turns a request into a requirement vector, and
+the CRITIC, which judges the result. They are separate choices, and
+`tis roles` shows which model holds each one right now. The critic always
+sees the image.
 
-A judge that cannot see an image judges the PROMPT. It catches a prompt
-that does not ask for what the requirements demand, and nothing else. It
-can also be wrong about a defect it cannot see, so when it reports a
-failure, check the failure against the requirement vector before acting on
-it — a complaint about a transparent background on an image that has one
-costs a generation and changes nothing.
+The appliance's chat API is OpenAI-compatible and its own models are
+image-text-to-text, so an image is handed to them as a content part — the
+device adapter's `vision(model, question, image_bytes)` method does it, and
+the research loop already uses that method to characterise models.
 
-A judge that CAN see an image judges the PICTURE. The appliance's chat
-API is OpenAI-compatible and its own models are image-text-to-text, so an
-image is handed to them as a content part — the device adapter's
-`vision(model, question, image_bytes)` method does it, and the research
-loop already uses that method to characterise models.
-
-Choose one with `tis roles --critic <model>`. The catalogue it prints
-lists every conversational model on the appliance, marks the ones that can
-see, and gives each one's NPU cost. Read it rather than trusting a list
-written down anywhere — including here — because the appliance's catalogue
-moves.
+Choose the critic with `tis roles --critic <model>`. The catalogue it
+prints lists every conversational model on the appliance, marks the ones
+that can see, and gives each one's NPU cost. Read it rather than trusting
+a list written down anywhere — including here — because the appliance's
+catalogue moves.
 
 **The talker, the judge and a generator have to fit in one pool.** The
 appliance has a single NPU pool and a model load is a swap, so the three
@@ -217,14 +221,16 @@ things a job needs — the model that plans, the model that judges, and the
 model that draws — must fit in it together, or one of them is swapped out
 and back between stages.
 
-One model holding both roles counts ONCE. The default has the same Coder
-planning and judging, so it needs 55% + 23% = 78% of the pool, not 133%.
+One model holding both roles counts ONCE — a vision model can do both jobs,
+and then the pool pays for it once.
 
-A judge that can see costs more, and the default talker is too big to
-leave room for it: 55% + 47% + 23% = 125%. The fix is not to give up on
-seeing — it is to move the talker to a smaller model. A 29% talker with
-the same judge and generator is 99%, which fits. `tis roles` reports the
-total for the current choice and names the model that would make it fit.
+The talker is the cheap one and should stay cheap. A 27% talker with the
+47% judge and the 23% default generator is 70% during judging, which runs.
+The sum that does NOT fit is the one that adds the talker to the judge and
+the generator while the image is being judged — 125% — and it is the wrong
+question, because the talker's weights are gone by then. `tis roles`
+reports the total for the current choice and names the model that would
+make it fit.
 
 Those percentages are this appliance's, measured. Run `tis roles` for the
 numbers as they are now.
@@ -238,9 +244,12 @@ the prompt did not already say.
 ## What Not to Do
 
 - Do not call the appliance's generation endpoint directly.
-- Do not assume the judge can see the image. Run `tis roles` and read the
-  JUDGE line: "text only" means the critique is a claim about the prompt,
-  and a claim about the pixels needs a judge that was told it could look.
+- Do not try to make a text-only model the judge. It is refused, and the
+  refusal is the correct behaviour: a judge that cannot see invents
+  defects. `tis roles` lists only the models that can.
+- Do not sum the talker, the judge and the generator against the ceiling.
+  The talker is swapped out before the image is judged. The sum that
+  matters is judge + generator.
 - Do not pick a judge that does not fit the pool. The guide reports the
   fit; if the total is over 100%, the judge gets swapped in and out, or
   never runs at all.
@@ -277,6 +286,31 @@ The surface is an HTTP client of the API, exactly like the CLI. It holds no
 credential and never touches the appliance. If you are checking that a
 change went through the API rather than around it, look for the credential
 and the appliance URL in the CLI and in the surface: neither may have one.
+
+### What the surface does that a chat box does not
+
+- **It asks before it generates.** The plan opens a dialog naming the
+  model and why, lists the alternatives with their NPU cost and whether
+  they are on the device, says what a download would cost, and WAITS. A
+  generation costs a minute and sometimes three, so a model the user did
+  not need is worse than a slow one.
+- **You can drop an image into it.** The file becomes the source of the
+  next request, so the next request is an EDIT of that image rather than
+  a new picture — the difference between "make this better" and "make me
+  something else". The upload route is `POST /v1/assets` with the PNG
+  bytes as the body; there is no multipart form.
+- **It tells you where the file is.** The path is under the image, in the
+  lineage, and in the `asset.ready` event.
+- **It has a card for every model.** `GET /v1/models/card?model_id=`
+  gives three parts kept apart: what the device **advertises** it does,
+  what we **measured**, and what we have **noticed** that the device does
+  not say. A card exists for every model — "not measured yet" is a fact
+  the card reports, not a 404. The third part is the point.
+
+An agent can also say where the finished PNG should land:
+`POST /v1/generate` and `POST /v1/iterate` take `output_path`, and the
+finished file is written there too, byte for byte. The agency's own copy
+is written either way.
 
 ## The Appliance Is Shared — Read the Board Before You Take It
 
@@ -340,6 +374,32 @@ Two things follow:
   error. Reserve the device, load the model, write the hold, and start the
   keepalive — then dispatch. Check the delegation manifest afterwards to
   confirm which model actually served the task.
+
+## Running It Somewhere Else
+
+The Agency is an HTTP client of the appliance, and the appliance is a
+network device. The app itself — the API, the CLI, the browser surface —
+is pure Python and runs anywhere that can reach the device.
+
+**What does not travel is the vendor toolchain**, because the vendor CLI
+is the only way to load a model into NPU memory: the device's management
+API has no load, unload or resident-set route. So a second machine needs
+the vendor CLI built for its platform, the `script` pty wrapper spelled
+its way (`script -q /dev/null cmd` on BSD, `script -q -c "cmd" /dev/null`
+on util-linux), and a lock that is not POSIX-only.
+
+**Point the base URL at the device's own address on a second machine.**
+The vendor hostname resolves to a loopback address because a local proxy
+answers on it — that is a property of the client machine, not of the
+device. Both of the device's APIs answer directly on its address.
+
+**The hold, the lock and the plan are per-machine paths.** They
+coordinate agents sharing one machine and nothing else. A second machine
+driving the same appliance needs coordination the per-machine files
+cannot provide.
+
+The findings, the checks that establish them, and the recipe are in
+[references/portability.md](references/portability.md).
 
 ## Related
 

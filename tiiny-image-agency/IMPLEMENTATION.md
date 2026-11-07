@@ -68,6 +68,33 @@ and the API owns the appliance.
 
 The browser surface is on the same port: <http://127.0.0.1:8080>.
 
+### Running it on Linux or Windows
+
+This was built on macOS. The application is portable — pure Python, four
+dependencies, no compiled extensions — but three things are not, and a
+porter will hit all three immediately. The [README](README.md#running-it-on-linux-and-windows--a-contribution-wanted)
+has the full account; this is the working list.
+
+| # | what | where | the fix |
+|---|---|---|---|
+| 1 | the `tiiny` CLI is a macOS binary, and it is the only way to load or unload a model — the management API has no load route | `app/src/tis/device.py`, `app/src/tis/config.py` | a Linux or Windows build of the vendor's CLI. It takes `--device-address`, so it works against the appliance's IP from any machine |
+| 2 | the CLI needs a pty, so every load, unload and download is wrapped in `script -q /dev/null` | `app/src/tis/device.py` | macOS ships BSD `script`, Linux ships util-linux `script` with different flags. A platform check, or a Python pty |
+| 3 | the watchdog lock uses `fcntl.flock` | `app/src/tis/residency.py` | POSIX. Linux is fine; Windows needs `msvcrt.locking` or a `filelock` dependency |
+
+And one configuration change that is easy to miss: **the default base URL
+resolves to `127.0.0.1` on the machine where this was developed**, because
+a local macOS proxy answers on that hostname. On any other machine it will
+not resolve, and the appliance has to be addressed by its LAN IP. The base
+URL needs to come from the environment — `Settings(base_url=...)` today,
+and an environment variable in `load_settings()` after that.
+
+Two invariants a port must not break:
+
+- **Bytes are never re-encoded.** Images are stored and served exactly as
+  the appliance returned them.
+- **The judge must be able to see.** The API refuses a text-only critic,
+  and the default critic is a vision model.
+
 ## The API
 
 | route | what it does |
