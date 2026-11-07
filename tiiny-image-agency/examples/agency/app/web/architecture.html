@@ -119,10 +119,11 @@
   <line x1="650" y1="190" x2="668" y2="190" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#ah-amber)"/>
   <path d="M 400 297 L 395 297 L 395 560 L 373 560" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#ah-violet)"/>
   <text x="390" y="430" fill="#94a3b8" font-size="8" text-anchor="end">lineage</text>
-  <line x1="782" y1="340" x2="782" y2="818" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
-  <text x="792" y="700" fill="#94a3b8" font-size="8" text-anchor="middle">LAN · bearer</text>
+  <path d="M 895 300 L 908 300 L 908 890 L 897 890" fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
   <line x1="630" y1="890" x2="653" y2="890" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
   <line x1="895" y1="890" x2="918" y2="890" stroke="#64748b" stroke-width="1.5" marker-end="url(#ah)"/>
+  <path d="M 655 580 L 655 300 L 668 300" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ah-amber)"/>
+  <text x="652" y="562" fill="#94a3b8" font-size="8" text-anchor="end">writes the lock</text>
   <path d="M 1125 860 L 1162 860 L 1162 402 L 1152 402" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#ah-amber)"/>
   <text x="1125" y="800" fill="#94a3b8" font-size="8" text-anchor="end">the store is the source</text>
   <rect x="25" y="125" width="105" height="62" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
@@ -191,7 +192,7 @@
   <text x="782" y="285" fill="white" font-size="11" font-weight="600" text-anchor="middle">Device Adapter</text>
   <text x="782" y="301" fill="#94a3b8" font-size="8" text-anchor="middle">typed client — the only place</text>
   <text x="782" y="313" fill="#94a3b8" font-size="8" text-anchor="middle">that reads the bearer</text>
-  <text x="782" y="325" fill="#fb7185" font-size="8" text-anchor="middle">device-admin grade secret</text>
+  <text x="782" y="325" fill="#fbbf24" font-size="8" text-anchor="middle">over the LAN, to the device</text>
   <rect x="915" y="340" width="235" height="98" rx="6" fill="rgba(120,53,15,0.3)" stroke="#fbbf24" stroke-width="1.5"/>
   <text x="1032" y="360" fill="#fbbf24" font-size="10" font-weight="600" text-anchor="middle">THE DOWNLOAD PATH</text>
   <text x="1032" y="376" fill="#94a3b8" font-size="8" text-anchor="middle">a model that is not on disk</text>
@@ -205,6 +206,12 @@
   <text x="1032" y="528" fill="#94a3b8" font-size="8" text-anchor="middle">subscribers, so the replay</text>
   <text x="1032" y="540" fill="#94a3b8" font-size="8" text-anchor="middle">carries earlier jobs' events</text>
   <text x="1032" y="552" fill="#fb7185" font-size="8" text-anchor="middle">filter by job_id, always</text>
+  <rect x="205" y="580" width="700" height="86" rx="6" fill="rgba(120,53,15,0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="555" y="600" fill="white" font-size="11" font-weight="600" text-anchor="middle">Cross-agent coordination — one device, one lock</text>
+  <text x="555" y="616" fill="#94a3b8" font-size="8" text-anchor="middle">lock  ~/.hermes/tiiny-lock.json   who owns the device right now</text>
+  <text x="555" y="628" fill="#94a3b8" font-size="8" text-anchor="middle">hold  ~/.hermes/tiiny-hold   what must stay resident</text>
+  <text x="555" y="640" fill="#94a3b8" font-size="8" text-anchor="middle">notice  hot.md   the AMC's board — every other agent reads it</text>
+  <text x="555" y="652" fill="#fbbf24" font-size="8" text-anchor="middle">a lock that announces nothing is a lock nobody respects</text>
   <rect x="400" y="820" width="230" height="98" rx="6" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="1.5"/>
   <text x="515" y="840" fill="white" font-size="11" font-weight="600" text-anchor="middle">NPU POOL</text>
   <text x="515" y="856" fill="#94a3b8" font-size="8" text-anchor="middle">47.9 GiB · one shared pool</text>
@@ -240,7 +247,7 @@
   <text x="927" y="277" fill="#fbbf24" font-size="8" text-anchor="start">The hot path is 78%. 85% FAILS</text>
   <text x="927" y="289" fill="#fbbf24" font-size="8" text-anchor="start">with 150004 — admitted, then</text>
   <text x="927" y="301" fill="#fbbf24" font-size="8" text-anchor="start">refused. Admission is not proof.</text>
-  <rect x="915" y="599" width="235" height="120" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+  <rect x="915" y="599" width="235" height="138" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
   <text x="927" y="615" fill="white" font-size="10" font-weight="600">Legend</text>
   <rect x="927" y="629" width="16" height="10" rx="2" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1"/>
   <text x="949" y="637" fill="#94a3b8" font-size="8">Frontend / surface</text>

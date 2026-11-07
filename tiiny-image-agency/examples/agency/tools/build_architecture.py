@@ -182,7 +182,7 @@ BOXES = [
       ("watchdog would evict a swap", "crit")], 11, "white"),
     ("adapter", 670, 265, 225, "adapter", "Device Adapter",
      ["typed client — the only place", "that reads the bearer",
-      ("device-admin grade secret", "crit")], 11, "white"),
+      ("over the LAN, to the device", "warn")], 11, "white"),
 
     # -- the right-hand column --------------------------------------------
     ("constraint", 915, 105, 235, "constraint", "THE CONSTRAINT",
@@ -197,6 +197,20 @@ BOXES = [
       "carries earlier jobs' events",
       ("filter by job_id, always", "crit")], 10, "#34d399"),
     ("legend", 915, 615, 235, "frontend", "Legend", [], 10, "white"),
+
+    # -- the coordination that makes the device shareable -----------------
+    #
+    # This is the piece that is invisible from inside one agent, and it
+    # is where every problem in this project has lived: the lock says
+    # who owns the device, the hold says what must stay resident, and
+    # the notice in hot.md is what tells the OTHER agents either fact.
+    ("coordination", 205, 580, 700, "device",
+     "Cross-agent coordination — one device, one lock",
+     ["lock  ~/.hermes/tiiny-lock.json   who owns the device right now",
+      "hold  ~/.hermes/tiiny-hold   what must stay resident",
+      "notice  hot.md   the AMC's board — every other agent reads it",
+      ("a lock that announces nothing is a lock nobody respects", "warn")],
+     11, "white"),
 
     # -- the device --------------------------------------------------------
     ("pool", 400, 820, 230, "constraint", "NPU POOL",
@@ -292,10 +306,20 @@ def build_svg() -> str:
     out.append(arrow(650, 190, 668, 190, "#fbbf24"))
     out.append(path("M 400 297 L 395 297 L 395 560 L 373 560", "#a78bfa",
                     label="lineage", label_x=390, label_y=430, anchor="end"))
-    out.append(arrow(782, 340, 782, 818, "#64748b", label="LAN · bearer",
-                     label_x=792, label_y=700))
+    # The adapter reaches the device down the GAP between the middle
+    # column and the right one, so the line does not pass through the
+    # coordination box. A line through a box is a line that says
+    # something untrue.
+    out.append(path("M 895 300 L 908 300 L 908 890 L 897 890", "#64748b"))
     out.append(arrow(630, 890, 653, 890, "#64748b"))
     out.append(arrow(895, 890, 918, 890, "#64748b"))
+    # The residency manager WRITES the lock and the hold; the board
+    # tells everyone else. That is the whole sharing mechanism. The
+    # label sits in the empty band above the coordination box, because
+    # the gap between the two columns is too narrow to write in.
+    out.append(path("M 655 580 L 655 300 L 668 300", "#fbbf24", dashed=True,
+                    label="writes the lock", label_x=652, label_y=562,
+                    anchor="end"))
     # The store is where a missing model comes from. The line runs up the
     # RIGHT edge, clear of the event-stream box, because a line through
     # a box is a line that says something untrue.
@@ -345,7 +369,7 @@ def build_svg() -> str:
 
     # -- the legend --------------------------------------------------------
     lx, ly = 915, 615
-    out.append(f'  <rect x="{lx}" y="{ly - 16}" width="235" height="120" rx="6" '
+    out.append(f'  <rect x="{lx}" y="{ly - 16}" width="235" height="138" rx="6" '
                'fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>')
     out.append(f'  <text x="{lx + 12}" y="{ly}" fill="white" font-size="10" '
                'font-weight="600">Legend</text>')
@@ -487,7 +511,7 @@ def check_overlaps() -> int:
             continue
         boxes.append((key, x, y, w, box_height(tsize, lines)))
     boxes.append(("constraint", 915, 105, 235, 220))
-    boxes.append(("legend", 915, 599, 235, 120))
+    boxes.append(("legend", 915, 599, 235, 138))
     problems = 0
     for i, (ka, ax, ay, aw, ah) in enumerate(boxes):
         for kb, bx, by, bw, bh in boxes[i + 1:]:
