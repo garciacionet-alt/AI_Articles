@@ -237,7 +237,36 @@ class TiinyDevice:
         ]
 
     def load(self, model: str) -> None:
-        self._cli("load", model)
+        """Put a model into NPU memory.
+
+        The CLI's EXIT IS NOT A VERDICT. The observed load of the 14.5
+        GiB community build did the work and then sat there: the model
+        was resident and the CLI had not returned after ten minutes, so
+        the call timed out and the caller was told the load had failed.
+        The model was loaded. The CLI had simply not got out of the way.
+
+        So a timeout is not a failure - it is a question. The answer
+        comes from the device: is the model resident now? If it is, the
+        load happened and the caller should carry on. If it is not, the
+        load really did fail and the caller should hear about it.
+
+        This is the same rule the download path already follows: the
+        catalogue is the authority on what the appliance did, because the
+        CLI is not.
+        """
+        try:
+            self._cli("load", model)
+            return
+        except DeviceError as exc:
+            if "timed out" not in str(exc):
+                raise
+        # The CLI timed out. Ask the device what actually happened.
+        if model in self.resident():
+            return
+        raise DeviceError(
+            self._redact(f"tiiny load timed out and {model} is not resident"),
+            retryable=True,
+        )
 
     def unload(self, model: str) -> None:
         self._cli("unload", model)

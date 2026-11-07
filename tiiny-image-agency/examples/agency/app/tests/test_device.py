@@ -91,6 +91,49 @@ def test_a_download_the_cli_dies_on_is_not_a_failure(monkeypatch):
     assert device.download("some/model") == ""
 
 
+def test_a_load_the_cli_hangs_on_is_not_a_failure(monkeypatch):
+    """The model is resident and the CLI has not returned.
+
+    The observed load of the 14.5 GiB community build did the work and
+    then sat there: the model was in NPU memory and the CLI had not
+    come back after ten minutes, so the call timed out and the caller
+    was told the load had failed. The model was loaded. The CLI had
+    simply not got out of the way.
+
+    So the timeout is a QUESTION, and the device answers it: is the
+    model resident now?
+    """
+    import subprocess
+
+    def fake_run(command, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=command, timeout=600)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    device = TiinyDevice(Settings(api_key="k", base_url="http://example"))
+    monkeypatch.setattr(device, "resident", lambda: ["some/model"])
+
+    device.load("some/model")  # must not raise
+
+
+def test_a_load_that_timed_out_and_did_not_happen_still_fails(monkeypatch):
+    """The other half: a timeout where the model is NOT resident is a
+    real failure, and it has to be reported as one."""
+    import subprocess
+
+    from tis.device import DeviceError
+
+    def fake_run(command, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=command, timeout=600)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    device = TiinyDevice(Settings(api_key="k", base_url="http://example"))
+    monkeypatch.setattr(device, "resident", lambda: [])
+
+    with pytest.raises(DeviceError) as error:
+        device.load("some/model")
+    assert "not resident" in str(error.value)
+
+
 def test_a_download_ignores_a_non_zero_exit(monkeypatch):
     """The CLI panicking after the download started is not a failure."""
     import subprocess
