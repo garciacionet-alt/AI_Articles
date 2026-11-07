@@ -119,9 +119,27 @@ is a test that fails if it is removed.
   stream. What to copy if you build something like this.
 - **[IMPLEMENTATION.md](IMPLEMENTATION.md)** — the concrete build: the
   project layout, the API contract, the registry, how to run it.
+- **[architecture.html](architecture.html)** — the architecture diagram. Open it
+  in a browser; it is one self-contained file, no build step and no
+  dependencies.
 - `scripts/` — the registry builder and the research loop, standalone.
 - `examples/` — the application itself: the package, the tests, the screen.
 - `skill/` — the Hermes skill, the procedure an agent follows.
+
+### Running the screen
+
+The work surface is three static files with no build step. To see it without
+the API running, serve the folder and open the page:
+
+```bash
+cd examples/agency/app/web
+python3 -m http.server 8081
+# then open http://127.0.0.1:8081/index.html
+```
+
+With the API running, it is served on the same port as the API itself —
+<http://127.0.0.1:8080>. Either way the page finds the API on its own
+origin, and `?api=` points it somewhere else.
 
 ## Measured, not assumed
 

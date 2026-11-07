@@ -1,12 +1,3 @@
----
-title: Tiiny Image Agency — Pattern
-type: folder-readme
-status: active
-project: tiiny-image-agency
-created: 2026-11-06
-updated: 2026-11-06
----
-
 # The Pattern
 
 This is the portable design. Nothing here is specific to one appliance or one
