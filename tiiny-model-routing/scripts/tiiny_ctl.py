@@ -98,9 +98,25 @@ def _shared_home() -> Path:
 
 
 def _dotenv_value(name: str) -> str:
-    """Read one value out of ``~/.hermes/.env`` without printing anything else."""
+    """Read one value out of the BASE Hermes home's ``.env``.
+
+    The base home, not the profile's. The profile directory is where
+    HERMES_HOME points when a profile runs, and a profile's own .env
+    does not carry the shared settings - the appliance bearer and the
+    vault path live in ``~/.hermes/.env``, where every profile reads
+    them from.
+
+    Reading the profile's .env here is why the lock announcement was
+    silent: ``TIINY_VAULT`` is set in the base home, so the controller
+    never found the vault, never wrote the "device is BUSY" notice into
+    hot.md, and every other agent read a board that said the device was
+    free while it was held.
+
+    Nothing is printed but the one value asked for, and it is never
+    logged.
+    """
     try:
-        for line in (HERMES_HOME / ".env").read_text().splitlines():
+        for line in (_shared_home() / ".env").read_text().splitlines():
             line = line.strip()
             if line.startswith(name + "="):
                 return line.split("=", 1)[1].strip().strip("'\"")
