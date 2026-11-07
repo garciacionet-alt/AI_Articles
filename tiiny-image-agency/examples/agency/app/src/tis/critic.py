@@ -37,6 +37,7 @@ reports is not a note — it is an instruction to regenerate.
 """
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
@@ -44,6 +45,40 @@ from pydantic import BaseModel
 if TYPE_CHECKING:
     from .device import Device
     from .models import RequirementVector
+
+
+#: A change that asks for the OUTPUT's dimensions is unusable, and
+#: sometimes worse than unusable: the size is passed to the model as an
+#: argument, not written into the prompt, so a prompt that mentions
+#: "1024x1024" makes the model DRAW the numbers as text.
+#:
+#: It happened. A judge asked for "1024x1024" to be added to the prompt,
+#: and the delivered image had "Alowiobe 1024x1004" written across it -
+#: one wasted generation and a ruined picture.
+#:
+#: The pattern is deliberately narrow. Bare words like "resolution" and
+#: "size" are NOT matched, because they appear in legitimate art
+#: direction ("a grainy low-resolution photograph") and dropping those
+#: would throw away real advice. What is matched is a request for the
+#: output's dimensions, in any of the ways one is written.
+_DIMENSION_CHANGE = re.compile(
+    r"\d+\s*[x×]\s*\d+"                          # 1024x1024, 1024 x 1024
+    r"|\b(?:image|output|picture|canvas|render)\s+(?:size|dimensions?)\b"
+    r"|\bdimensions?\s+(?:of|should|to|must|at)\b"
+    r"|\b(?:at|to)\s+\d+\s*(?:by|x)\s*\d+\b"     # at 1024 by 1024
+    r"|\b(?:pixel|megapixel)\s+(?:size|count|dimensions?)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_usable_change(change: str) -> bool:
+    """Can this change be appended to the prompt and sent to the model?
+
+    A change that asks for the output's dimensions cannot: the model
+    already has the size as an argument, and the prompt repeating it
+    makes the model draw the numbers.
+    """
+    return not _DIMENSION_CHANGE.search(change)
 
 
 class Critique(BaseModel):
@@ -107,6 +142,21 @@ class Critic:
             "Use VERDICT: pass when the prompt satisfies every requirement. "
             "Use VERDICT: fail with two CHANGE lines when it does not.\n"
             "\n"
+            "WHAT A CHANGE MAY AND MAY NOT ASK FOR\n"
+            "A CHANGE is appended to the prompt and sent to the image "
+            "model, so it must describe something VISIBLE in the image.\n"
+            "Never ask for the image SIZE or RESOLUTION - that is passed to "
+            "the model as a parameter, not written into the prompt, and a "
+            "prompt that mentions it makes the model DRAW the numbers as "
+            "text. Never ask for the aspect ratio, the file format, or the "
+            "number of megapixels for the same reason.\n"
+            "Never ask for a requirement to be 'added to the prompt' or "
+            "'mentioned in the prompt'. Describe the change you want to "
+            "SEE instead: 'the background is transparent' rather than "
+            "'add transparent background to the prompt'.\n"
+            "Ask only for things you can SEE in an image: subject, "
+            "composition, colour, lighting, material, mood, background.\n"
+            "\n"
             "THE PROMPT\n"
             f"{prompt or '(the prompt was not recorded)'}\n"
             "\n"
@@ -115,7 +165,8 @@ class Critic:
             f"alpha (a transparent background): {requirements.alpha}\n"
             f"text in the image: {requirements.text_in_image}\n"
             f"style: {requirements.style}\n"
-            f"size: {requirements.width}x{requirements.height}\n"
+            f"size: {requirements.width}x{requirements.height} (passed as a "
+            f"parameter; never ask for it in a CHANGE)\n"
             f"hard constraints: {', '.join(requirements.hard) or '(none)'}\n"
         )
 
@@ -140,10 +191,24 @@ class Critic:
             return Critique(passed=False, inconclusive=True, reasons=[],
                             suggested_changes=[], raw=reply)
 
+        # A change that asks for the output's dimensions is dropped. The
+        # size is an argument to the model, not prompt text, and repeating
+        # it in the prompt makes the model draw the numbers. The judge's
+        # own words stay in `raw`, so nothing is lost.
+        usable = [change for change in changes if _is_usable_change(change)]
+
+        # If every change was dropped, there is nothing left to act on.
+        # The judge asked for something unusable, so this is a broken
+        # verdict, not a failed image - and the orchestrator must not
+        # burn a generation regenerating against a change it cannot send.
+        if changes and not usable:
+            return Critique(passed=False, inconclusive=True, reasons=reasons,
+                            suggested_changes=[], raw=reply)
+
         return Critique(
             passed=verdict.strip().lower() == "pass",
             inconclusive=False,
             reasons=reasons,
-            suggested_changes=changes,
+            suggested_changes=usable,
             raw=reply,
         )

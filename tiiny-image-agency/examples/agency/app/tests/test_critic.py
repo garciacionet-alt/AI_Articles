@@ -132,3 +132,103 @@ def test_a_judge_with_no_prompt_still_asks_for_one(registry: Registry):
 
     prompt = device.prompts[-1]
     assert "the prompt was not recorded" in prompt
+
+
+# -- the judge's changes must be usable -----------------------------------
+#
+# A change is not a note. It is appended to the prompt and sent to the
+# image model. So a change that asks for the output's dimensions makes
+# the model DRAW the numbers, and the picture is ruined.
+#
+# It happened: a judge asked for "1024x1024" to be added to the prompt,
+# and the delivered image had "Alowiobe 1024x1004" written across it.
+
+
+def test_a_change_asking_for_the_size_is_dropped(registry: Registry):
+    """The size is an argument to the model, not prompt text."""
+    device = _device(
+        registry,
+        "VERDICT: fail\n"
+        "REASON: the prompt does not state the size\n"
+        "CHANGE: Add 1024x1024 to the prompt",
+    )
+    critique = Critic(device, JUDGE).judge(b"\x89PNG", RequirementVector())
+    assert critique.suggested_changes == []
+    # The judge's own words are not lost.
+    assert "1024x1024" in critique.raw
+
+
+def test_a_dimension_change_in_any_spelling_is_dropped(registry: Registry):
+    device = _device(
+        registry,
+        "VERDICT: fail\n"
+        "REASON: wrong\n"
+        "CHANGE: set the image size to 2048x2048\n"
+        "CHANGE: make the output dimensions 512 by 512\n"
+        "CHANGE: the image should be 1024 x 1024",
+    )
+    critique = Critic(device, JUDGE).judge(b"\x89PNG", RequirementVector())
+    assert critique.suggested_changes == []
+
+
+def test_a_usable_change_survives_alongside_a_dropped_one(registry: Registry):
+    """The filter drops the dimension, not the advice."""
+    device = _device(
+        registry,
+        "VERDICT: fail\n"
+        "REASON: the lighting is flat\n"
+        "CHANGE: Add 1024x1024 to the prompt\n"
+        "CHANGE: use warm rim lighting from the left",
+    )
+    critique = Critic(device, JUDGE).judge(b"\x89PNG", RequirementVector())
+    assert critique.suggested_changes == [
+        "use warm rim lighting from the left"]
+
+
+def test_a_judge_whose_every_change_is_unusable_is_inconclusive(
+        registry: Registry):
+    """There is nothing left to act on, so it must not trigger a retry.
+
+    A fail verdict with an unusable change is a broken verdict. The
+    orchestrator would otherwise regenerate against a change it cannot
+    send, burn a generation, and get the same image.
+    """
+    device = _device(
+        registry,
+        "VERDICT: fail\n"
+        "REASON: the prompt does not state the size\n"
+        "CHANGE: Add 1024x1024 to the prompt",
+    )
+    critique = Critic(device, JUDGE).judge(b"\x89PNG", RequirementVector())
+    assert critique.inconclusive is True
+    assert critique.passed is False
+
+
+def test_art_direction_about_resolution_is_not_dropped(registry: Registry):
+    """The filter must be narrow.
+
+    "resolution" and "size" appear in legitimate art direction. Dropping
+    those would throw away real advice about the picture.
+    """
+    device = _device(
+        registry,
+        "VERDICT: fail\n"
+        "REASON: it looks too clean\n"
+        "CHANGE: make it a grainy low-resolution photograph\n"
+        "CHANGE: the size of the subject in frame is too small",
+    )
+    critique = Critic(device, JUDGE).judge(b"\x89PNG", RequirementVector())
+    assert critique.suggested_changes == [
+        "make it a grainy low-resolution photograph",
+        "the size of the subject in frame is too small",
+    ]
+
+
+def test_the_judge_is_told_not_to_ask_for_the_size(registry: Registry):
+    """Guidance as well as the filter: the judge should not ask at all."""
+    device = _device(registry, "VERDICT: pass")
+    Critic(device, JUDGE).judge(b"\x89PNG", RequirementVector())
+
+    prompt = device.prompts[-1]
+    assert "Never ask for the image SIZE or RESOLUTION" in prompt
+    assert "passed as a parameter" in prompt

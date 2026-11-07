@@ -223,6 +223,45 @@ then at **40.76%** after the prompt was rewritten to ask for a cut-out in
 those words. The alpha is prompt-dependent. A model property stated as a
 percentage is a measurement pretending to be a law.
 
+## 6. A judge's suggestion is an instruction, not a note
+
+If a critic's suggested changes are appended to the prompt and sent to the
+generator — which is the natural design, and the one that lets a critic
+actually improve anything — then **every change is a command to the image
+model**, and the model will obey it literally.
+
+The failure is specific and worth remembering. A critic asked for the
+size to be added to the prompt. The size was already an *argument* to the
+model, not prompt text, so there was nothing to fix — but the prompt was
+built from the requirement vector, which mentions the size, and the
+critic correctly noticed that the prompt did not. The delivered image had
+the size **drawn across it as a caption**, because the model read
+"1024x1024" as something to render rather than something to obey.
+
+Three rules fall out of it.
+
+**The critic must not be asked to fix what is already an argument.** If the
+size is passed as a parameter, then a requirement vector listing the size
+invites the critic to ask for it in the prompt. Say so explicitly in the
+critic's instructions, and mark the parameter as a parameter.
+
+**Filter the suggestions anyway.** Guidance is not a guarantee — a critic
+is a model, and models do what they are asked. A suggestion asking for the
+output's dimensions should be dropped, in every way one is written:
+`1024x1024`, `1024 x 1024`, `at 1024 by 1024`, "the image size", "the
+output dimensions".
+
+**Make the filter narrow.** Bare words like "resolution" and "size" appear
+in legitimate art direction — "a grainy low-resolution photograph", "the
+size of the subject in frame is too small" — and a filter that drops those
+throws away real advice. Match the *request for the output's dimensions*,
+not the vocabulary of dimension.
+
+And one more: **a suggestion set that is entirely unusable is a broken
+verdict, not a failure.** If every change was dropped, there is nothing to
+act on, and regenerating against a change you cannot send burns a
+generation to produce the same picture. That verdict is inconclusive.
+
 ## What to take from this
 
 The transferable parts, in order of how much they matter:
@@ -235,3 +274,5 @@ The transferable parts, in order of how much they matter:
 4. **Treat acceptance as not-execution**, and enforce a ceiling yourself.
 5. **Measure the thing, and publish the measurement.** A catalogue built from
    a vendor's own description is a catalogue of beliefs.
+6. **Remember that a machine reading your instructions is not reading your
+   notes.** Whatever a critic says becomes a command to a generator.
