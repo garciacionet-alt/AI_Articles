@@ -51,11 +51,37 @@
 
             <!-- THE CANVAS -->
             <div class="canvas-column">
+                <!-- THE DROP ZONE. Drag an image in to update it. The
+                     file becomes an asset, and the next request is an
+                     EDIT of that image rather than a new one - which is
+                     the difference between "make this better" and
+                     "make me something else". -->
+                <div class="dropzone" id="dropzone">
+                    <p class="dropzone-title">Drop an image to update it</p>
+                    <p class="dropzone-hint">
+                        PNG only. The file is kept byte for byte, and the
+                        request you type next becomes an edit of it.
+                    </p>
+                    <input type="file" id="file-input" accept="image/png"
+                           class="hidden">
+                    <div class="dropzone-source hidden" id="dropzone-source">
+                        <img id="source-preview" alt="The image you dropped">
+                        <div class="dropzone-source-text">
+                            <p class="dropzone-source-name" id="source-name"></p>
+                            <p class="dropzone-source-path" id="source-path"></p>
+                            <button type="button" id="source-clear">Use no image</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="image-container">
                     <div class="placeholder" id="image-placeholder">
                         Nothing generated yet.
                     </div>
                     <img id="generated-image" class="hidden" alt="Generated image">
+                    <!-- WHERE THE FILE IS. A user who wants the PNG has
+                         to be able to find it without asking. -->
+                    <p class="file-path hidden" id="file-path"></p>
                 </div>
 
                 <!-- THE ITERATION STRIP -->
@@ -90,6 +116,24 @@
                      picks one and explains why; this is where the user
                      picks a different one. -->
                 <div class="alternatives" id="model-alternatives"></div>
+
+                <!-- THE MODEL CARDS. Every model in the catalogue has a
+                     card: what the device says it is for, what we
+                     measured, and what we have noticed that the device
+                     does not say. The third part is the point - it is
+                     the difference between the advertisement and the
+                     model. -->
+                <div class="cards" id="cards">
+                    <h3>Model cards</h3>
+                    <div class="card-picker">
+                        <select id="card-model"></select>
+                    </div>
+                    <div class="card" id="card">
+                        <p class="card-empty">
+                            Choose a model to read its card.
+                        </p>
+                    </div>
+                </div>
 
                 <!-- THE DIALOG. The app says what it is about to do and
                      why, and waits. A generation costs a minute and

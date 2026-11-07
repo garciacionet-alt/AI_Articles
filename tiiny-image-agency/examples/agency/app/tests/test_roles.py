@@ -212,6 +212,8 @@ def _agency(tmp_path, registry: Registry):
         registry_path=REGISTRY_PATH,
         roles_path=ROLES_PATH,
         assets_dir=tmp_path / "assets",
+        hold_file=tmp_path / "tiiny-hold",
+        watchdog_lock=tmp_path / "tiiny-watch.lock",
         planner_model=JUDGE,
     )
     return Agency(settings, device=FakeDevice(registry,
@@ -224,8 +226,8 @@ def test_the_guide_lists_the_models_and_the_current_roles(tmp_path,
     agency = _agency(tmp_path, registry)
     options = agency.role_options()
 
-    assert options["critic"]["model"] == JUDGE
-    assert options["critic"]["vision"] is False
+    assert options["critic"]["model"] == VISION_JUDGE
+    assert options["critic"]["vision"] is True
     assert options["models"], "the guide lists nothing"
     assert any(m["vision"] for m in options["models"])
     assert options["vision_models"], "the guide lists no vision-capable model"
@@ -243,13 +245,37 @@ def test_choosing_a_vision_critic_turns_the_vision_on(tmp_path,
     assert "SEE the image" in result["note"]
 
 
-def test_choosing_a_blind_critic_says_so_plainly(tmp_path, registry: Registry):
-    """A user who picks a text model deserves to be told what it means."""
-    agency = _agency(tmp_path, registry)
-    result = agency.set_roles(critic=JUDGE)
+def test_choosing_a_blind_critic_is_refused(tmp_path, registry: Registry):
+    """A judge that cannot see the image is not offered.
 
-    assert agency.critic.vision is False
-    assert "cannot see the image" in result["note"]
+    A text-only critic judges the PROMPT, and a prompt judge does not
+    fail loudly - it invents a defect, and every invented defect costs
+    a generation. So the rule is that the judge SEES, and a model that
+    cannot see is refused with the reason.
+    """
+    agency = _agency(tmp_path, registry)
+    with pytest.raises(RoleError) as error:
+        agency.set_roles(critic=JUDGE)
+
+    message = str(error.value)
+    assert "cannot see an image" in message
+    assert "invent a defect" in message, (
+        "the refusal has to say WHY, not just that it was refused")
+
+
+def test_the_conversation_agent_may_still_be_a_text_model(
+        tmp_path, registry: Registry):
+    """Only the judge has to see. The talker reads text.
+
+    The conversation agent writes the plan and never looks at a pixel,
+    so a small text model is the right model for it - and a 27% one
+    costs no swap at all because the watchdog already holds it.
+    """
+    agency = _agency(tmp_path, registry)
+    agency.set_roles(conversation=JUDGE)
+    assert agency.planner.model_id == JUDGE
+    assert agency.critic.model_id == VISION_JUDGE, (
+        "the talker changed the judge - the two roles are separate")
 
 
 def test_choosing_the_conversation_agent_changes_the_planner(tmp_path,
@@ -269,7 +295,7 @@ def test_the_judge_is_not_changed_when_nothing_was_asked(tmp_path,
                                                           registry: Registry):
     agency = _agency(tmp_path, registry)
     agency.set_roles()
-    assert agency.critic.model_id == JUDGE
+    assert agency.critic.model_id == VISION_JUDGE
     assert agency.planner.model_id == JUDGE
 
 
@@ -332,17 +358,19 @@ def test_the_talker_has_to_be_on_the_device_to_be_swapped_back_in(
 
 def test_one_model_holding_both_roles_is_counted_once(tmp_path,
                                                         registry: Registry):
-    """The default: the talker and the judge are the same weights.
+    """When the talker and the judge are the same weights, they are
+    counted once.
 
-    Counting them twice would say the current setup needs 133% of the
-    pool when it needs 78%.
+    A vision model can do both jobs, and then the pool pays for it once.
     """
     agency = _agency(tmp_path, registry)
+    agency.set_roles(conversation=VISION_JUDGE)
+    agency.set_roles(critic=VISION_JUDGE)
     fit = agency.role_options()["fit"]
 
     assert fit["shared_model"] is True
     assert fit["fits"] is True
-    assert fit["total"] == fit["conversation_npu"] + fit["generator_npu"]
+    assert fit["total"] == fit["critic_npu"] + fit["generator_npu"]
 
 
 def test_a_vision_judge_that_does_not_fit_is_told_how_to_fix_it(
@@ -424,7 +452,7 @@ def test_the_guide_route_lists_the_models(tmp_path, registry: Registry):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["critic"]["model"] == JUDGE
+    assert body["critic"]["model"] == VISION_JUDGE
     assert body["models"]
     assert any(m["vision"] for m in body["models"])
     assert body["vision_models"], "the guide lists no vision-capable model"
@@ -434,7 +462,8 @@ def test_the_guide_route_says_whether_the_judge_can_see(tmp_path,
                                                           registry: Registry):
     agency = _agency(tmp_path, registry)
     body = _client(agency).get("/v1/roles").json()
-    assert body["critic"]["vision"] is False
+    assert body["critic"]["vision"] is True, (
+        "the judge must always be able to see the image")
 
 
 def test_choosing_a_vision_critic_through_the_api(tmp_path,

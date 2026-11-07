@@ -437,6 +437,177 @@ button:hover { filter: brightness(1.08); }
     font-weight: 600;
 }
 
+/* -- THE DROP ZONE -------------------------------------------------------- */
+
+.dropzone {
+    border: 1.5px dashed var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    background: #fbfbfd;
+    cursor: pointer;
+    transition: border-color 120ms ease, background 120ms ease;
+}
+
+.dropzone:hover,
+.dropzone.dragging {
+    border-color: var(--accent);
+    background: #f4f7fd;
+}
+
+.dropzone-title {
+    margin: 0 0 3px;
+    font-size: 12.5px;
+    font-weight: 650;
+    color: var(--ink);
+}
+
+.dropzone-hint {
+    margin: 0;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+.dropzone-source {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+}
+
+.dropzone-source img {
+    width: 78px;
+    height: 78px;
+    object-fit: contain;
+    border-radius: 6px;
+    background:
+        repeating-conic-gradient(#e9e9ef 0% 25%, #f8f8fb 0% 50%) 50% / 14px 14px;
+    border: 1px solid var(--line);
+}
+
+.dropzone-source-text {
+    min-width: 0;
+    flex: 1;
+}
+
+.dropzone-source-name {
+    margin: 0 0 3px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink);
+    word-break: break-all;
+}
+
+.dropzone-source-path {
+    margin: 0 0 7px;
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+    word-break: break-all;
+}
+
+.dropzone-source button {
+    font: inherit;
+    font-size: 11.5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+/* -- WHERE THE FILE IS ---------------------------------------------------- */
+
+.file-path {
+    margin: 8px 0 0;
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+    word-break: break-all;
+}
+
+/* -- THE MODEL CARDS ------------------------------------------------------ */
+
+.cards {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+}
+
+.cards h3 {
+    margin: 0 0 9px;
+    font-size: 11px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.card-picker select {
+    width: 100%;
+    font: inherit;
+    font-size: 12px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+}
+
+.card {
+    margin-top: 11px;
+}
+
+.card-empty {
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.card-model {
+    margin: 0 0 3px;
+    font-size: 13px;
+    font-weight: 650;
+    color: var(--ink);
+    word-break: break-all;
+}
+
+.card-status {
+    margin: 0 0 10px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.card-part {
+    margin-top: 9px;
+    padding-top: 9px;
+    border-top: 1px solid var(--line);
+}
+
+.card-part h4 {
+    margin: 0 0 4px;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.card-part p {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #3f4650;
+}
+
+.card-notes p {
+    color: #6b4a06;
+}
+
 /* -- THE DIALOG ---------------------------------------------------------- */
 
 .dialog-backdrop {

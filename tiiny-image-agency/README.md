@@ -66,11 +66,37 @@ tis alpha the-icon.png          # how much of this PNG is actually transparent
 POST /v1/generate                 -> 202 {"job_id": "..."}
 GET  /v1/session/default/events   -> an SSE stream of what the appliance is doing
 GET  /v1/assets/ast_0123456789abcdef   -> the PNG, byte for byte
+POST /v1/assets                   -> upload a PNG you already have, as the
+                                     source of an edit
+GET  /v1/models/card?model_id=... -> what a model claims, what we measured,
+                                     what we have noticed
 ```
+
+An agent can also say **where the finished PNG should land**:
+
+```
+POST /v1/generate  {"request": "...", "output_path": "/tmp/final.png"}
+```
+
+The agency's own copy is written either way; the copy at that path is the
+same bytes, never a re-encode.
 
 And the same port serves a browser surface that shows the conversation, the
 canvas, which model made the picture and why, the NPU meter, and a banner
 whenever the appliance is swapping models or downloading one.
+
+Four things it does that a chat box does not:
+
+- **It asks before it generates.** The dialog says which model was chosen
+  and why, lists the alternatives with their cost, and waits. A generation
+  costs a minute and sometimes three.
+- **You can drop an image into it.** The file becomes the source of the next
+  request, so the next request is an *edit* of that image rather than a new
+  picture.
+- **It tells you where the file is.** The path is under the image, in the
+  lineage, and in the events.
+- **It has a card for every model.** What the device advertises, what we
+  measured, and what we have noticed that the device does not say.
 
 ## The hard constraint
 
@@ -124,7 +150,7 @@ is a test that fails if it is removed.
 ## The judge, and whether it can see
 
 The critic decides whether the result is good. It is a **model the user
-chooses**, and there are two kinds.
+chooses** — and every model it can be is one that can **see** an image.
 
 A **blind** judge sees the prompt and the requirement vector. It can catch a
 prompt that does not ask for what was requested. It cannot catch a
@@ -134,8 +160,23 @@ invented defect becomes an instruction to regenerate. The first live run of
 this project burned three generations chasing a defect the blind judge had
 invented, because it could not look at the image it was judging.
 
-A **seeing** judge gets the pixels as well. It is the only kind that can
-answer "what is actually wrong with this picture".
+So the project **refuses** a blind judge, and says why:
+
+```
+openai/gpt-oss-20b cannot see an image, so it cannot be the judge. A judge
+that reads text only judges the PROMPT, and it will invent a defect rather
+than admit the limit. Choose a model marked as seeing one — 'tis roles'
+lists them.
+```
+
+The refusal carries the reason because a refusal that explains itself can be
+acted on and one that does not cannot. The default judge is
+`Qwen/Qwen3.6-35B-A3B` at 47%, which sees.
+
+**The conversation agent is a separate setting and is unaffected.** It writes
+the plan and never looks at a pixel, so a small text model is the right model
+for it — and a 27% one costs no swap at all, because the watchdog already
+holds it.
 
 The appliance already knew which models could see: it labels them
 `Image-Text-to-Text` and gives them an input of `Text,Image`. The project

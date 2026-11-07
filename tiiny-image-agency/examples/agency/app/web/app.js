@@ -53,6 +53,16 @@ const els = {
     roleCritic: $('role-critic'),
     roleNote: $('role-note'),
     modelAlternatives: $('model-alternatives'),
+    dropzone: $('dropzone'),
+    fileInput: $('file-input'),
+    dropzoneSource: $('dropzone-source'),
+    sourcePreview: $('source-preview'),
+    sourceName: $('source-name'),
+    sourcePath: $('source-path'),
+    sourceClear: $('source-clear'),
+    filePath: $('file-path'),
+    cardModel: $('card-model'),
+    card: $('card'),
     dialogBackdrop: $('dialog-backdrop'),
     dialogModel: $('dialog-model'),
     dialogWhy: $('dialog-why'),
@@ -69,6 +79,11 @@ let chosenModelId = '';
 
 // The request the dialog is asking about.
 let lastRequest = '';
+
+// The image the user dropped in, if any. When it is set, the next
+// request is an EDIT of that image rather than a new one.
+let sourceAssetId = '';
+let sourceAssetPath = '';
 
 let currentJobId = null;
 let currentAssetId = null;
@@ -133,6 +148,14 @@ async function submit(event) {
     say(request, 'ask');
     lastRequest = request;
 
+    // An image was dropped in, so this is an EDIT of that image rather
+    // than a new picture. The flow is the iteration flow: the asset is
+    // the source, the request is the feedback.
+    if (sourceAssetId) {
+        await startEdit(sourceAssetId, request);
+        return;
+    }
+
     // Plan first, and then ASK. A generation costs a minute and
     // sometimes three, and the plan is where the agency says what it
     // is about to do and why. The user gets to see that, and to change
@@ -147,6 +170,19 @@ async function submit(event) {
     }
 
     openDialog(plan, request);
+}
+
+async function startEdit(assetId, feedback) {
+    try {
+        const queued = await apiPost('/v1/iterate', {
+            asset_id: assetId,
+            feedback: feedback,
+        });
+        currentJobId = queued.job_id;
+        watch(currentJobId);
+    } catch (error) {
+        say('The revision was refused: ' + error.message, 'bad');
+    }
 }
 
 async function openDialog(plan, request) {
@@ -215,6 +251,148 @@ async function revise(event) {
         watch(currentJobId);
     } catch (error) {
         say('The revision was refused: ' + error.message, 'bad');
+    }
+}
+
+// -- the drop zone --------------------------------------------------------
+
+// An image the user dropped in. It is uploaded, kept byte for byte,
+// and becomes the source of the next request - so the request is an
+// EDIT of that image, not a new picture.
+async function uploadSource(file) {
+    if (!file) {
+        return;
+    }
+    if (!file.type || file.type !== 'image/png') {
+        say('Only a PNG can be dropped in — ' + file.name + ' is not one.',
+            'bad');
+        return;
+    }
+    try {
+        const response = await fetch(API + '/v1/assets', {
+            method: 'POST',
+            headers: {'Content-Type': 'image/png'},
+            body: file,
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload.detail || 'the upload was refused');
+        }
+        sourceAssetId = payload.asset_id;
+        sourceAssetPath = payload.path || '';
+        els.sourcePreview.src = URL.createObjectURL(file);
+        els.sourceName.textContent = file.name;
+        els.sourcePath.textContent = payload.path || '';
+        els.dropzoneSource.classList.remove('hidden');
+        say('Loaded ' + file.name + '. The next request updates it.',
+            'event');
+    } catch (error) {
+        say('The image could not be loaded: ' + error.message, 'bad');
+    }
+}
+
+function clearSource() {
+    sourceAssetId = '';
+    sourceAssetPath = '';
+    els.dropzoneSource.classList.add('hidden');
+    els.sourcePreview.removeAttribute('src');
+}
+
+// -- the model cards ------------------------------------------------------
+
+// Every model in the catalogue has a card: what the device says it is
+// for, what we measured, and what we have noticed that the device does
+// not say. The third part is the point.
+async function loadModelCard(modelId) {
+    if (!modelId) {
+        return;
+    }
+    const card = await apiGet('/v1/models/card?model_id='
+        + encodeURIComponent(modelId));
+    els.card.innerHTML = '';
+    if (!card) {
+        els.card.textContent = 'No card for ' + modelId + '.';
+        return;
+    }
+
+    const head = document.createElement('p');
+    head.className = 'card-model';
+    head.textContent = card.model_id;
+    els.card.appendChild(head);
+
+    const status = document.createElement('p');
+    status.className = 'card-status';
+    status.textContent = (card.npu_usage || 0) + '% of the NPU · '
+        + (card.downloaded ? 'on the appliance' : 'not on the appliance yet')
+        + ' · ' + (card.researched ? 'measured' : 'not measured yet');
+    els.card.appendChild(status);
+
+    const advertised = document.createElement('div');
+    advertised.className = 'card-part';
+    const advertisedLabel = document.createElement('h4');
+    advertisedLabel.textContent = 'What the device says';
+    advertised.appendChild(advertisedLabel);
+    const advertisedText = document.createElement('p');
+    advertisedText.textContent = card.advertised
+        || 'The device says nothing about this model.';
+    advertised.appendChild(advertisedText);
+    els.card.appendChild(advertised);
+
+    if (card.measured) {
+        const measured = document.createElement('div');
+        measured.className = 'card-part';
+        const measuredLabel = document.createElement('h4');
+        measuredLabel.textContent = 'What we measured';
+        measured.appendChild(measuredLabel);
+        const measuredText = document.createElement('p');
+        const bits = [];
+        if (card.measured.summary) {
+            bits.push(card.measured.summary);
+        }
+        if (card.measured.artifacts
+            && card.measured.artifacts.length) {
+            bits.push('artifacts: ' + card.measured.artifacts.join(', '));
+        }
+        if (card.measured.alpha === 'yes') {
+            bits.push('transparent background ('
+                + card.measured.transparent_pct + '%)');
+        } else if (card.measured.alpha === 'no') {
+            bits.push('opaque background');
+        }
+        if (card.measured.text_rendering === 'best') {
+            bits.push('legible text');
+        }
+        measuredText.textContent = bits.join(' · ') || '—';
+        measured.appendChild(measuredText);
+        els.card.appendChild(measured);
+    }
+
+    const notes = document.createElement('div');
+    notes.className = 'card-part card-notes';
+    const notesLabel = document.createElement('h4');
+    notesLabel.textContent = 'What we have noticed';
+    notes.appendChild(notesLabel);
+    const notesText = document.createElement('p');
+    notesText.textContent = card.notes
+        || 'Nothing yet — this model has not been characterised.';
+    notes.appendChild(notesText);
+    els.card.appendChild(notes);
+}
+
+async function loadCardModels() {
+    const catalogue = await apiGet('/v1/models');
+    if (!catalogue) {
+        return;
+    }
+    els.cardModel.innerHTML = '';
+    for (const model of catalogue.models || []) {
+        const option = document.createElement('option');
+        option.value = model.id;
+        option.textContent = model.id + '  (' + model.npu_usage + '%)';
+        els.cardModel.appendChild(option);
+    }
+    if (catalogue.models && catalogue.models.length) {
+        await loadModelCard(catalogue.models[0].id);
     }
 }
 
@@ -408,7 +586,7 @@ function handle(event) {
             break;
 
         case 'asset.ready':
-            showAsset(data.asset_id);
+            showAsset(data.asset_id, data.path);
             break;
 
         case 'job.finished':
@@ -427,7 +605,7 @@ function handle(event) {
 
 // -- the asset -----------------------------------------------------------
 
-async function showAsset(assetId) {
+async function showAsset(assetId, path) {
     currentAssetId = assetId;
     // The PNG is fetched as bytes and shown DIRECTLY. Re-encoding it
     // through a canvas is exactly where a transparent background quietly
@@ -451,6 +629,13 @@ async function showAsset(assetId) {
             els.modelId.textContent = lineage.model_id;
             loadCard(lineage.model_id);
         }
+    }
+    // WHERE THE FILE IS. The user must be able to find the PNG without
+    // asking, and the lineage is where the path is recorded.
+    const filePath = path || (lineage && lineage.path) || '';
+    if (filePath) {
+        els.filePath.textContent = filePath;
+        els.filePath.classList.remove('hidden');
     }
     addThumb(assetId);
 }
@@ -682,6 +867,46 @@ els.feedbackForm.addEventListener('submit', revise);
 els.roleConversation.addEventListener('change', () => setRole('conversation'));
 els.roleCritic.addEventListener('change', () => setRole('critic'));
 
+// THE DROP ZONE. A drag anywhere on it, or a click to choose a file.
+els.dropzone.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    els.dropzone.classList.add('dragging');
+});
+els.dropzone.addEventListener('dragleave', () => {
+    els.dropzone.classList.remove('dragging');
+});
+els.dropzone.addEventListener('drop', (event) => {
+    event.preventDefault();
+    els.dropzone.classList.remove('dragging');
+    const files = event.dataTransfer && event.dataTransfer.files;
+    if (files && files.length) {
+        uploadSource(files[0]);
+    }
+});
+els.dropzone.addEventListener('click', (event) => {
+    // The button inside the source panel clears it; it must not open
+    // the file picker as well.
+    if (event.target.closest('#source-clear')) {
+        return;
+    }
+    els.fileInput.click();
+});
+els.fileInput.addEventListener('change', () => {
+    if (els.fileInput.files && els.fileInput.files.length) {
+        uploadSource(els.fileInput.files[0]);
+    }
+    els.fileInput.value = '';
+});
+els.sourceClear.addEventListener('click', (event) => {
+    event.stopPropagation();
+    clearSource();
+});
+
+// THE MODEL CARDS.
+els.cardModel.addEventListener('change', () => {
+    loadModelCard(els.cardModel.value);
+});
+
 // THE DIALOG. The user approves the model before anything is spent.
 els.dialogCancel.addEventListener('click', () => {
     els.dialogBackdrop.hidden = true;
@@ -700,6 +925,7 @@ els.dialogBackdrop.addEventListener('click', (event) => {
 });
 
 loadRoles();
+loadCardModels();
 
 updateNpu();
 setInterval(updateNpu, 3000);

@@ -35,7 +35,7 @@ tiiny-image-agency/
       events.py       the event bus, with replay
       imaging.py      reading a PNG's structure
       research.py     the research cards
-    tests/            368 tests
+    tests/            465 tests
     web/              the browser surface: index.html, app.js, style.css
   registry/image-models.json   the curated catalogue
   tools/                        the registry builder, the research loop
@@ -75,15 +75,21 @@ The browser surface is on the same port: <http://127.0.0.1:8080>.
 | `POST /v1/plan` | the request -> model, justification, swap plan, download plan |
 | `POST /v1/generate` | the request -> a job id. **202**, not 200 |
 | `POST /v1/iterate` | an asset id and feedback -> a job id. **202** |
+| `POST /v1/assets` | **upload** a PNG you already have — the bytes are the body — -> an asset id. The door for "update this image" |
 | `GET /v1/assets/<id>` | the PNG, byte for byte |
-| `GET /v1/assets/<id>/lineage` | the provenance as JSON |
+| `GET /v1/assets/<id>/lineage` | the provenance as JSON, including the file's path |
 | `GET /v1/session/<id>/events` | the SSE stream. `?job_id=` is optional but recommended |
 | `GET /v1/npu` | the resident set and the NPU used |
 | `GET /v1/health` | is the app alive, is the appliance reachable |
 | `GET /v1/models` | the catalogue |
-| `GET /v1/models/card?model_id=<id>` | the research card for one model |
+| `GET /v1/models/card?model_id=<id>` | the card for one model: advertised, measured, noticed |
 | `GET /v1/roles` | the **guide**: every conversational model, whether it can see an image, its NPU cost, whether it is on the device, and whether the current pair fits the pool |
-| `POST /v1/roles` | the **choice**: `{"critic": "..."}` and/or `{"conversation": "..."}` |
+| `POST /v1/roles` | the **choice**: `{"critic": "..."}` and/or `{"conversation": "..."}`. A critic that cannot see an image is refused |
+
+`POST /v1/generate` and `POST /v1/iterate` both take an optional
+`output_path`: the finished PNG is *also* written there, byte for byte, for
+an agent that wants the file at a path of its own. The agency's own copy is
+written either way.
 
 **Why 202.** A generation takes 54 to 200 seconds. A client that read 200
 would reasonably believe the image was ready. The work is *queued*, so it
@@ -110,6 +116,14 @@ derived from the device's own record — `type == "Image-Text-to-Text"`, or
 an `input` that accepts an image — so it moves when the store moves.
 Prompt enhancers are excluded: an enhancer cannot hold a conversational
 role.
+
+**The critic must be one of the sixteen.** A text-only judge is refused by
+`POST /v1/roles`, with the reason attached: a judge that reads text only
+judges the *prompt*, and it invents a defect rather than admit the limit.
+The default critic is `Qwen/Qwen3.6-35B-A3B` at 47%, which sees. The
+conversation agent is unaffected — it writes the plan and never looks at a
+pixel, so a 27% text model is right for it, and it costs no swap because
+the watchdog already holds it.
 
 **The guide says whether the choice works.** `GET /v1/roles` returns each
 model's vision flag, NPU cost, context, and whether it is on the device,

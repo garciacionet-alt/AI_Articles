@@ -43,8 +43,12 @@ class Settings:
     #: roles have different residency needs: the judge has to fit
     #: beside the generator or it never runs.
     #:
-    #: Empty means "the same model as the conversation agent".
-    judge_model: str = ""
+    #: It MUST be a vision model. A critic that cannot see the image
+    #: judges the prompt, and a prompt judge does not fail loudly - it
+    #: invents a defect, and every invented defect costs a generation.
+    #: So the rule is enforced here, in the guide and in the choice, and
+    #: a text-only model is refused rather than quietly accepted.
+    judge_model: str = "Qwen/Qwen3.6-35B-A3B"
     #: Where the conversational catalogue lives - the models that can
     #: hold either role.
     roles_path: Path = field(

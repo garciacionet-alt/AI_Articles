@@ -257,6 +257,11 @@ def main() -> int:
                 "guidance_scale": m.get("guidance_scale"),
                 "input": m.get("input"),
                 "output": m.get("output"),
+                # What the DEVICE says this model is for. It is kept so
+                # that a model card can show the vendor's claim beside
+                # what we measured - the distance between the two is the
+                # interesting part.
+                "description": m.get("desc") or "",
                 "supported": supported,
                 "context_window": m.get("context_window"),
                 "image_size": m.get("image_size"),

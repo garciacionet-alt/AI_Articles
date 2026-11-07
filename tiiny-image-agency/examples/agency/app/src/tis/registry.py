@@ -79,6 +79,16 @@ class ModelSpec:
         return int(self.raw.get("device", {}).get("size_bytes") or 0)
 
     @property
+    def advertised(self) -> str:
+        """What the DEVICE says this model is for.
+
+        This is the vendor's own claim, and it is the first half of a
+        model card. It is kept separate from what we measured, because
+        the whole point of the card is the distance between the two.
+        """
+        return str(self.raw.get("device", {}).get("description") or "")
+
+    @property
     def co_resident_with_planner(self) -> bool:
         return self.raw["residency"]["co_resident_with_planner"]
 

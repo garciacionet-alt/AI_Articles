@@ -93,6 +93,8 @@ def test_the_api_accepts_a_chosen_model(tmp_path, registry: Registry):
         registry_path=REGISTRY_PATH,
         roles_path=PROJECT_ROOT / "registry" / "roles.json",
         assets_dir=tmp_path / "assets",
+        hold_file=tmp_path / "tiiny-hold",
+        watchdog_lock=tmp_path / "tiiny-watch.lock",
         planner_model=registry.planner.id,
     )
     agency = Agency(settings, device=FakeDevice(registry), registry=registry)
@@ -124,6 +126,8 @@ def test_the_api_says_so_when_the_choice_cannot_be_honoured(tmp_path,
         registry_path=REGISTRY_PATH,
         roles_path=PROJECT_ROOT / "registry" / "roles.json",
         assets_dir=tmp_path / "assets",
+        hold_file=tmp_path / "tiiny-hold",
+        watchdog_lock=tmp_path / "tiiny-watch.lock",
         planner_model=registry.planner.id,
     )
     agency = Agency(settings, device=FakeDevice(registry), registry=registry)

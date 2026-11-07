@@ -193,7 +193,12 @@ def test_the_api_serves_the_card(registry: Registry, tmp_path: Path):
         response = client.get("/v1/models/card",
                               params={"model_id": "some-model"})
         assert response.status_code == 200
-        assert response.json()["summary"] == "it is a fox"
+        # The card has three parts and they are kept apart: what the
+        # device advertises, what we measured, and what we have noticed.
+        body = response.json()
+        assert body["measured"]["summary"] == "it is a fox"
+        assert body["model_id"] == "some-model"
+        assert body["researched"] is True
 
         missing = client.get("/v1/models/card",
                              params={"model_id": "not-researched"})

@@ -286,11 +286,28 @@ generation and changes nothing. The first live run of this project burned
 three generations chasing a defect that existed only in the judge's
 imagination.
 
-So: **make the judge's capability a choice, and name what the choice
-buys.** The user picks a model; the catalogue says whether that model can
-accept an image; the prompt tells the judge what it is being asked to do.
-A seeing judge is told it can see and told to judge what it sees. A blind
-judge is told it cannot, and told never to invent a defect.
+**The product decision that follows: if the judge is meant to judge the
+picture, a blind judge is not a lesser option — it is the wrong tool, and
+the system should refuse it.** A choice the user can make that the
+system will later reject is a trap with extra steps. So the judge is
+always a vision model, and a text-only one is refused with the reason:
+
+```
+openai/gpt-oss-20b cannot see an image, so it cannot be the judge. A judge
+that reads text only judges the PROMPT, and it will invent a defect rather
+than admit the limit. Choose a model marked as seeing one — 'tis roles'
+lists them.
+```
+
+The reason travels with the refusal because a refusal that explains itself
+can be acted on and one that does not cannot. And the picker that offers
+the choice offers **only** models that can see — a menu containing a
+choice the server will reject is a menu of traps.
+
+The two roles stay separate, because they have different needs. The
+conversation agent writes the plan and never looks at a pixel, so a small
+text model is right for it — and a 27% one costs no swap at all, because
+the watchdog already holds it. Only the judge has to see.
 
 Three rules fall out of this.
 
@@ -321,6 +338,37 @@ picture exists its weights have been swapped out. Summing the talker, the
 judge and the generator gives a number that says a seeing judge is
 unaffordable, and that number is wrong. The real question is the judge
 plus the generator against the ceiling — 70% against 81%, which runs.
+
+## 8. Show the advertisement and the measurement, side by side
+
+A model's own description is a claim. It is usually well written, usually
+specific, and occasionally wrong in a way that costs you a generation.
+
+The fix is not to distrust the description — it is to **put the two
+things next to each other**. A model card here has three parts, and they
+are kept apart on purpose:
+
+| part | what it is |
+|---|---|
+| advertised | what the device says the model is for |
+| measured | what happened when the model was actually run |
+| noticed | what we have observed that the device does not say |
+
+The third part is the one that carries the project's own experience. The
+first is the vendor's claim and the second is a measurement, but the gap
+between them — "this model is advertised as photorealistic, and in
+practice its shadows look like gouache" — is the knowledge that is worth
+keeping.
+
+**Every model gets a card, whether or not it has been measured.** "Not
+measured yet" is a fact the card reports. A missing card is not the same
+thing as a model nobody knows anything about, and conflating the two
+means a catalogue of unknowns and a catalogue of omissions look the same.
+
+And the card has to be **reachable**. A card that exists only as a JSON
+file on disk is a card the user will never read, and the whole exercise
+of separating the claim from the finding is wasted. The browser surface
+has a picker for it, next to the canvas, for exactly that reason.
 
 ## What to take from this
 

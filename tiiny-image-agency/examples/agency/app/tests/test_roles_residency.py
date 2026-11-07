@@ -120,6 +120,8 @@ def test_the_agency_gives_the_orchestrator_the_new_critic(tmp_path,
         registry_path=REGISTRY_PATH,
         roles_path=ROLES_PATH,
         assets_dir=tmp_path / "assets",
+        hold_file=tmp_path / "tiiny-hold",
+        watchdog_lock=tmp_path / "tiiny-watch.lock",
         planner_model=JUDGE,
     )
     agency = Agency(settings,
@@ -127,7 +129,7 @@ def test_the_agency_gives_the_orchestrator_the_new_critic(tmp_path,
                                       resident=[JUDGE, VISION_JUDGE]),
                     registry=registry)
 
-    assert agency.orchestrator.critic.model_id == JUDGE
+    assert agency.orchestrator.critic.model_id == VISION_JUDGE
     agency.set_roles(critic=VISION_JUDGE)
     assert agency.orchestrator.critic.model_id == VISION_JUDGE
     assert agency.orchestrator.critic.vision is True

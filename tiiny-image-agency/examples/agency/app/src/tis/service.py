@@ -57,6 +57,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Iterator, cast
 
 from .assets import Asset, AssetStore
@@ -71,7 +72,7 @@ from .orchestrator import GenerationResult, Orchestrator
 from .planner import Planner
 from .registry import ModelSpec, Registry
 from .residency import MAX_EXECUTABLE_OCCUPANCY_PCT
-from .roles import Roles
+from .roles import RoleError, Roles
 from .residency import APPLIANCE_MODEL_NPU_PCT, HoldFile, ResidencyManager
 from .resolver import Resolver, ResolverError
 
@@ -250,6 +251,10 @@ class _Work:
     #: chooses". A model the user chose is honoured when it can do the
     #: job, and the resolver says so when it cannot.
     model_id: str = ""
+    #: Where the finished PNG should ALSO be written, for an agent that
+    #: wants the file at a path it chose rather than at the agency's.
+    #: Empty means "the agency's own asset directory".
+    output_path: str = ""
 
 
 class Agency:
@@ -330,24 +335,38 @@ class Agency:
     def _judge_model_id(self, settings) -> str:
         """Which model judges.
 
-        The judge is the conversation agent unless the user has chosen
-        otherwise. The two roles were one model because a blind judge
-        and the model that wrote the prompt had nothing to tell each
-        other; a judge that can SEE the image is a different model, and
-        a different one may be wanted.
+        The judge is a VISION model, always. A critic that cannot see
+        the image judges the prompt instead, and a prompt judge does
+        not fail loudly - it invents a defect, and the orchestrator
+        regenerates against the invention. The first live run of the
+        Agency burned three generations that way.
+
+        So the judge's model is not the conversation agent's, whatever
+        the conversation agent happens to be.
         """
-        return settings.judge_model or settings.planner_model
+        return settings.judge_model or "Qwen/Qwen3.6-35B-A3B"
 
     def _build_critic(self, model_id: str) -> Critic:
         """A critic for a model, with its vision capability resolved.
 
         The catalogue says whether the model can accept an image as
-        well as text. A model that is not in the catalogue is treated
-        as blind, because the safe assumption about an unknown model is
-        the one that cannot fail by claiming to see something.
+        well as text. A model that cannot is refused: a blind critic
+        is a different product, and the product here is one that can
+        see.
         """
         spec = self.roles.get(model_id)
-        vision = bool(spec and spec.vision)
+        if spec is None:
+            raise RoleError(
+                f"{model_id} is not in the conversational catalogue, so it "
+                f"cannot be the judge")
+        if not spec.vision:
+            raise RoleError(
+                f"{model_id} cannot see an image, so it cannot be the "
+                f"judge. A judge that reads text only judges the PROMPT, "
+                f"and it will invent a defect rather than admit the limit. "
+                f"Choose a model marked as seeing one - 'tis roles' lists "
+                f"them.")
+        vision = bool(spec.vision)
         # The wrapper forwards everything the protocol asks for, and
         # everything it does not, through __getattr__ - so it satisfies
         # the protocol at runtime. The cast says so in the type the
@@ -708,7 +727,7 @@ class Agency:
 
     def generate(self, request: str, session_id: str = "default",
                  width: int = 1024, height: int = 1024,
-                 model_id: str = "") -> str:
+                 model_id: str = "", output_path: str = "") -> str:
         """Accept a generation and return its job id, immediately.
 
         The appliance needs a minute and sometimes three. A caller that
@@ -716,24 +735,30 @@ class Agency:
         the one worker and the id comes back now.
 
         ``model_id`` is a model the user chose, or empty to let the
-        resolver decide.
+        resolver decide. ``output_path`` is where the finished PNG should
+        also be written, for an agent that wants the file at a path of
+        its own choosing.
         """
         job = self.jobs.create(session_id, "generate", request)
         self.events.publish("job.queued", session_id,
                             {"job_id": job.id, "kind": "generate"})
         self._enqueue(_Work(job_id=job.id, session_id=session_id,
                             kind="generate", request=request,
-                            width=width, height=height, model_id=model_id))
+                            width=width, height=height, model_id=model_id,
+                            output_path=output_path))
         return job.id
 
     def iterate(self, asset_id: str, feedback: str,
-                session_id: str = "default") -> str:
+                session_id: str = "default", output_path: str = "") -> str:
         """Accept an iteration of an existing asset and return its job id.
 
         The asset is looked up by the WORKER, not here: this call must
         not block, and whether the asset exists is the worker's finding
         to report — as a failed job that names the id, not as an
         exception thrown at a caller that has already been given a job.
+
+        ``output_path`` is where the finished PNG should also be
+        written, for an agent that wants the file at a path of its own.
         """
         job = self.jobs.create(session_id, "iterate", feedback,
                                payload={"asset_id": asset_id,
@@ -743,7 +768,8 @@ class Agency:
         self._enqueue(_Work(job_id=job.id, session_id=session_id,
                             kind="iterate", request=feedback,
                             width=1024, height=1024,
-                            asset_id=asset_id, feedback=feedback))
+                            asset_id=asset_id, feedback=feedback,
+                            output_path=output_path))
         return job.id
 
     def get_job(self, job_id: str) -> Job | None:
@@ -1085,12 +1111,44 @@ class Agency:
             "created_at": time.time(),
         }
         asset = self.assets.save(result.image, lineage)
+        # The path is part of the answer. An agent that asked for the file
+        # at a path of its own gets it there, and everyone can see where
+        # the agency's own copy lives.
+        written = self._write_to(result.image, work.output_path)
+        if written:
+            lineage["output_path"] = written
+            lineage["path"] = written
+        else:
+            lineage["path"] = str(self.assets.root / f"{asset.id}.png")
         self._update_job(work.job_id, status="succeeded",
-                         payload={"asset_id": asset.id})
+                         payload={"asset_id": asset.id,
+                                  "path": lineage["path"]})
         self.events.publish("asset.ready", work.session_id,
-                            {"job_id": work.job_id, "asset_id": asset.id})
+                            {"job_id": work.job_id, "asset_id": asset.id,
+                             "path": lineage["path"]})
         self.events.publish("job.finished", work.session_id,
-                            {"job_id": work.job_id, "asset_id": asset.id})
+                            {"job_id": work.job_id, "asset_id": asset.id,
+                             "path": lineage["path"]})
+
+    def _write_to(self, image: bytes, output_path: str) -> str:
+        """Copy the finished PNG to a path the caller chose.
+
+        The bytes are copied EXACTLY. The file is never decoded,
+        re-encoded or resized, because a round trip through an image
+        library is exactly where a transparent background quietly
+        becomes an opaque one.
+        """
+        if not output_path:
+            return ""
+        try:
+            path = Path(output_path).expanduser()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(image)
+        except OSError:
+            # A path that cannot be written is the caller's problem, and
+            # the agency's own copy is still on disk.
+            return ""
+        return str(path)
 
     # -- the facts about the pool ------------------------------------------
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import queue
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, cast
@@ -99,6 +100,12 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
                 "styles": model_spec.style,
                 "dialect": model_spec.dialect,
                 "sizes_verified": model_spec.sizes_verified,
+                # What the DEVICE says the model is for, and what we
+                # have noticed that the device does not say. A model
+                # list that cannot show either is a list the user has
+                # to take on faith.
+                "advertised": model_spec.advertised,
+                "notes": model_spec.notes,
                 # Listed is not installed. The resolver will not pick a
                 # model that is not on disk, and a client that cannot
                 # see that cannot explain why the same request always
@@ -111,21 +118,40 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
 
     @app.get("/v1/models/card")
     async def model_card(model_id: str):
-        """The research card for a model: what it was measured to do.
+        """The card for a model: what it is advertised to do, and what we
+        have found instead.
+
+        A card has three parts, and they are kept apart on purpose:
+
+          advertised  what the DEVICE says the model is for. The
+                      vendor's own description.
+          measured    what the research loop found when it ran the
+                      model on the appliance. Empty when it has not
+                      been researched yet.
+          notes       what we have noticed that the device does not
+                      say - the differences, in our own words.
+
+        A card exists for every model in the catalogue, researched or
+        not. A model with no card is a model the user cannot judge.
 
         The model id is a QUERY parameter, not a path segment, because
-        the ids contain slashes — "Tongyi-MAI/Z-Image-Turbo" — and a
+        the ids contain slashes - "Tongyi-MAI/Z-Image-Turbo" - and a
         path segment cannot carry one.
-
-        404 when the model has not been researched. The cards are written
-        by the research loop, which measures models on the appliance —
-        the device's own description of a model cannot be trusted.
         """
-        card = agency.model_card(model_id)
-        if card is None:
+        measured = agency.model_card(model_id)
+        spec = agency.registry.find(model_id)
+        if measured is None and spec is None:
             raise HTTPException(status_code=404,
-                                detail="No research card for this model")
-        return card
+                                detail=f"No card for {model_id}")
+        return {
+            "model_id": model_id,
+            "advertised": spec.advertised if spec is not None else "",
+            "notes": spec.notes if spec is not None else "",
+            "measured": measured,
+            "researched": measured is not None,
+            "downloaded": spec.downloaded if spec is not None else False,
+            "npu_usage": spec.npu_usage if spec is not None else 0,
+        }
 
     @app.get("/v1/roles")
     async def get_roles():
@@ -184,6 +210,41 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
             # caller is not left guessing.
             raise HTTPException(status_code=400, detail=str(exc))
 
+    @app.post("/v1/assets")
+    async def upload_asset(request: Request, filename: str = ""):
+        """Store an uploaded image as an asset.
+
+        This is the door for an image that came from somewhere else:
+        the surface drops a file on it, an agent posts a PNG it already
+        has, and the agency treats it exactly like an image it made -
+        the same asset id, the same lineage, the same edit workflow.
+
+        The body is the image BYTES, exactly as given. They are not
+        decoded, re-encoded or resized, because a round trip through an
+        image library is precisely where a transparent background
+        quietly becomes an opaque one.
+
+        Only PNG is accepted. Every model on the appliance reads PNG,
+        and a JPEG would arrive as pixels the agency never saw.
+        """
+        data = await request.body()
+        if not data:
+            raise HTTPException(status_code=400, detail="The body was empty")
+        if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise HTTPException(
+                status_code=400,
+                detail="Only PNG images are accepted - the body was not a PNG")
+        asset = agency.assets.save(data, {
+            "origin": "upload",
+            "filename": filename or "upload.png",
+            "created_at": time.time(),
+        })
+        return {
+            "asset_id": asset.id,
+            "path": str(agency.assets.root / f"{asset.id}.png"),
+            "bytes": len(data),
+        }
+
     @app.post("/v1/generate", status_code=status.HTTP_202_ACCEPTED)
     async def generate(request: GenerateRequest):
         """Generate an image from a request.
@@ -201,7 +262,8 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
             session_id=request.session_id,
             width=request.width,
             height=request.height,
-            model_id=request.model_id
+            model_id=request.model_id,
+            output_path=request.output_path
         )
 
         # Return the job info immediately without waiting
@@ -225,7 +287,8 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
         job_id = agency.iterate(
             request.asset_id,
             request.feedback,
-            session_id=request.session_id
+            session_id=request.session_id,
+            output_path=request.output_path
         )
 
         # Return the job info immediately without waiting
@@ -374,6 +437,10 @@ class GenerateRequest(BaseModel):
     session_id: str = "default"
     #: A model the user chose, or empty to let the resolver decide.
     model_id: str = ""
+    #: Where the finished PNG should ALSO be written, for an agent that
+    #: wants the file at a path of its own. The agency's own copy is
+    #: written either way.
+    output_path: str = ""
 
 
 class IterateRequest(BaseModel):
@@ -381,3 +448,6 @@ class IterateRequest(BaseModel):
     asset_id: str
     feedback: str
     session_id: str = "default"
+    #: Where the finished PNG should ALSO be written, for an agent that
+    #: wants the file at a path of its own.
+    output_path: str = ""
