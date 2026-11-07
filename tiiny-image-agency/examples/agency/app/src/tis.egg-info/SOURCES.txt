@@ -1,0 +1,12 @@
+pyproject.toml
+src/tis/__init__.py
+src/tis/config.py
+src/tis/models.py
+src/tis.egg-info/PKG-INFO
+src/tis.egg-info/SOURCES.txt
+src/tis.egg-info/dependency_links.txt
+src/tis.egg-info/requires.txt
+src/tis.egg-info/top_level.txt
+tests/test_config.py
+tests/test_models.py
+tests/test_registry_generator.py

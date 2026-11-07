@@ -24,6 +24,7 @@ from .models import ModelChoice
 from .registry import ModelSpec
 from .planner import PlannerError
 from .resolver import ResolverError
+from .roles import RoleError
 from .device import DeviceError
 
 
@@ -120,6 +121,34 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
             raise HTTPException(status_code=404,
                                 detail="No research card for this model")
         return card
+
+    @app.get("/v1/roles")
+    async def get_roles():
+        """The guide: which models can hold the conversation and the critic.
+
+        Every conversational model the appliance offers, whether or not it
+        can SEE an image, what each costs in NPU, and whether it is on the
+        device right now.
+
+        The `vision` flag is the one that matters. A critic that can see
+        the image judges the PICTURE; one that cannot judges only the
+        prompt, and cannot catch a generation that simply came out wrong.
+        """
+        return agency.role_options()
+
+    @app.post("/v1/roles")
+    async def set_roles(body: RoleRequest):
+        """Choose who talks and who judges.
+
+        The guide above says which models can see an image; this is how
+        one is chosen. The choice is immediate - it applies to the next
+        job, and the next job is the one that matters.
+        """
+        try:
+            return agency.set_roles(conversation=body.conversation,
+                                    critic=body.critic)
+        except RoleError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/v1/npu")
     async def get_npu():
@@ -316,6 +345,15 @@ class PlanRequest(BaseModel):
     width: int = 1024
     height: int = 1024
     session_id: str = "default"
+
+
+class RoleRequest(BaseModel):
+    """A request to change who talks and who judges.
+
+    Both are optional: send one, or both, or neither to read the guide.
+    """
+    conversation: str | None = None
+    critic: str | None = None
 
 
 class GenerateRequest(BaseModel):

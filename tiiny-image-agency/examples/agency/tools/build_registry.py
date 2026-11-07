@@ -70,6 +70,105 @@ def load_overlay() -> dict[str, dict]:
         raise SystemExit(f"ERROR: Failed to load overlay.yaml: {e}")
 
 
+def load_roles_overlay() -> dict[str, dict]:
+    """The curated overlay for the CONVERSATIONAL models.
+
+    The image registry says nothing about the other two roles — the
+    conversation agent and the critic — because those are held by text
+    models, and no text model is in the image registry. So the
+    conversational models have their own catalogue, curated here.
+    """
+    try:
+        with open(Path(__file__).parent.parent / "app" / "data" / "roles.yaml",
+                  "r") as f:
+            data = yaml.safe_load(f)
+            if not isinstance(data, dict):
+                raise ValueError("roles.yaml root must be a mapping")
+            models = data.get("models", {})
+            if not isinstance(models, dict):
+                raise ValueError("roles.yaml must have a 'models' mapping")
+            return _strip_trailing(models)
+    except Exception as e:
+        raise SystemExit(f"ERROR: Failed to load roles.yaml: {e}")
+
+
+#: The store's `type` for a model that can accept an image as well as
+#: text. The device also says so in `input`, which is "Text,Image";
+#: both are read, and either is enough.
+VISION_TYPE = "Image-Text-to-Text"
+
+
+def is_vision_model(record: dict) -> bool:
+    """Does this model accept an IMAGE as well as text?
+
+    The device states it twice: the model's `type` is
+    "Image-Text-to-Text", and its `input` is "Text,Image". The `input`
+    field is the more precise one — it describes the model's interface
+    rather than its family — so both are checked and either counts.
+    """
+    if str(record.get("type") or "") == VISION_TYPE:
+        return True
+    accepted = str(record.get("input") or "")
+    return "image" in accepted.lower()
+
+
+def build_roles(store: list[dict], overlay: dict[str, dict]) -> dict:
+    """The conversational catalogue: who can talk, and who can SEE.
+
+    Every conversational model the store lists is included, curated or
+    not. The guide is supposed to guide — hiding a model because nobody
+    has written a note about it would defeat the point. A model with no
+    note simply has not been characterised here, and says so.
+    """
+    entries = []
+    for record in store:
+        model_type = str(record.get("type") or "")
+        if model_type not in ("Text Generation", "Image-Text-to-Text",
+                              "Text-to-Text"):
+            continue
+        # The prompt enhancers are conversational in the loosest sense -
+        # they take a prompt and return a prompt - but they are not
+        # conversation agents and they are not critics. They belong to
+        # the image registry, which already carries them.
+        if "Prompt Enhance" in (record.get("supported") or []):
+            continue
+        model_id = str(record.get("fullname") or "")
+        if not model_id:
+            continue
+        curated = overlay.get(model_id, {})
+        vision = is_vision_model(record)
+        # The overlay may say a model cannot see when the device's type
+        # says it can: the device's family is not always its interface.
+        if "vision" in curated:
+            vision = bool(curated["vision"])
+        entries.append({
+            "id": model_id,
+            "name": record.get("name"),
+            "role": curated.get("role", "conversation"),
+            "vision": vision,
+            "device": {
+                "npu_usage": record.get("npu_usage") or 0,
+                "context_window": record.get("context_window"),
+                "input": record.get("input"),
+                "type": model_type,
+                "status": record.get("status"),
+                "size_bytes": _size_bytes(record),
+                "load_time": record.get("load_time"),
+                "thinking": record.get("thinking"),
+            },
+            "notes": curated.get("notes", ""),
+            "provenance": curated.get("provenance", ""),
+        })
+    entries.sort(key=lambda e: (not e["vision"], e["device"]["npu_usage"],
+                                e["id"]))
+    return {
+        "schema": "tiiny-image-agency/roles/v1",
+        "generated_from": {"device_model_count": len(store)},
+        "roles": ["conversation", "critic"],
+        "models": entries,
+    }
+
+
 def _size_bytes(m: dict) -> int:
     """The model's download size, in bytes.
 
@@ -89,6 +188,8 @@ def _size_bytes(m: dict) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="registry/image-models.json")
+    ap.add_argument("--roles-out", default="registry/roles.json",
+                    help="where the conversational catalogue goes")
     ap.add_argument("--base", default=DEVICE_BASE)
     args = ap.parse_args()
 
@@ -210,6 +311,18 @@ def main() -> int:
     path = Path(args.out)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
+
+    # The conversational catalogue: the models that can hold the
+    # CONVERSATION AGENT or the CRITIC. A second file, because the image
+    # registry is about generators and these are about the two roles
+    # that talk.
+    roles = build_roles(store, load_roles_overlay())
+    roles_path = Path(args.roles_out) if args.roles_out else (
+        path.parent / "roles.json")
+    roles_path.write_text(json.dumps(roles, indent=2) + "\n", encoding="utf-8")
+    vision_models = [m for m in roles["models"] if m["vision"]]
+    print(f"Wrote {roles_path} — {len(roles['models'])} conversational "
+          f"model(s), {len(vision_models)} of them can SEE an image")
 
     co = sum(1 for m in models if m["residency"]["co_resident_with_planner"])
     print(f"Wrote {path} — {len(models)} image models, {co} co-resident with planner")

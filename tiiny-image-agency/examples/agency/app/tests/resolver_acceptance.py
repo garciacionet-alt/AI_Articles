@@ -290,9 +290,17 @@ CASES: list[tuple[str, dict, str]] = [
     ("an artifact nobody declares falls back to the default model",
      dict(artifact="blueprint"), "Tongyi-MAI/Z-Image-Turbo"),
 
-    # --- style: the registry's own specialist signal --------------------
+    # --- style: the registry's own specialist signal ----------------------
+    # The expectation is a PAIR: the specialist IF it is on the device,
+    # otherwise the fallback. The resolver has an availability filter -
+    # a model that is listed but not downloaded cannot be loaded - so a
+    # single hard winner here would change whenever the store moved.
+    # The store moved on 6 Nov, and the table said nothing about why the
+    # answer had changed. This says why.
     ("realistic people",
-     dict(artifact="photo", style="realistic-people"), "TaoBaiBai2025/Z-Image-Turbo-Creating-Realistic"),
+     dict(artifact="photo", style="realistic-people"),
+     ("TaoBaiBai2025/Z-Image-Turbo-Creating-Realistic",
+      "Tongyi-MAI/Z-Image-Turbo")),
     ("crayon style falls back when the crayon model is not downloaded",
      dict(artifact="illustration", style="crayon"), "Tongyi-MAI/Z-Image-Turbo"),
     ("layout style takes the layout specialist",

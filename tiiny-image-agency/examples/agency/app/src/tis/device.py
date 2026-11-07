@@ -42,7 +42,10 @@ DOWNLOAD_CLI_TIMEOUT = 30.0
 #:
 #: It is generous because the budget is the difference between an answer
 #: and a silence: at 1200 tokens one probe in eleven came back empty.
-VISION_MAX_TOKENS = 2500
+#: It is not the whole answer — the judge's prompt is far longer than a
+#: probe's question, and a reasoning model that thinks for the whole
+#: budget answers nothing. The thinking is switched off as well.
+VISION_MAX_TOKENS = 4000
 
 
 class DeviceError(RuntimeError):
@@ -250,11 +253,22 @@ class TiinyDevice:
         The image goes inline as a data URL: the device must be able to
         fetch a URL, and the file being judged lives on this machine.
 
-        The budget is generous on purpose. The appliance's generalist is
-        a REASONING model: it thinks before it answers, and the thinking
-        is not part of the reply. With a small token budget it spends the
-        whole budget thinking and answers nothing at all — which looks
-        exactly like a model that cannot see.
+        THE BUDGET IS NOT THE ONLY PROBLEM — THE THINKING IS.
+        The appliance's generalist is a REASONING model: it thinks before
+        it answers, and the thinking is not part of the reply. With a
+        small token budget it spends the whole budget thinking and
+        answers nothing at all — which looks exactly like a model that
+        cannot see.
+
+        Measured 2026-11-07 on the live judge prompt: with thinking on,
+        the reply was sometimes prose that did not follow the format and
+        sometimes nothing at all; the same call with thinking off
+        returned 80 tokens and a well-formed verdict. Asking for 8000
+        tokens with thinking ON returned HTTP 502 from the upstream.
+
+        So the judge asks for no thinking and a generous budget. The
+        judge needs a verdict, not a deliberation, and a deliberation
+        that runs out of budget is a silence that looks like blindness.
         """
         encoded = base64.b64encode(image).decode("ascii")
         body = {
@@ -268,6 +282,8 @@ class TiinyDevice:
                 ],
             }],
             "max_tokens": VISION_MAX_TOKENS,
+            # No thinking. The judge answers a format, not a question.
+            "chat_template_kwargs": {"enable_thinking": False},
         }
         status, payload = self._request("POST", "/chat/completions", body=body)
         if status != 200:

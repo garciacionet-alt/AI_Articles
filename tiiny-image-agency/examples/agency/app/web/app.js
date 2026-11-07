@@ -49,6 +49,9 @@ const els = {
     placeholder: $('image-placeholder'),
     thumbs: $('thumbs'),
     lineage: $('lineage-body'),
+    roleConversation: $('role-conversation'),
+    roleCritic: $('role-critic'),
+    roleNote: $('role-note'),
 };
 
 let currentJobId = null;
@@ -458,10 +461,100 @@ async function updateNpu() {
     els.npuResident.title = resident.join('\n');
 }
 
+// -- who talks, and who judges ---------------------------------------------
+//
+// The guide is the agency's own catalogue, not a hard-coded list here.
+// A model that can SEE the image judges the picture; one that cannot
+// judges only the prompt, and cannot catch a generation that simply
+// came out wrong. So the picker says which is which, and the cost.
+
+async function loadRoles() {
+    const data = await apiGet('/v1/roles');
+    if (!data) {
+        return;
+    }
+    fillRoleSelect(els.roleConversation, data, data.conversation);
+    fillRoleSelect(els.roleCritic, data, data.critic);
+    renderRoleNote(data);
+}
+
+function fillRoleSelect(select, data, current) {
+    select.innerHTML = '';
+    const models = data.models || [];
+    for (const model of models) {
+        const option = document.createElement('option');
+        option.value = model.id;
+        const marks = [];
+        if (model.vision) {
+            marks.push('sees');
+        }
+        marks.push(model.npu_usage + '%');
+        if (!model.downloaded) {
+            marks.push('not on the device');
+        }
+        option.textContent = model.id + '  (' + marks.join(', ') + ')';
+        select.appendChild(option);
+    }
+    if (current && current.model) {
+        select.value = current.model;
+    }
+}
+
+function renderRoleNote(data) {
+    const critic = data.critic || {};
+    const note = els.roleNote;
+    const fit = data.fit || {};
+    let text;
+    if (critic.vision) {
+        note.classList.add('sees');
+        text = 'The judge can SEE the image, so it judges the picture '
+            + 'and not just the prompt. ';
+    } else {
+        note.classList.remove('sees');
+        text = 'The judge reads text only, so it judges the PROMPT. '
+            + 'It cannot see what was generated. ';
+    }
+    if (fit.total) {
+        // The talker is NOT part of this sum: it has already written the
+        // scene description by the time the image is made, so its
+        // weights are swapped out and it does not compete for the pool.
+        text += fit.fits
+            ? `While judging: ${fit.critic_npu}% judging + `
+              + `${fit.generator_npu}% generating = ${fit.total}% of the pool.`
+            : `It does not fit: ${fit.critic_npu}% judging + `
+              + `${fit.generator_npu}% generating = ${fit.total}%, over the `
+              + `${fit.ceiling}% ceiling.`;
+        if (!fit.fits && fit.advice) {
+            text += ' ' + fit.advice;
+        }
+    }
+    note.textContent = text;
+}
+
+async function setRole(which) {
+    const select = which === 'conversation'
+        ? els.roleConversation : els.roleCritic;
+    const body = {};
+    body[which] = select.value;
+    try {
+        const data = await apiPost('/v1/roles', body);
+        renderRoleNote(data);
+        if (data.note) {
+            say(data.note, 'event');
+        }
+    } catch (error) {
+        say('The role could not be changed: ' + error.message, 'bad');
+    }
+}
+
 // -- the start -----------------------------------------------------------
 
 els.composer.addEventListener('submit', submit);
 els.feedbackForm.addEventListener('submit', revise);
+els.roleConversation.addEventListener('change', () => setRole('conversation'));
+els.roleCritic.addEventListener('change', () => setRole('critic'));
+
+loadRoles();
 
 updateNpu();
 setInterval(updateNpu, 3000);

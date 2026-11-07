@@ -316,10 +316,40 @@ def test_the_lineage_is_shown(app_js: str) -> None:
 # -- the input -------------------------------------------------------------
 
 
-def test_there_is_a_way_to_make_an_image(index_html: str, app_js: str) -> None:
+def test_there_is_a_way_to_make_an_image(index_html: str, app_js: str):
     assert 'id="request"' in index_html, "there is no request box"
     assert "v1/generate" in app_js, "the surface cannot generate"
     assert "v1/plan" in app_js, (
         "the surface does not plan first; the plan says what will happen "
         "before it happens"
+    )
+
+
+# -- who talks, and who judges --------------------------------------------
+
+
+def test_the_surface_offers_the_role_choices(index_html: str):
+    """A user can choose a critic that can SEE the image."""
+    assert 'id="role-critic"' in index_html, "there is no judge picker"
+    assert 'id="role-conversation"' in index_html, "there is no talker picker"
+    assert 'id="role-note"' in index_html, "the roles say nothing"
+
+
+def test_the_surface_reads_the_guides_own_catalogue(app_js: str):
+    """Not a hard-coded list: the agency knows which models can see."""
+    assert "v1/roles" in app_js, "the surface does not read the roles guide"
+    assert "v1/roles" in app_js and "model.vision" in app_js, (
+        "the picker does not know which models can see an image"
+    )
+
+
+def test_the_surface_can_change_a_role(app_js: str):
+    assert "'/v1/roles'" in app_js, "the surface cannot set a role"
+    assert "setRole" in app_js, "the surface has no way to set a role"
+
+
+def test_the_surface_says_when_the_judge_is_blind(app_js: str):
+    """A user who picks a text model must be told what that means."""
+    assert "judges the" in app_js and "PROMPT" in app_js, (
+        "the surface does not say that a blind judge judges the prompt only"
     )

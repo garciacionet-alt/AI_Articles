@@ -171,8 +171,9 @@ BOXES = [
       "14 image models · dialect · NPU cost",
       ("device desc metadata is not trusted", "crit")], 11, "white"),
     ("critic", 425, 395, 225, "backend", "Critic",
-     ["judges the PROMPT, not pixels", "a change is an instruction",
-      ("the judge must be resident", "warn"),
+     [("judges the PROMPT or the PIXELS", "ok"),
+      ("a vision judge is a chosen model", "ok"),
+      ("a change is an instruction", "warn"),
       ("a dimension request is dropped", "warn")], 11, "white"),
 
     ("residency", 670, 105, 225, "device", "Residency Manager",
@@ -445,7 +446,8 @@ CARDS = [
         "• Planner → <strong>requirement vector</strong>, never a model name",
         "• Resolver → deterministic model pick + a paragraph explaining it",
         "• Dialect translator rewrites intent for the target model",
-        "• Critic judges the prompt against the vector, not the user's words",
+        "• Critic judges the <strong>prompt</strong> — or the <strong>pixels</strong>, "
+        "if the user picks a model that can see",
         "• Retry bound: 3 generations per user turn",
     ]),
     ("amber", "Residency arithmetic", [
@@ -468,6 +470,13 @@ CARDS = [
         "• <strong>Specialty overlay</strong> — hand-curated: what each model is good at, which dialect it wants",
         "• <strong>Research cards</strong> — measured on the appliance by probing it, because the device's own <code>desc</code> is <span class=\"crit\">wrong</span> for at least one model",
         "• A model that is listed is not a model that is downloaded — the resolver will not pick one that is not on disk",
+    ]),
+    ("violet", "Two roles, two catalogues", [
+        "• The <strong>image registry</strong> holds the generators. The <strong>roles catalogue</strong> holds the models that talk and judge",
+        "• The talker writes the requirement vector; the judge decides whether the result is good",
+        "• <code>vision: true</code> is the flag that matters — a judge that can see judges the <strong>pixels</strong>",
+        "• The guide says which models can see, what each costs, and whether the choice <strong>fits</strong> the pool",
+        "• 26 conversational models; 16 of them can see an image",
     ]),
     ("cyan", "One rule", [
         "• Agents do not bypass the orchestrator",

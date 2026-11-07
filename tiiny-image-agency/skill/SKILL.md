@@ -71,6 +71,7 @@ tis plan "I need an app icon of a fox head, flat, transparent background"
 tis generate "I need an app icon of a fox head, flat, transparent background"
 tis iterate ast_0123456789abcdef "make the ears sharper and the fill warmer"
 tis models          # the catalogue: artefact, NPU cost, alpha, text rendering
+tis roles           # the TALKER and the JUDGE: which models, which can SEE an image
 tis npu             # what is resident right now, and the NPU used
 tis health          # is the app alive, is the appliance reachable
 tis alpha file.png  # how much of this PNG is actually transparent
@@ -87,6 +88,48 @@ under-specified.
 
 `tis generate` writes the PNG into the current directory and prints the
 path. `tis iterate` takes the asset id from that path.
+
+`tis alpha` reads a PNG and reports what fraction of it is fully
+transparent, partly transparent, and opaque. It only READS the file — never
+re-encodes, never resizes — because a round trip through an image library
+is exactly where a transparent background quietly becomes an opaque one. Use
+it to check a cut-out instead of trusting the prompt.
+
+## The Judge — and Whether It Can See
+
+The agency has two conversational roles. The **talker** turns the request
+into a requirement vector. The **judge** decides whether the result is
+good. By default they are the same model, and the judge sees only the
+prompt.
+
+That is enough to catch a prompt that does not ask for what was requested.
+It is **not** enough to catch a generation that simply came out wrong — and
+a blind judge will invent a defect rather than admit it cannot see, and
+every invented defect costs another generation.
+
+Some models on the appliance can see an image. `tis roles` lists them all:
+
+```bash
+tis roles                                  # the guide
+tis roles --critic Qwen/Qwen3.6-35B-A3B    # a judge that SEES
+```
+
+**When to switch the judge:** if the request is about how the image looks
+and the first result is close but wrong — a transparent background that is
+not transparent, text that is mangled, a subject that is not there — a
+judge that can see will find it, and a judge that reads the prompt will not.
+
+**Read the fit line before you choose.** The guide says whether the judge
+and a generator fit in the NPU pool together, measured against the 81%
+ceiling that a generation needs to actually run. A judge that does not fit
+will be swapped in and out, and the generation may fail outright.
+
+The talker is not part of that sum: it has already written the scene
+description by the time the image is made, so its weights are swapped out
+while the judge and the generator have the pool to themselves.
+
+A judge that sees is slower and costs more. It is also the only kind that
+can answer "what is actually wrong with this image".
 
 ## Timing — and Why You Must Not Interrupt It
 
@@ -113,7 +156,7 @@ nothing and sees a hanging terminal is not.
   it is worth passing on: it is the resolver explaining itself.
 - **The critique** — if there was one. What missed, and what to change.
 
-## Two Things Worth Knowing
+## Things Worth Knowing
 
 **Transparency is the expensive thing — and it has to be asked for
 plainly.** Only the flagship `Qwen-Image-2.1` renders a genuine alpha
@@ -143,14 +186,64 @@ If the request needs a transparent background, the plan will say so and
 it will cost a swap: the planner is released for the generation and
 restored afterwards.
 
-**The model that made the image is in the lineage.** The asset's lineage
-holds the requirements, the model, the prompt that was actually sent, the
-attempts, and the critique. It is the record of what happened, and it is
-worth reading when a request comes back asking for a change.
+**The critique judges the PROMPT or the PIXELS — depending on the judge.**
+Two roles hold the conversation: the CONVERSATION AGENT, which turns a
+request into a requirement vector, and the CRITIC, which judges the
+result. They are separate choices, and `tis roles` shows which model holds
+each one right now.
+
+A judge that cannot see an image judges the PROMPT. It catches a prompt
+that does not ask for what the requirements demand, and nothing else. It
+can also be wrong about a defect it cannot see, so when it reports a
+failure, check the failure against the requirement vector before acting on
+it — a complaint about a transparent background on an image that has one
+costs a generation and changes nothing.
+
+A judge that CAN see an image judges the PICTURE. The appliance's chat
+API is OpenAI-compatible and its own models are image-text-to-text, so an
+image is handed to them as a content part — the device adapter's
+`vision(model, question, image_bytes)` method does it, and the research
+loop already uses that method to characterise models.
+
+Choose one with `tis roles --critic <model>`. The catalogue it prints
+lists every conversational model on the appliance, marks the ones that can
+see, and gives each one's NPU cost. Read it rather than trusting a list
+written down anywhere — including here — because the appliance's catalogue
+moves.
+
+**The talker, the judge and a generator have to fit in one pool.** The
+appliance has a single NPU pool and a model load is a swap, so the three
+things a job needs — the model that plans, the model that judges, and the
+model that draws — must fit in it together, or one of them is swapped out
+and back between stages.
+
+One model holding both roles counts ONCE. The default has the same Coder
+planning and judging, so it needs 55% + 23% = 78% of the pool, not 133%.
+
+A judge that can see costs more, and the default talker is too big to
+leave room for it: 55% + 47% + 23% = 125%. The fix is not to give up on
+seeing — it is to move the talker to a smaller model. A 29% talker with
+the same judge and generator is 99%, which fits. `tis roles` reports the
+total for the current choice and names the model that would make it fit.
+
+Those percentages are this appliance's, measured. Run `tis roles` for the
+numbers as they are now.
+
+**A suggestion from the critique may repeat something the generator already
+knows.** The judge sees the size in the requirements, so it may suggest
+"add 1024x1024 to the prompt" — and the image model will render that text
+into the picture. When you apply a critique, keep the change to something
+the prompt did not already say.
 
 ## What Not to Do
 
 - Do not call the appliance's generation endpoint directly.
+- Do not assume the judge can see the image. Run `tis roles` and read the
+  JUDGE line: "text only" means the critique is a claim about the prompt,
+  and a claim about the pixels needs a judge that was told it could look.
+- Do not pick a judge that does not fit the pool. The guide reports the
+  fit; if the total is over 100%, the judge gets swapped in and out, or
+  never runs at all.
 - Do not re-encode, resize or re-save a PNG that came out of the agency.
   The alpha channel is the product; a round trip through an image library
   is exactly where a transparent background quietly becomes an opaque one.
@@ -159,6 +252,11 @@ worth reading when a request comes back asking for a change.
   serves one inference at a time, and the agency serialises them — but a
   second agent with the device is a different story, and the cross-agent
   lock is what stops it.
+- Do not treat the plan's model choice as a promise about the alpha. The
+  plan says a transparent background is required; only `tis alpha` on the
+  finished file says whether it is.
+- Do not apply a critique's suggestion verbatim when it restates the size,
+  the format, or anything else the generator already received.
 
 ## The Work Surface
 
@@ -168,12 +266,80 @@ While the agency is running, a person can watch it work:
 
 That is the same port as the API. The screen shows the conversation, the
 canvas, which model made the picture and why, the NPU meter, and a banner
-whenever the appliance is swapping models or downloading one. The user
-can iterate from the screen as well as from the CLI.
+whenever the appliance is swapping models or downloading one. The user can
+iterate from the screen as well as from the CLI.
 
 If someone asks "what is it doing?" or "can I see it?", that URL is the
 answer. It is also the fastest way for a person to see the appliance's
 state — the NPU meter reads the real resident set, live.
+
+The surface is an HTTP client of the API, exactly like the CLI. It holds no
+credential and never touches the appliance. If you are checking that a
+change went through the API rather than around it, look for the credential
+and the appliance URL in the CLI and in the surface: neither may have one.
+
+## The Appliance Is Shared — Read the Board Before You Take It
+
+The device holds one NPU pool and every agent on the machine shares it. A
+generation is a swap: it evicts whatever was resident, including another
+agent's conversation model. The agency takes the cross-agent lock and
+restores what was there, but only for the duration of the job.
+
+**Before you touch the device, read the board.** The AMC keeps one file,
+`hot.md`, that records what is in flight across every agent, and it carries
+a `tiiny-device-lock` block naming whoever holds the appliance. That block
+is the ONLY thing that tells another agent the device is taken.
+
+Do not work it out from your own processes. Your own processes are
+evidence about *your* footprint, and the question is usually about
+someone else's. Read the board, then read the appliance's own resident set.
+
+**A lock that announces nothing is a lock nobody respects.** If you hold
+the device, the notice must be on the board; if the notice is stale, it
+misleads in both directions — the board said "busy" an hour after the lock
+expired, and said "free" while the lock was held.
+
+**Shared state resolves against the BASE Hermes home, not the profile.**
+`HERMES_HOME` points at a profile directory when a profile runs, and a
+profile's own `.env` does not carry the shared settings. Anything shared
+across agents — the lock, the hold file, the plan, the appliance bearer,
+the vault path — must be read and written against `~/.hermes`, not against
+`HERMES_HOME`. A shared file resolved against the profile is a file
+another agent never sees, and the symptom is silence: a lock taken, and
+nothing announced.
+
+### Releasing the device means four things, not two
+
+When you are done, "released" is a claim about four artefacts, and only
+one of them is your process:
+
+| artefact | where |
+|---|---|
+| the hold file | `~/.hermes/tiiny-hold` — emptied or removed |
+| the lock | `~/.hermes/tiiny-lock.json` — released, not expired |
+| the plan | `~/.hermes/tiiny-plan.json` — cleared |
+| the notice | the `tiiny-device-lock` block in `hot.md` — removed |
+
+Leave a stale one and the next agent inherits your intent. The hold and
+the notice are the two that mislead: a stale hold keeps a model resident
+that nothing wants, and a stale notice keeps every other agent out of a
+free device.
+
+The commands, the board's format, the keepalive, and the quiescence
+check are in
+[references/appliance-sharing.md](references/appliance-sharing.md).
+
+Two things follow:
+
+- **A generation evicts the chat model.** The conversation model comes back
+  afterwards, but the other agent pays for it. If someone is mid-task on the
+  same appliance, say that your generation will briefly displace it.
+- **When a delegation needs the appliance's coder model, load it first and
+  hold it.** A warm model that is not held gets evicted by the watchdog
+  within minutes, and the next request falls back to a paid provider with no
+  error. Reserve the device, load the model, write the hold, and start the
+  keepalive — then dispatch. Check the delegation manifest afterwards to
+  confirm which model actually served the task.
 
 ## Related
 

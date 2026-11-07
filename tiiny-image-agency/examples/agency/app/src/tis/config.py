@@ -22,8 +22,24 @@ def _get_project_root() -> Path:
 class Settings:
     base_url: str = DEFAULT_BASE_URL
     api_key: str = ""
+    #: The CONVERSATION AGENT - the model that turns a request into a
+    #: requirement vector. It is also the default critic, because until
+    #: the critic can see the image there was nothing to distinguish it.
     planner_model: str = "Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo"
     planner_npu_pct: int = 55
+    #: The CRITIC - the model that judges the result. It is a SEPARATE
+    #: setting because a critic that can SEE the image is a different
+    #: model from the one that wrote the prompt, and because the two
+    #: roles have different residency needs: the judge has to fit
+    #: beside the generator or it never runs.
+    #:
+    #: Empty means "the same model as the conversation agent".
+    judge_model: str = ""
+    #: Where the conversational catalogue lives - the models that can
+    #: hold either role.
+    roles_path: Path = field(
+        default_factory=lambda: Path(os.environ.get("TIIS_ROLES_PATH", _get_project_root() / "registry" / "roles.json")).expanduser()
+    )
     registry_path: Path = field(
         default_factory=lambda: Path(os.environ.get("TIIS_REGISTRY_PATH", _get_project_root() / "registry" / "image-models.json")).expanduser()
     )

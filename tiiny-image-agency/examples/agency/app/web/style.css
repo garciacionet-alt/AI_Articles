@@ -344,6 +344,60 @@ button:hover { filter: brightness(1.08); }
     overflow-y: auto;
 }
 
+/* -- WHO TALKS, AND WHO JUDGES ------------------------------------------ */
+
+.roles {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    flex: 0 0 auto;
+}
+
+.roles h3 {
+    margin: 0 0 8px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.role-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.role-row label {
+    font-size: 12px;
+    color: var(--muted);
+    width: 52px;
+    flex: 0 0 auto;
+}
+
+.role-row select {
+    flex: 1 1 auto;
+    min-width: 0;
+    font: inherit;
+    font-size: 12px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fbfbfc;
+    color: var(--ink);
+}
+
+.role-note {
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.45;
+    margin: 6px 0 0;
+}
+
+.role-note.sees { color: #047857; }
+
 /* -- THE BANNER. Never a silent stall. ---------------------------------- */
 
 .swap-banner {

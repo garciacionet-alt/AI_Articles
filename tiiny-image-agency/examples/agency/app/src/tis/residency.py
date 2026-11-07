@@ -170,12 +170,20 @@ class ResidencyManager:
     def __init__(self, device: Device, registry: Registry,
                  hold: HoldFile, watchdog_lock: Path,
                  default_set: Optional[list[str]] = None,
-                 lock_timeout: float = 30.0):
+                 lock_timeout: float = 30.0,
+                 roles=None):
         self.device = device
         self.registry = registry
         self.hold = hold
         self.watchdog_lock = Path(watchdog_lock)
         self.default_set = list(default_set) if default_set else list(DEFAULT_RESIDENT_SET)
+        #: The conversational catalogue, when there is one. The CRITIC's
+        #: model is chosen at runtime and is usually not an image model,
+        #: so without this the cost of a judge would be unknown - and an
+        #: unknown cost is cost zero, which would let the eviction
+        #: planner leave the pool above the execution ceiling and the
+        #: generation would fail.
+        self.roles = roles
         #: How long to wait for the watchdog's lock. The watchdog holds it
         #: only for the length of a reload, so this is generous; it is a
         #: parameter so a test can exercise the refusal without waiting.
@@ -274,18 +282,24 @@ class ResidencyManager:
         thing on the appliance and the one whose cost decides whether a
         judge can sit alongside an image model. Look for it explicitly.
 
-        The registry knows the image models; the appliance's own resident
+        The registry knows the image models; the conversational catalogue
+        knows the models that talk and judge; the appliance's own resident
         models — the generalist, the ASR and TTS models, the voice — are in
-        the table above. A model in neither is treated as free, which is the
-        safe assumption: a model we cannot cost is not one we should evict
-        someone else for.
+        the table above. A model in none of them is treated as free, which
+        is the safe assumption: a model we cannot cost is not one we should
+        evict someone else for.
         """
         if self.registry.planner.id == model_id:
             return self.registry.planner.npu_usage
         try:
             return self.registry.by_id(model_id).npu_usage
         except Exception:
-            return APPLIANCE_MODEL_NPU_PCT.get(model_id, 0)
+            pass
+        if self.roles is not None:
+            spec = self.roles.get(model_id)
+            if spec is not None:
+                return spec.npu_usage
+        return APPLIANCE_MODEL_NPU_PCT.get(model_id, 0)
 
     @contextmanager
     def _watchdog_lock(self, timeout: Optional[float] = None) -> Iterator[None]:

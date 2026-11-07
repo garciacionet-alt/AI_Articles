@@ -1,3 +1,12 @@
+---
+title: Tiiny Image Agency — Implementation
+type: folder-readme
+status: active
+project: tiiny-image-agency
+created: 2026-11-06
+updated: 2026-11-06
+---
+
 # The Implementation
 
 The concrete build. [PATTERN.md](PATTERN.md) is the design; this is what it
@@ -73,6 +82,8 @@ The browser surface is on the same port: <http://127.0.0.1:8080>.
 | `GET /v1/health` | is the app alive, is the appliance reachable |
 | `GET /v1/models` | the catalogue |
 | `GET /v1/models/card?model_id=<id>` | the research card for one model |
+| `GET /v1/roles` | the **guide**: every conversational model, whether it can see an image, its NPU cost, whether it is on the device, and whether the current pair fits the pool |
+| `POST /v1/roles` | the **choice**: `{"critic": "..."}` and/or `{"conversation": "..."}` |
 
 **Why 202.** A generation takes 54 to 200 seconds. A client that read 200
 would reasonably believe the image was ready. The work is *queued*, so it
@@ -85,6 +96,47 @@ slash — `Tongyi-MAI/Z-Image-Turbo` — and a path segment cannot carry one.
 requirements, the model, the prompt that was actually sent, the attempts, the
 critique, and the modifiers an iteration accumulated. It is what you read when
 a request comes back asking for a change.
+
+## The conversational catalogue
+
+`registry/roles.json` holds the models that **talk** — the conversation
+agent that turns a request into a requirement vector, and the critic that
+judges the result. It is a separate file from the image registry on
+purpose: the image registry holds the generators, and no text model is in
+it, so a single registry could not describe either role.
+
+Twenty-six models, sixteen of which can accept an image. `vision` is
+derived from the device's own record — `type == "Image-Text-to-Text"`, or
+an `input` that accepts an image — so it moves when the store moves.
+Prompt enhancers are excluded: an enhancer cannot hold a conversational
+role.
+
+**The guide says whether the choice works.** `GET /v1/roles` returns each
+model's vision flag, NPU cost, context, and whether it is on the device,
+plus a `fit` block for the current pair: the judge and a generator
+against the **81% execution ceiling**, not the 100% admission limit.
+
+The conversation agent is deliberately *not* in that sum. It writes the
+scene description before the generation starts, so by the time the image
+is judged its weights have been swapped out. A 47% seeing judge and the
+23% default generator is 70%, which runs; summing all three roles gives
+125% and wrongly suggests a seeing judge is unaffordable.
+
+**Three things the implementation had to get right**, and each of them was
+wrong at first:
+
+- The residency manager prices a model from the image registry, then from
+  a table of the appliance's own models, and otherwise said *zero*. A judge
+  chosen at runtime was therefore free, the eviction plan left the pool
+  above the ceiling, and the generation would have failed. The
+  conversational catalogue is now its third source of prices.
+- The orchestrator is handed the critic when it is built. Replacing the
+  agency's copy without handing the orchestrator the new one changes the
+  guide and not the judging.
+- The vision payload has to ask for **no thinking**. The appliance's
+  generalist is a reasoning model, and with a long prompt it spent the
+  whole token budget thinking and returned an empty reply — which is
+  indistinguishable from a model that cannot see.
 
 ## The registry
 

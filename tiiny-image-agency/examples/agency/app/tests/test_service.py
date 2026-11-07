@@ -602,7 +602,7 @@ def test_npu_reports_the_resident_set_and_its_cost(registry, tmp_path):
         agency.close()
 
 
-# ------------------------------------------------------------ the bearer-
+# ------------------------------------------------------------ the bearer-----
 
 
 def test_the_bearer_never_reaches_a_response(registry, tmp_path):

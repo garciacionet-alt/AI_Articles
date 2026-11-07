@@ -48,9 +48,25 @@ def _vector(req: dict) -> RequirementVector:
     CASES,
     ids=[case[0] for case in CASES],
 )
-def test_selection_matches_the_spec(name, req, expected, resolver: Resolver):
-    """Every selection case in the spec resolves to the spec's winner."""
-    assert resolver.resolve(_vector(req)).chosen.id == expected
+def test_selection_matches_the_spec(name, req, expected, resolver: Resolver,
+                                   registry: Registry):
+    """Every selection case in the spec resolves to the spec's winner.
+
+    An expectation may be a PAIR - (specialist, fallback) - which means
+    "the specialist if it is on the device, otherwise the fallback". The
+    resolver has an availability filter: a model that is listed but not
+    downloaded cannot be loaded, so a case that names a specialist must
+    also say what happens when that specialist is not there. The store
+    moved on 6 Nov and this case's answer moved with it, which is
+    correct behaviour and a confusing test.
+    """
+    if isinstance(expected, tuple):
+        specialist, fallback = expected
+        spec = next((m for m in registry.models if m.id == specialist), None)
+        wanted = specialist if (spec and spec.downloaded) else fallback
+    else:
+        wanted = expected
+    assert resolver.resolve(_vector(req)).chosen.id == wanted
 
 
 @pytest.mark.parametrize(

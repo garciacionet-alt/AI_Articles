@@ -1,3 +1,12 @@
+---
+title: Tiiny Image Agency
+type: folder-readme
+status: active
+project: tiiny-image-agency
+created: 2026-11-06
+updated: 2026-11-06
+---
+
 # Tiiny Image Agency
 
 **A demonstration of what is possible using the Tiiny Pocket Lab as an engine
@@ -111,6 +120,55 @@ second, without generating anything at all.
 That bug shipped in the CLI once, and again in the first version of the
 browser surface. The filter is now the first thing in both files, and there
 is a test that fails if it is removed.
+
+## The judge, and whether it can see
+
+The critic decides whether the result is good. It is a **model the user
+chooses**, and there are two kinds.
+
+A **blind** judge sees the prompt and the requirement vector. It can catch a
+prompt that does not ask for what was requested. It cannot catch a
+generation that simply came out wrong — and asked to judge something it
+cannot see, it will invent a defect rather than admit the limit. Every
+invented defect becomes an instruction to regenerate. The first live run of
+this project burned three generations chasing a defect the blind judge had
+invented, because it could not look at the image it was judging.
+
+A **seeing** judge gets the pixels as well. It is the only kind that can
+answer "what is actually wrong with this picture".
+
+The appliance already knew which models could see: it labels them
+`Image-Text-to-Text` and gives them an input of `Text,Image`. The project
+needed a second catalogue to hold that — the image registry holds the
+*generators*, and no text model is in it. The conversational catalogue holds
+26 models, 16 of which can see.
+
+**The fit is the judge plus a generator, against the 81% ceiling** — not all
+three roles. The conversation agent writes the scene description *before*
+the generation starts, so by the time the image is made its weights have
+been swapped out and the judge and the generator have the pool to
+themselves. A 47% seeing judge and the 23% default generator is 70%, and
+that runs. Summing all three roles gives 125% and the false conclusion
+that a seeing judge is unaffordable.
+
+A verified live run, judged by `Qwen/Qwen3.6-35B-A3B`:
+
+```
+VERDICT: pass
+REASON: The image is an illustration of a lighthouse, has a solid
+        background (not transparent), contains no text, and the style
+        aligns with the general prompt.
+```
+
+"A solid background" and "no text" are observations of the image. The judge
+could not have inferred them from the prompt.
+
+**One trap worth naming.** The appliance's generalist is a *reasoning*
+model: it thinks before it answers, and the thinking is not part of the
+reply. With the critic's long prompt it spent the entire token budget
+thinking and returned nothing — which looks exactly like a model that
+cannot see. The judge now asks for no thinking at all, because a judge
+needs a verdict, not a deliberation.
 
 ## What is in this folder
 

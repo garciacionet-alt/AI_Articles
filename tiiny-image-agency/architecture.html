@@ -176,9 +176,9 @@
   <text x="537" y="357" fill="#fb7185" font-size="8" text-anchor="middle">device desc metadata is not trusted</text>
   <rect x="425" y="395" width="225" height="86" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
   <text x="537" y="415" fill="white" font-size="11" font-weight="600" text-anchor="middle">Critic</text>
-  <text x="537" y="431" fill="#94a3b8" font-size="8" text-anchor="middle">judges the PROMPT, not pixels</text>
-  <text x="537" y="443" fill="#94a3b8" font-size="8" text-anchor="middle">a change is an instruction</text>
-  <text x="537" y="455" fill="#fbbf24" font-size="8" text-anchor="middle">the judge must be resident</text>
+  <text x="537" y="431" fill="#34d399" font-size="8" text-anchor="middle">judges the PROMPT or the PIXELS</text>
+  <text x="537" y="443" fill="#34d399" font-size="8" text-anchor="middle">a vision judge is a chosen model</text>
+  <text x="537" y="455" fill="#fbbf24" font-size="8" text-anchor="middle">a change is an instruction</text>
   <text x="537" y="467" fill="#fbbf24" font-size="8" text-anchor="middle">a dimension request is dropped</text>
   <rect x="670" y="105" width="225" height="110" rx="6" fill="rgba(120,53,15,0.3)" stroke="#fbbf24" stroke-width="1.5"/>
   <text x="782" y="125" fill="white" font-size="11" font-weight="600" text-anchor="middle">Residency Manager</text>
@@ -276,7 +276,7 @@
           <li>• Planner → <strong>requirement vector</strong>, never a model name</li>
           <li>• Resolver → deterministic model pick + a paragraph explaining it</li>
           <li>• Dialect translator rewrites intent for the target model</li>
-          <li>• Critic judges the prompt against the vector, not the user's words</li>
+          <li>• Critic judges the <strong>prompt</strong> — or the <strong>pixels</strong>, if the user picks a model that can see</li>
           <li>• Retry bound: 3 generations per user turn</li>
         </ul>
       </div>
@@ -317,6 +317,19 @@
           <li>• <strong>Specialty overlay</strong> — hand-curated: what each model is good at, which dialect it wants</li>
           <li>• <strong>Research cards</strong> — measured on the appliance by probing it, because the device's own <code>desc</code> is <span class="crit">wrong</span> for at least one model</li>
           <li>• A model that is listed is not a model that is downloaded — the resolver will not pick one that is not on disk</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot violet"></div>
+          <h3>Two roles, two catalogues</h3>
+        </div>
+        <ul>
+          <li>• The <strong>image registry</strong> holds the generators. The <strong>roles catalogue</strong> holds the models that talk and judge</li>
+          <li>• The talker writes the requirement vector; the judge decides whether the result is good</li>
+          <li>• <code>vision: true</code> is the flag that matters — a judge that can see judges the <strong>pixels</strong></li>
+          <li>• The guide says which models can see, what each costs, and whether the choice <strong>fits</strong> the pool</li>
+          <li>• 26 conversational models; 16 of them can see an image</li>
         </ul>
       </div>
       <div class="card">

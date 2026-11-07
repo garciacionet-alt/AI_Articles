@@ -1,3 +1,12 @@
+---
+title: Tiiny Image Agency — Pattern
+type: folder-readme
+status: active
+project: tiiny-image-agency
+created: 2026-11-06
+updated: 2026-11-06
+---
+
 # The Pattern
 
 This is the portable design. Nothing here is specific to one appliance or one
@@ -261,6 +270,57 @@ And one more: **a suggestion set that is entirely unusable is a broken
 verdict, not a failure.** If every change was dropped, there is nothing to
 act on, and regenerating against a change you cannot send burns a
 generation to produce the same picture. That verdict is inconclusive.
+
+## 7. A blind judge is not a broken judge — it is a different one
+
+A critic that cannot see the image is still a useful critic. It can tell
+you that the prompt does not ask for what was requested. It cannot tell you
+that the picture is wrong.
+
+That distinction has to be explicit, because the failure mode of a blind
+judge is not that it says "I cannot see". It is that it **invents a
+defect**. Given a prompt and a specification and asked for a verdict, a
+blind judge will produce a plausible complaint — and if the system's
+response to a complaint is to regenerate, every complaint costs a
+generation and changes nothing. The first live run of this project burned
+three generations chasing a defect that existed only in the judge's
+imagination.
+
+So: **make the judge's capability a choice, and name what the choice
+buys.** The user picks a model; the catalogue says whether that model can
+accept an image; the prompt tells the judge what it is being asked to do.
+A seeing judge is told it can see and told to judge what it sees. A blind
+judge is told it cannot, and told never to invent a defect.
+
+Three rules fall out of this.
+
+**Catalogue the capability, and derive it from the device, not from a
+guess.** The device labels these models `Image-Text-to-Text` and gives them
+an input of `Text,Image`. Either signal is enough. Do not keep a second
+list by hand — it will be wrong the first time the store changes.
+
+**Price the judge's share of the pool, or the budget will lie.** A
+residency manager that can only cost the models it knows about will treat
+an unknown model as free, and then leave the pool above the ceiling it
+enforces. The failure arrives later, as a generation that is admitted and
+then refused.
+
+**A reasoning model that runs out of budget looks exactly like a model
+that cannot see.** This one cost a full debugging cycle and is worth
+stating plainly: the appliance's generalist is image-text-to-text, it was
+asked a question about a real generated image, and it returned **nothing**.
+Not a wrong answer — an empty reply. It had spent its entire token budget
+thinking, and the thinking is not part of the reply. The capability was
+fine; the budget was the bug. The judge now asks for no thinking, because
+a judge needs a verdict and not a deliberation.
+
+And the last piece, which is the one that makes the rest work: **the
+conversation agent is not resident while the image is judged.** It wrote
+the scene description before the generation started, so by the time the
+picture exists its weights have been swapped out. Summing the talker, the
+judge and the generator gives a number that says a seeing judge is
+unaffordable, and that number is wrong. The real question is the judge
+plus the generator against the ceiling — 70% against 81%, which runs.
 
 ## What to take from this
 

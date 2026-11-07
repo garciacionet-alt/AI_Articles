@@ -69,6 +69,23 @@
                     </form>
                 </div>
 
+                <!-- WHO TALKS, AND WHO JUDGES. A judge that can SEE the
+                     image judges the picture; one that cannot judges only
+                     the prompt, and cannot catch a generation that simply
+                     came out wrong. -->
+                <div class="roles" id="roles">
+                    <h3>Who talks, and who judges</h3>
+                    <div class="role-row">
+                        <label for="role-conversation">Talks</label>
+                        <select id="role-conversation"></select>
+                    </div>
+                    <div class="role-row">
+                        <label for="role-critic">Judges</label>
+                        <select id="role-critic"></select>
+                    </div>
+                    <p class="role-note" id="role-note"></p>
+                </div>
+
                 <!-- THE LINEAGE -->
                 <div class="lineage" id="lineage">
                     <h3>Lineage</h3>

@@ -194,6 +194,75 @@ def iterate(args: argparse.Namespace, target: Target) -> int:
     return _follow(target, session_id, job_id, args.out)
 
 
+def roles(args: argparse.Namespace, target: Target) -> int:
+    """Show - or choose - the models that talk and judge.
+
+    The GUIDE: every conversational model the appliance offers, whether
+    or not it can SEE an image, what each costs, and whether it is on
+    the device right now.
+
+    The CHOICE: `tis roles --critic <model>` sets the judge. A judge
+    that can see the image judges the PICTURE; one that cannot judges
+    only the prompt.
+    """
+    body = {}
+    if args.conversation:
+        body["conversation"] = args.conversation
+    if args.critic:
+        body["critic"] = args.critic
+    try:
+        if body:
+            data = _post(target, "/v1/roles", body)
+        else:
+            data = _get(target, "/v1/roles")
+    except httpx.HTTPStatusError as exc:
+        detail = ""
+        try:
+            detail = exc.response.json().get("detail", "")
+        except Exception:
+            detail = exc.response.text[:200]
+        print(f"Error: {detail or exc.response.status_code}", file=sys.stderr)
+        return 1
+    except httpx.RequestError:
+        return _not_running()
+
+    if args.json:
+        print(json.dumps(data))
+        return 0
+
+    conversation = data.get("conversation") or {}
+    critic = data.get("critic") or {}
+    print("WHO TALKS")
+    print(f"  {conversation.get('model', '—')}  "
+          f"({conversation.get('npu_usage', 0)}% NPU)")
+    print()
+    print("WHO JUDGES")
+    sees = "CAN SEE the image" if critic.get("vision") else "text only — judges the PROMPT"
+    print(f"  {critic.get('model', '—')}  ({critic.get('npu_usage', 0)}% NPU)  "
+          f"{sees}")
+    if data.get("note"):
+        print(f"  {data['note']}")
+    fit = data.get("fit") or {}
+    if fit:
+        mark = "fits" if fit.get("fits") else "DOES NOT FIT"
+        # The talker is not in this sum. It has already written the scene
+        # description by the time the image is made, so its weights are
+        # swapped out and it does not compete for the pool.
+        print(f"  While judging: {fit.get('critic_npu', 0)}% judging + "
+              f"{fit.get('generator_npu', 0)}% generating = "
+              f"{fit.get('total', 0)}% of the pool — {mark}")
+    print()
+    print("THE MODELS THAT CAN SEE AN IMAGE")
+    print(f"  {'MODEL':<46} {'NPU':>4}  {'ON DEVICE':<12} NOTES")
+    for model in data.get("vision_models", []):
+        mark = "yes" if model.get("downloaded") else "not yet"
+        note = (model.get("notes") or "").strip().splitlines()
+        first = note[0] if note else ""
+        print(f"  {model['id']:<46} {model.get('npu_usage', 0):>4}%  "
+              f"{mark:<12} {first}")
+    return 0
+
+
 def alpha(args: argparse.Namespace) -> int:
     """Measure a PNG's transparency.
 
@@ -398,6 +467,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Measure a PNG's transparency")
     alpha_parser.add_argument("image", help="the PNG to measure")
 
+    roles_parser = subparsers.add_parser(
+        "roles", parents=[common],
+        help="Show or choose the models that talk and judge")
+    roles_parser.add_argument(
+        "--critic", default=None,
+        help="the model that judges the result (one that can SEE the image "
+             "judges the picture, not just the prompt)")
+    roles_parser.add_argument(
+        "--conversation", default=None,
+        help="the model that turns a request into a requirement vector")
+
     plan_parser = subparsers.add_parser(
         "plan", parents=[common], help="Plan a request without generating")
     plan_parser.add_argument("prompt", help="What you want, in words")
@@ -435,6 +515,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             return health(args, target)
         if args.command == "alpha":
             return alpha(args)
+        if args.command == "roles":
+            return roles(args, target)
         if args.command == "plan":
             return plan(args, target)
         if args.command == "generate":

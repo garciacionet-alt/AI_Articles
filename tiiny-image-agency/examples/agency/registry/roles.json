@@ -1,0 +1,654 @@
+{
+  "schema": "tiiny-image-agency/roles/v1",
+  "generated_from": {
+    "device_model_count": 92
+  },
+  "roles": [
+    "conversation",
+    "critic"
+  ],
+  "models": [
+    {
+      "id": "Qwen/Qwen3.5-9B-Turbo",
+      "name": "Qwen3.5-9B-Turbo",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 28,
+        "context_window": 131072,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "not_downloaded",
+        "size_bytes": 6548508519,
+        "load_time": 16,
+        "thinking": {
+          "supported": true,
+          "toggleable": true,
+          "enabled_by_default": true,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "Qwen/Qwen3.5-9B",
+      "name": "Qwen3.5-9B",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 29,
+        "context_window": 131072,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "downloaded",
+        "size_bytes": 6154388056,
+        "load_time": 13,
+        "thinking": {
+          "supported": true,
+          "toggleable": true,
+          "enabled_by_default": true,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "The cheapest model on the appliance that can see an image: 29% of\nthe NPU pool against the resident generalist's 47%. The\narithmetic that decides the critic is exactly this one - a judge\nthat cannot be loaded beside the generator is a judge that never\nruns.",
+      "provenance": "d"
+    },
+    {
+      "id": "google/gemma-4-26B-A4B-it",
+      "name": "gemma-4-26B-A4B-it",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 37,
+        "context_window": 131072,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "downloaded",
+        "size_bytes": 13798472157,
+        "load_time": 11,
+        "thinking": {
+          "supported": true,
+          "toggleable": true,
+          "enabled_by_default": true,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "37% of the pool, and it sees. Between the 9B and the 35B on\ncost, and on the device's own account the most economical way to\nget a working critic.",
+      "provenance": "d"
+    },
+    {
+      "id": "Qwen/Qwen3.5-35B-A3B",
+      "name": "Qwen3.5-35B-A3B",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 45,
+        "context_window": 131072,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "not_downloaded",
+        "size_bytes": 16892736194,
+        "load_time": 27,
+        "thinking": {
+          "supported": true,
+          "toggleable": true,
+          "enabled_by_default": true,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "Qwen/Qwen3.6-35B-A3B-Turbo",
+      "name": "Qwen3.6-35B-A3B-Turbo",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 46,
+        "context_window": 262144,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "downloaded",
+        "size_bytes": 17733116453,
+        "load_time": 18,
+        "thinking": {
+          "supported": true,
+          "toggleable": true,
+          "enabled_by_default": true,
+          "levels": [
+            "low"
+          ],
+          "default_level": "low"
+        }
+      },
+      "notes": "The resident generalist with the Turbo variant's load time - one\npoint cheaper than the model it is a variant of, with the same\ncontext window and the same ability to see.",
+      "provenance": "d"
+    },
+    {
+      "id": "Qwen/Qwen3.6-35B-A3B",
+      "name": "Qwen3.6-35B-A3B",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 47,
+        "context_window": 262144,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "running",
+        "size_bytes": 17422442601,
+        "load_time": 13,
+        "thinking": {
+          "supported": true,
+          "toggleable": true,
+          "enabled_by_default": true,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "MEASURED. The default resident model, and the one this appliance\nships with. On 6 Nov it was asked about a generated PNG - what\nthe subject was, whether the background was transparent, and\nwhether there was any text in it - and answered all three\ncorrectly: \"A lighthouse. Opaque. No.\" It is a reasoning model,\nso it spends its token budget thinking; with a small budget it\nanswers nothing at all, which looks exactly like a model that\ncannot see.",
+      "provenance": "m"
+    },
+    {
+      "id": "InternScience/Sage-A1.5-Turbo",
+      "name": "Sage-A1.5-Turbo",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 48,
+        "context_window": 262144,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "downloaded",
+        "size_bytes": 17530317412,
+        "load_time": 19,
+        "thinking": {
+          "supported": true,
+          "toggleable": false,
+          "enabled_by_default": false,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "48% of the pool, 262k of context, and it sees. The device's own\ncatalogue calls it the research-orchestration model.",
+      "provenance": "d"
+    },
+    {
+      "id": "Qwen/Qwen3.6-27B",
+      "name": "Qwen3.6-27B",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 48,
+        "context_window": 131072,
+        "input": "Image,Text",
+        "type": "Image-Text-to-Text",
+        "status": "not_downloaded",
+        "size_bytes": 15595751337,
+        "load_time": 35,
+        "thinking": {
+          "supported": true,
+          "toggleable": true,
+          "enabled_by_default": true,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo",
+      "name": "Huihui-Ornith-1.5-35B-A3B-abliterated-Turbo",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 48,
+        "context_window": 262144,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "not_downloaded",
+        "size_bytes": 17529837227,
+        "load_time": 20,
+        "thinking": {
+          "supported": true,
+          "toggleable": false,
+          "enabled_by_default": false,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "deepreinforce-ai/Ornith-1.0-35B",
+      "name": "Ornith-1.0-35B",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 50,
+        "context_window": 131072,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "downloaded",
+        "size_bytes": 18041197148,
+        "load_time": 27,
+        "thinking": {
+          "supported": true,
+          "toggleable": false,
+          "enabled_by_default": false,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "50% of the pool and it sees. The model the delegation tier\ntable names as its code tier.",
+      "provenance": "d"
+    },
+    {
+      "id": "Qwen/Qwen3.8-27B",
+      "name": "Qwen3.8-27B",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 52,
+        "context_window": 262144,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "downloaded",
+        "size_bytes": 15872315597,
+        "load_time": 26,
+        "thinking": {
+          "supported": true,
+          "toggleable": true,
+          "enabled_by_default": true,
+          "levels": [
+            "low",
+            "medium",
+            "xhigh"
+          ],
+          "default_level": "low"
+        }
+      },
+      "notes": "52% of the pool, 262k of context, and it sees.",
+      "provenance": "d"
+    },
+    {
+      "id": "google/gemma-4-31B-it",
+      "name": "gemma-4-31B-it",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 53,
+        "context_window": 131072,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "not_downloaded",
+        "size_bytes": 17730113801,
+        "load_time": 14,
+        "thinking": {
+          "supported": true,
+          "toggleable": true,
+          "enabled_by_default": true,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "endless-frontier/BigBang-v1-Turbo",
+      "name": "BigBang-v1-Turbo",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 54,
+        "context_window": 131072,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "downloaded",
+        "size_bytes": 17910085330,
+        "load_time": 18,
+        "thinking": {
+          "supported": true,
+          "toggleable": true,
+          "enabled_by_default": true,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "ornith-ai/Ornith-1.5-35B-A3B-Turbo",
+      "name": "Ornith-1.5-35B-A3B-Turbo",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 54,
+        "context_window": 262144,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "downloaded",
+        "size_bytes": 17564316508,
+        "load_time": 18,
+        "thinking": {
+          "supported": true,
+          "toggleable": false,
+          "enabled_by_default": false,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "54% of the pool, 262k of context, and it sees. The 1.5 revision\nof the model the delegation tier table names.",
+      "provenance": "d"
+    },
+    {
+      "id": "Qwen/Qwen3.6-27B-Turbo",
+      "name": "Qwen3.6-27B-Turbo",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 55,
+        "context_window": 131072,
+        "input": "Image,Text",
+        "type": "Image-Text-to-Text",
+        "status": "not_downloaded",
+        "size_bytes": 15653302333,
+        "load_time": 125,
+        "thinking": {
+          "supported": true,
+          "toggleable": true,
+          "enabled_by_default": true,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "trohrbaugh/Qwen3.8-27B-heretic-ara-Turbo",
+      "name": "Qwen3.8-27B-heretic-ara-Turbo",
+      "role": "conversation",
+      "vision": true,
+      "device": {
+        "npu_usage": 56,
+        "context_window": 131072,
+        "input": "Text,Image",
+        "type": "Image-Text-to-Text",
+        "status": "downloaded",
+        "size_bytes": 15925143538,
+        "load_time": 32,
+        "thinking": {
+          "supported": true,
+          "toggleable": true,
+          "enabled_by_default": true,
+          "levels": [
+            "low",
+            "medium",
+            "xhigh"
+          ],
+          "default_level": "low"
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "Qwen/Qwen3-4B-Instruct-2507",
+      "name": "Qwen3-4B-Instruct-2507",
+      "role": "conversation",
+      "vision": false,
+      "device": {
+        "npu_usage": 25,
+        "context_window": 131072,
+        "input": "Text",
+        "type": "Text Generation",
+        "status": "not_downloaded",
+        "size_bytes": 2349786917,
+        "load_time": 12,
+        "thinking": {
+          "supported": false,
+          "toggleable": false,
+          "enabled_by_default": false,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "openai/gpt-oss-20b",
+      "name": "gpt-oss-20b",
+      "role": "conversation",
+      "vision": false,
+      "device": {
+        "npu_usage": 27,
+        "context_window": 131072,
+        "input": "Text",
+        "type": "Text Generation",
+        "status": "running",
+        "size_bytes": 10301832188,
+        "load_time": 30,
+        "thinking": {
+          "supported": true,
+          "toggleable": false,
+          "enabled_by_default": true,
+          "levels": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "default_level": "medium"
+        }
+      },
+      "notes": "The appliance's default text model, and the one the watchdog\nholds. It reads text only. It is a reasonable conversation agent\nand it cannot be a critic that sees.",
+      "provenance": "d"
+    },
+    {
+      "id": "Qwen/Qwen3-8B",
+      "name": "Qwen3-8B",
+      "role": "conversation",
+      "vision": false,
+      "device": {
+        "npu_usage": 28,
+        "context_window": 131072,
+        "input": "Text",
+        "type": "Text Generation",
+        "status": "not_downloaded",
+        "size_bytes": 4254394943,
+        "load_time": 8,
+        "thinking": {
+          "supported": true,
+          "toggleable": true,
+          "enabled_by_default": true,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "Qwen/Qwen3-30B-A3B-Instruct",
+      "name": "Qwen3-30B-A3B-Instruct",
+      "role": "conversation",
+      "vision": false,
+      "device": {
+        "npu_usage": 55,
+        "context_window": 131072,
+        "input": "Text",
+        "type": "Text Generation",
+        "status": "not_downloaded",
+        "size_bytes": 14731157237,
+        "load_time": 30,
+        "thinking": {
+          "supported": false,
+          "toggleable": false,
+          "enabled_by_default": false,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "name": "Qwen3-Coder-30B",
+      "role": "conversation",
+      "vision": false,
+      "device": {
+        "npu_usage": 55,
+        "context_window": 65536,
+        "input": "Text",
+        "type": "Text Generation",
+        "status": "downloaded",
+        "size_bytes": 14609951030,
+        "load_time": 30,
+        "thinking": {
+          "supported": false,
+          "toggleable": false,
+          "enabled_by_default": false,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo",
+      "name": "Qwen3-Coder-30B-A3B-Instruct-Turbo",
+      "role": "conversation",
+      "vision": false,
+      "device": {
+        "npu_usage": 55,
+        "context_window": 65536,
+        "input": "Text",
+        "type": "Text Generation",
+        "status": "downloaded",
+        "size_bytes": 15172762132,
+        "load_time": 30,
+        "thinking": {
+          "supported": false,
+          "toggleable": false,
+          "enabled_by_default": false,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "MEASURED as a critic, and MEASURED as a limitation: it reads\ntext only, so it judges the PROMPT and cannot see the image it is\njudging. It is also a reasoning model, which is why the budget\nmatters. It is the default conversation agent for that reason -\nit writes the requirement vector well - and it is a poor judge\nfor the same reason.",
+      "provenance": "m"
+    },
+    {
+      "id": "zai-org/GLM-4.7-Flash",
+      "name": "GLM-4.7-Flash",
+      "role": "conversation",
+      "vision": false,
+      "device": {
+        "npu_usage": 57,
+        "context_window": 65536,
+        "input": "Text",
+        "type": "Text Generation",
+        "status": "not_downloaded",
+        "size_bytes": 15804403021,
+        "load_time": 35,
+        "thinking": {
+          "supported": false,
+          "toggleable": false,
+          "enabled_by_default": false,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "Qwen/Qwen3-30B-A3B-Thinking",
+      "name": "Qwen3-30B-A3B-Thinking",
+      "role": "conversation",
+      "vision": false,
+      "device": {
+        "npu_usage": 58,
+        "context_window": 131072,
+        "input": "Text",
+        "type": "Text Generation",
+        "status": "not_downloaded",
+        "size_bytes": 14545679165,
+        "load_time": 30,
+        "thinking": {
+          "supported": true,
+          "toggleable": false,
+          "enabled_by_default": true,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "Qwen/Qwen3-Coder-Next",
+      "name": "Qwen3-Coder-Next",
+      "role": "conversation",
+      "vision": false,
+      "device": {
+        "npu_usage": 94,
+        "context_window": 131072,
+        "input": "Text",
+        "type": "Text Generation",
+        "status": "downloaded",
+        "size_bytes": 37697536035,
+        "load_time": 45,
+        "thinking": {
+          "supported": false,
+          "toggleable": false,
+          "enabled_by_default": false,
+          "levels": [],
+          "default_level": null
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    },
+    {
+      "id": "openai/gpt-oss-120b",
+      "name": "gpt-oss-120b",
+      "role": "conversation",
+      "vision": false,
+      "device": {
+        "npu_usage": 100,
+        "context_window": 131072,
+        "input": "Text",
+        "type": "Text Generation",
+        "status": "downloaded",
+        "size_bytes": 67301576231,
+        "load_time": 120,
+        "thinking": {
+          "supported": true,
+          "toggleable": false,
+          "enabled_by_default": true,
+          "levels": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "default_level": "medium"
+        }
+      },
+      "notes": "",
+      "provenance": ""
+    }
+  ]
+}

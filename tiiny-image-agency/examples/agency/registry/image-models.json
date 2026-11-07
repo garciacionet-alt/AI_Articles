@@ -409,7 +409,7 @@
         "supported": [],
         "context_window": null,
         "image_size": "512x512 (fastest), up to 1536x1536",
-        "status": "downloaded",
+        "status": "downloading",
         "version_label": "20261106",
         "load_time": 4
       },

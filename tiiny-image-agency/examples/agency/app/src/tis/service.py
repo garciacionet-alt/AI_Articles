@@ -70,6 +70,8 @@ from .models import ModelChoice, RequirementVector, Resolution
 from .orchestrator import GenerationResult, Orchestrator
 from .planner import Planner
 from .registry import ModelSpec, Registry
+from .residency import MAX_EXECUTABLE_OCCUPANCY_PCT
+from .roles import Roles
 from .residency import APPLIANCE_MODEL_NPU_PCT, HoldFile, ResidencyManager
 from .resolver import Resolver, ResolverError
 
@@ -145,6 +147,20 @@ class _ObservedDevice:
         self._events.publish("critique.ready", self._session(),
                              {"model": model, "prompt": prompt})
         return response
+
+    def vision(self, model: str, question: str, image: bytes) -> str:
+        """Ask a model about an image, and say so when it has answered.
+
+        The same event as chat(), for the same reason: a critique that
+        the client was never told about is a critique the client cannot
+        show. A judge that can SEE the image is still a judge, and its
+        verdict is still worth an event.
+        """
+        answer = self._device.vision(model, question, image)
+        self._events.publish("critique.ready", self._session(),
+                             {"model": model, "prompt": question,
+                              "vision": True})
+        return answer
 
     def generate(self, model: str, prompt: str, size: str) -> bytes:
         session = self._session()
@@ -257,6 +273,10 @@ class Agency:
 
         self.resolver = Resolver(self.registry)
         self.translator = DialectTranslator(self.registry)
+        # The conversational catalogue: the models that can hold either
+        # role. It is what lets a user CHOOSE a critic that can see the
+        # image, and it is what tells them which ones can.
+        self.roles = Roles.load(settings.roles_path)
         # The planner talks to the RAW device. Its chat() is a planning
         # call, not a critique, and publishing "critique.ready" for it
         # would tell a client a judge had spoken when none had.
@@ -266,10 +286,11 @@ class Agency:
         observed = _ObservedDevice(self.device, self.events, self._session.get)
         # The critic judges THROUGH the observed device, because its
         # chat() is the critique, and the client has to be told about it.
-        self.critic = Critic(observed, settings.planner_model)
+        self._observed = observed
+        self.critic = self._build_critic(self._judge_model_id(settings))
         self.residency = ResidencyManager(
             self.device, self.registry, HoldFile(settings.hold_file),
-            settings.watchdog_lock)
+            settings.watchdog_lock, roles=self.roles)
         self.orchestrator = Orchestrator(
             observed, self.registry, self.resolver, self.translator,
             self.critic,
@@ -287,6 +308,217 @@ class Agency:
         self._closed = False
 
     # -- the public surface ------------------------------------------------
+
+    # -- the roles: who talks, and who judges ------------------------------
+
+    def _judge_model_id(self, settings) -> str:
+        """Which model judges.
+
+        The judge is the conversation agent unless the user has chosen
+        otherwise. The two roles were one model because a blind judge
+        and the model that wrote the prompt had nothing to tell each
+        other; a judge that can SEE the image is a different model, and
+        a different one may be wanted.
+        """
+        return settings.judge_model or settings.planner_model
+
+    def _build_critic(self, model_id: str) -> Critic:
+        """A critic for a model, with its vision capability resolved.
+
+        The catalogue says whether the model can accept an image as
+        well as text. A model that is not in the catalogue is treated
+        as blind, because the safe assumption about an unknown model is
+        the one that cannot fail by claiming to see something.
+        """
+        spec = self.roles.get(model_id)
+        vision = bool(spec and spec.vision)
+        # The wrapper forwards everything the protocol asks for, and
+        # everything it does not, through __getattr__ - so it satisfies
+        # the protocol at runtime. The cast says so in the type the
+        # critic was written against, without pretending the wrapper IS
+        # the device.
+        return Critic(cast(Device, self._observed), model_id, vision=vision)
+
+    def role_options(self) -> dict:
+        """The guide: every model that can hold either role.
+
+        Each entry says whether the model can SEE an image, what it
+        costs in NPU, how much context it has, and whether it is on the
+        device right now. The `vision` flag is the one that decides
+        whether a critic can judge the picture or only the prompt.
+
+        The `fit` section is the part that makes the guide GUIDE rather
+        than list. A judge that can see costs more of the pool, and the
+        pool is finite: the talker, the judge and a generator have to
+        fit in it at once, or one of them has to be swapped out and
+        back between stages. So the guide says whether the CURRENT
+        choice fits, and what to change if it does not.
+        """
+        models = [m.as_dict() for m in self.roles.all()]
+        return {
+            "conversation": {
+                "model": self.planner.model_id,
+                "npu_usage": self._npu_of(self.planner.model_id),
+            },
+            "critic": {
+                "model": self.critic.model_id,
+                "vision": self.critic.vision,
+                "npu_usage": self._npu_of(self.critic.model_id),
+            },
+            "models": models,
+            "vision_models": [m.as_dict() for m in self.roles.vision_models()],
+            "fit": self._fit(),
+        }
+
+    def _fit(self) -> dict:
+        """Can the judge and a generator be resident at the same time?
+
+        Measured on this appliance: the pool is 47.9 GiB and the
+        percentages are the device's own. The generator is the one the
+        resolver would pick for an ordinary request, because that is
+        the one the fit has to hold for.
+
+        THE TALKER IS NOT IN THIS SUM, AND THAT IS THE POINT.
+        The conversation agent writes the scene description BEFORE the
+        generation starts. By the time the image is being made, its
+        weights have been swapped out and the judge and the generator
+        have the pool to themselves. So a judge that can SEE the image
+        is affordable even when it is much bigger than the talker -
+        47% judge + 23% generator is 70%, and the measured ceiling for
+        a generation that actually runs is 81%.
+
+        The ceiling is the EXECUTION ceiling, not the admission one.
+        The appliance accepted 85% and failed the diffusion pass with
+        HTTP 500. So "it fits in the pool" is not the question either;
+        "can it RUN" is.
+
+        The talker still has to be DOWNLOADED, because it is swapped
+        back in afterwards.
+        """
+        from .models import RequirementVector
+
+        resolution = self.resolver.resolve(RequirementVector())
+        generator = resolution.chosen
+        talker_model = self.planner.model_id
+        judge_model = self.critic.model_id
+        talker = self._npu_of(talker_model)
+        judge = self._npu_of(judge_model)
+
+        # What has to be resident WHILE the image is being judged.
+        during = judge + generator.npu_usage
+        fits = during <= MAX_EXECUTABLE_OCCUPANCY_PCT
+        talker_ready = bool(self.roles.get(talker_model) and
+                            self.roles.require(talker_model).downloaded)
+
+        if fits:
+            advice = (
+                f"It fits: {judge_model} judges at {judge}% while "
+                f"{generator.id} generates at {generator.npu_usage}% - "
+                f"{during}% of the pool, under the {MAX_EXECUTABLE_OCCUPANCY_PCT}% "
+                f"ceiling a generation needs to actually run."
+            )
+            if talker_model != judge_model:
+                advice += (
+                    f" {talker_model} is swapped out while the image is made "
+                    f"and swapped back in to judge it, so its {talker}% does "
+                    f"not compete for the pool."
+                )
+        else:
+            options = []
+            for model in sorted(self.roles.all(), key=lambda m: m.npu_usage):
+                if not model.downloaded or model.id == judge_model:
+                    continue
+                new_total = model.npu_usage + generator.npu_usage
+                if new_total <= MAX_EXECUTABLE_OCCUPANCY_PCT:
+                    options.append((model, new_total))
+            if options:
+                pick, new_total = options[0]
+                advice = (
+                    f"It does not fit: {judge_model} judges at {judge}% and "
+                    f"{generator.id} generates at {generator.npu_usage}% - "
+                    f"{during}%, over the {MAX_EXECUTABLE_OCCUPANCY_PCT}% "
+                    f"ceiling. The device accepts a set like that and then "
+                    f"fails the generation. A smaller judge would work: "
+                    f"{pick.id} would give {new_total}%."
+                )
+            else:
+                advice = (
+                    f"It does not fit: {judge_model} judges at {judge}% and "
+                    f"{generator.id} generates at {generator.npu_usage}% - "
+                    f"{during}%, over the {MAX_EXECUTABLE_OCCUPANCY_PCT}% "
+                    f"ceiling, and no model on the device makes room beside "
+                    f"the generator."
+                )
+        return {
+            "generator": generator.id,
+            "generator_npu": generator.npu_usage,
+            "conversation_npu": talker,
+            "critic_npu": judge,
+            "shared_model": talker_model == judge_model,
+            "during_judging": during,
+            "ceiling": MAX_EXECUTABLE_OCCUPANCY_PCT,
+            "total": during,
+            "fits": fits,
+            "talker_downloaded": talker_ready,
+            "advice": advice,
+        }
+
+    def _npu_of(self, model_id: str) -> int:
+        spec = self.roles.get(model_id)
+        return spec.npu_usage if spec else 0
+
+    def set_roles(self, conversation: str | None = None,
+                  critic: str | None = None) -> dict:
+        """Choose who talks and who judges.
+
+        This is the ENABLING half: the guide tells a user which models
+        can see an image, and this is how they choose one.
+
+        The conversation agent is the planner; the critic is the judge.
+        A model that is not in the conversational catalogue is refused:
+        the guide would not have shown it, and a role held by a model
+        nobody knows anything about is how the first live run went
+        wrong.
+
+        A judge that cannot see the image is allowed, and the answer
+        says so plainly - some users want a prompt critic, which is
+        cheaper and never invents a visual defect.
+        """
+        if conversation:
+            self.roles.require(conversation)
+            self.planner = Planner(self.device, conversation, self.registry)
+        if critic:
+            self.roles.require(critic)
+            self.critic = self._build_critic(critic)
+            # The orchestrator was handed the critic when it was built,
+            # so replacing the agency's copy is not enough - the
+            # orchestrator has to be given the new one too, or the
+            # choice would change the guide and not the judging.
+            self.orchestrator.critic = self.critic
+
+        result = self.role_options()
+        result["changed"] = {
+            "conversation": conversation or self.planner.model_id,
+            "critic": self.critic.model_id,
+        }
+        # The residency warning is the honest part. A judge that cannot
+        # be loaded beside the generator will never run, and a user who
+        # has just chosen it deserves to know that before they wait for
+        # a picture.
+        fit = self._fit()
+        judge = self.roles.get(self.critic.model_id)
+        if judge and judge.vision:
+            result["note"] = (
+                f"{judge.id} can SEE the image. {fit['advice']}"
+            )
+        elif critic:
+            result["note"] = (
+                f"{self.critic.model_id} reads text only, so the critic "
+                f"judges the PROMPT and cannot see the image. "
+                f"{fit['advice']}"
+            )
+        result["fit"] = fit
+        return result
 
     def plan(self, request: str, width: int = 1024, height: int = 1024,
              session_id: str = "default") -> dict:

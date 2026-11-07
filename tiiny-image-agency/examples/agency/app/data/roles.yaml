@@ -1,0 +1,131 @@
+# The conversational models - the ones that can be a CONVERSATION AGENT or
+# a CRITIC, rather than an image generator.
+#
+# WHY A SEPARATE CATALOGUE
+# -------------------------
+# registry/image-models.json is the IMAGE catalogue: the resolver picks
+# an image generator from it. It says nothing about the two other roles
+# the Agency has, and it cannot: those roles are held by TEXT models,
+# and the image registry does not contain any.
+#
+# So there is a second catalogue, registry/roles.json, built from the
+# same live store snapshot and curated here.
+#
+# THE FLAG THAT MATTERS
+# ---------------------
+# `vision: true` means the model accepts an IMAGE as well as text. The
+# device says so in two places: `type` is "Image-Text-to-Text", and
+# `input` is "Text,Image". Both are read; `input` is the one that is
+# about the model's interface rather than its family.
+#
+# It matters because a critic that can SEE the image catches what a
+# critic that can only read the prompt structurally cannot. The first
+# live run of the Agency burned three generations chasing a defect the
+# prompt judge invented, because it could not look at the picture it
+# was judging.
+#
+# THE NOTES ARE HONEST ABOUT WHAT WAS MEASURED
+# ---------------------------------------------
+# A model with no note has not been characterised here. It is listed
+# because it is a real option on the device, not because anyone has
+# tested it. `provenance: m` means measured here, `d` means the
+# device's own description, and nothing else means neither.
+#
+# The appliance's own description of a model is not trusted: it
+# described one model as producing text correctly, and eleven probes
+# found it mangled text every time.
+models:
+  Qwen/Qwen3.6-35B-A3B:
+    role: conversation
+    vision: true
+    notes: |
+      MEASURED. The default resident model, and the one this appliance
+      ships with. On 6 Nov it was asked about a generated PNG - what
+      the subject was, whether the background was transparent, and
+      whether there was any text in it - and answered all three
+      correctly: "A lighthouse. Opaque. No." It is a reasoning model,
+      so it spends its token budget thinking; with a small budget it
+      answers nothing at all, which looks exactly like a model that
+      cannot see.
+    provenance: m
+
+  Qwen/Qwen3.5-9B:
+    role: conversation
+    vision: true
+    notes: |
+      The cheapest model on the appliance that can see an image: 29% of
+      the NPU pool against the resident generalist's 47%. The
+      arithmetic that decides the critic is exactly this one - a judge
+      that cannot be loaded beside the generator is a judge that never
+      runs.
+    provenance: d
+
+  google/gemma-4-26B-A4B-it:
+    role: conversation
+    vision: true
+    notes: |
+      37% of the pool, and it sees. Between the 9B and the 35B on
+      cost, and on the device's own account the most economical way to
+      get a working critic.
+    provenance: d
+
+  Qwen/Qwen3.6-35B-A3B-Turbo:
+    role: conversation
+    vision: true
+    notes: |
+      The resident generalist with the Turbo variant's load time - one
+      point cheaper than the model it is a variant of, with the same
+      context window and the same ability to see.
+    provenance: d
+
+  InternScience/Sage-A1.5-Turbo:
+    role: conversation
+    vision: true
+    notes: |
+      48% of the pool, 262k of context, and it sees. The device's own
+      catalogue calls it the research-orchestration model.
+    provenance: d
+
+  Qwen/Qwen3.8-27B:
+    role: conversation
+    vision: true
+    notes: |
+      52% of the pool, 262k of context, and it sees.
+    provenance: d
+
+  ornith-ai/Ornith-1.5-35B-A3B-Turbo:
+    role: conversation
+    vision: true
+    notes: |
+      54% of the pool, 262k of context, and it sees. The 1.5 revision
+      of the model the delegation tier table names.
+    provenance: d
+
+  deepreinforce-ai/Ornith-1.0-35B:
+    role: conversation
+    vision: true
+    notes: |
+      50% of the pool and it sees. The model the delegation tier
+      table names as its code tier.
+    provenance: d
+
+  openai/gpt-oss-20b:
+    role: conversation
+    vision: false
+    notes: |
+      The appliance's default text model, and the one the watchdog
+      holds. It reads text only. It is a reasonable conversation agent
+      and it cannot be a critic that sees.
+    provenance: d
+
+  Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo:
+    role: conversation
+    vision: false
+    notes: |
+      MEASURED as a critic, and MEASURED as a limitation: it reads
+      text only, so it judges the PROMPT and cannot see the image it is
+      judging. It is also a reasoning model, which is why the budget
+      matters. It is the default conversation agent for that reason -
+      it writes the requirement vector well - and it is a poor judge
+      for the same reason.
+    provenance: m

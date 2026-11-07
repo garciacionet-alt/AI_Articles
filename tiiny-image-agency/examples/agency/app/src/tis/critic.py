@@ -92,18 +92,33 @@ class Critique(BaseModel):
 
 
 class Critic:
-    """Judges a generated image against the requirement vector."""
+    """Judges a generated image against the requirement vector.
 
-    def __init__(self, device: Device, model_id: str):
+    A critic with `vision` can SEE the image. One without, judges the
+    prompt that produced it.
+
+    Both are useful, and the difference is the whole story of the
+    first live run: a blind judge was given the requirement vector and
+    nothing else, invented a defect, and the orchestrator regenerated
+    against the invention. Three generations chasing a complaint about
+    an image neither of them had seen.
+
+    A judge that can see catches what a judge that can only read
+    structurally cannot - a generation that simply came out wrong.
+    """
+
+    def __init__(self, device: Device, model_id: str, vision: bool = False):
         self.device = device
         self.model_id = model_id
+        #: Whether this judge can accept an IMAGE as well as text.
+        self.vision = vision
 
     def judge(self, image: bytes, requirements: RequirementVector,
               prompt: str = "") -> Critique:
         """Judge the image.
 
         The judge is asked to answer in exactly one format, and the reply is
-        parsed line by line. A reply with no VERDICT line is INCONCLUSIVE —
+        parsed line by line. A reply with no VERDICT line is INCONCLUSIVE -
         that is a broken judge, not a failed image, and it must not make the
         orchestrator burn its retries.
 
@@ -111,28 +126,57 @@ class Critic:
         real fault the caller needs to see; the orchestrator checks residency
         before it judges so it never reaches here in that state.
 
-        ``prompt`` is the prompt that produced this image. The judge cannot
-        see the pixels, so the prompt is the only evidence it has — without
-        it, the judge is asked to reach a verdict on nothing at all, and
-        what it does then is invent a defect.
+        ``prompt`` is the prompt that produced this image. For a BLIND
+        judge it is the only evidence it has - without it, the judge is asked
+        to reach a verdict on nothing at all, and what it does then is invent
+        a defect. For a judge that can SEE, the image is the evidence and
+        the prompt is the context that says what the image was meant to be.
         """
-        judge_prompt = self._judge_prompt(requirements, prompt)
+        judge_prompt = self._judge_prompt(requirements, prompt, self.vision)
+        if self.vision:
+            # The image goes with the question. The appliance's chat API
+            # is OpenAI-compatible and its own models are
+            # image-text-to-text, so an image can be handed to them as a
+            # content part.
+            answer = self.device.vision(self.model_id, judge_prompt, image)
+            return self._parse(answer)
         response = self.device.chat(self.model_id, judge_prompt)
         reply = response["choices"][0]["message"]["content"]
         return self._parse(reply)
 
     def _judge_prompt(self, requirements: RequirementVector,
-                      prompt: str = "") -> str:
+                      prompt: str = "", vision: bool = False) -> str:
+        if vision:
+            # A judge that can SEE must not be told it cannot. Telling it
+            # so would make it reason about the prompt anyway - and it
+            # would be reasoning about a picture it is looking at.
+            opening = (
+                "You are judging an IMAGE against a requirement "
+                "specification.\n"
+                "You CAN see the image - it is attached to this message. "
+                "Judge what you see: the subject, the composition, the "
+                "colour, the lighting, whether the background is "
+                "transparent, and whether any text was rendered.\n"
+                "The prompt below is the one that produced it, and it "
+                "tells you what the image was MEANT to be. Judge the image "
+                "against the requirements, not the prompt against the "
+                "requirements.\n"
+            )
+        else:
+            opening = (
+                "You are judging the PROMPT that produced an image "
+                "against a requirement specification.\n"
+                "You cannot see the image. You can only see the prompt "
+                "and the requirements. So judge ONE thing: does the "
+                "prompt ask for what the requirements demand?\n"
+                "If the prompt is consistent with the requirements, "
+                "answer pass. Never invent a defect you cannot see - a "
+                "defect you report becomes an instruction to regenerate "
+                "the image, and a made-up one costs a generation and "
+                "changes nothing.\n"
+            )
         return (
-            "You are judging the PROMPT that produced an image against a "
-            "requirement specification.\n"
-            "You cannot see the image. You can only see the prompt and the "
-            "requirements. So judge ONE thing: does the prompt ask for what "
-            "the requirements demand?\n"
-            "If the prompt is consistent with the requirements, answer "
-            "pass. Never invent a defect you cannot see - a defect you "
-            "report becomes an instruction to regenerate the image, and a "
-            "made-up one costs a generation and changes nothing.\n"
+            opening +
             "Answer in EXACTLY this format and nothing else:\n"
             "VERDICT: pass\n"
             "REASON: <one line>\n"
@@ -188,7 +232,19 @@ class Critic:
         if verdict is None:
             # No verdict: the judge did not answer in the format. That is
             # inconclusive, not a failed image.
-            return Critique(passed=False, inconclusive=True, reasons=[],
+            reasons = []
+            if not reply.strip():
+                # An EMPTY reply is a different fault from a reply in the
+                # wrong shape, and it needs to say so. A reasoning model
+                # that spends its whole token budget thinking returns
+                # nothing at all - and "nothing" is what a model that
+                # cannot see also returns. Silently recording both as
+                # "inconclusive" hides the difference.
+                reasons.append(
+                    "the judge returned an empty reply: it spent its token "
+                    "budget thinking and answered nothing"
+                )
+            return Critique(passed=False, inconclusive=True, reasons=reasons,
                             suggested_changes=[], raw=reply)
 
         # A change that asks for the output's dimensions is dropped. The
