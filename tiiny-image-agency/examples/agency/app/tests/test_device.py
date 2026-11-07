@@ -134,6 +134,38 @@ def test_a_load_that_timed_out_and_did_not_happen_still_fails(monkeypatch):
     assert "not resident" in str(error.value)
 
 
+def test_a_timed_out_cli_still_reports_what_the_appliance_said(monkeypatch):
+    """The CLI HANGS when it fails, and it says why on the way past.
+
+    The observed case: the appliance could not allocate an NPU buffer
+    for the model, aborted its container, and the CLI sat there showing
+    the error instead of exiting. A bare "timed out" throws away the
+    only sentence that explains the failure - and the next person to
+    read the log has nothing to act on.
+    """
+    import subprocess
+
+    from tis.device import DeviceError
+
+    def fake_run(command, **kwargs):
+        raise subprocess.TimeoutExpired(
+            cmd=command, timeout=240,
+            output="Loading: ####\nError occured when loading model: "
+                   "CreateDeviceBuffer FAILED\n",
+            stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    device = TiinyDevice(Settings(api_key="k", base_url="http://example"))
+
+    with pytest.raises(DeviceError) as error:
+        device._cli("load", "some/model")
+
+    message = str(error.value)
+    assert "CreateDeviceBuffer FAILED" in message, (
+        "the appliance's own explanation must survive the timeout")
+    assert "timed out" in message
+
+
 def test_a_download_ignores_a_non_zero_exit(monkeypatch):
     """The CLI panicking after the download started is not a failure."""
     import subprocess

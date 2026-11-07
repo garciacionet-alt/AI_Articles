@@ -370,6 +370,12 @@ DIALECT_PROFILES: dict[str, DialectProfile] = {
     "fal/FLUX.2-klein-4B-Object-Remove": _EDIT,
     "fal/FLUX.2-klein-4B-Outpaint": _EDIT,
     "fal/FLUX.2-klein-4B-Zoom": _EDIT,
+    # Krea. NOT MEASURED YET: the appliance offers it, it was downloaded
+    # on 7 Nov, and a model nobody can prompt correctly is a model
+    # nobody should route to. The descriptive profile is the safest
+    # default for a photoreal generator, and the research run will say
+    # whether it is the right one.
+    "krea/Krea-2-Turbo": _DESCRIPTIVE,
 }
 
 

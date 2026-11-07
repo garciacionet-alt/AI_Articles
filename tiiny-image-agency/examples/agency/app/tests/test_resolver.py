@@ -69,6 +69,29 @@ def test_selection_matches_the_spec(name, req, expected, resolver: Resolver,
     assert resolver.resolve(_vector(req)).chosen.id == wanted
 
 
+@pytest.fixture(scope="module")
+def resolver_without_community() -> Resolver:
+    """A resolver over a registry where the community build is absent.
+
+    A test about what happens when a model is NOT on the disk has to
+    say so rather than depend on what the store happens to hold today.
+    The community build was downloaded on 7 Nov, which changed what the
+    resolver says about it — correctly, since it can now be loaded.
+    """
+    registry = Registry.load(REGISTRY)
+    catalogue = [
+        {
+            "fullname": model.id,
+            "status": ("not_downloaded"
+                       if model.id in COMMUNITY_MODEL_IDS
+                       else model.raw["device"].get("status")),
+        }
+        for model in registry.models
+    ]
+    registry.refresh_status(catalogue)
+    return Resolver(registry)
+
+
 @pytest.mark.parametrize(
     "name,req,expected_model,expected_pct,expected_resident,expected_exceeds",
     OCCUPANCY_CASES,
@@ -106,15 +129,16 @@ def test_community_build_is_never_chosen(resolver: Resolver):
         assert resolver.resolve(_vector(req)).chosen.id not in COMMUNITY_MODEL_IDS
 
 
-def test_community_build_surfaces_as_unavailable(resolver: Resolver):
+def test_community_build_surfaces_as_unavailable(resolver_without_community):
     """For an alpha-required icon the community build is named, but only as
     unavailable.
 
-    It is not downloaded on the appliance, so it cannot be loaded, and it
-    is not a vendor build either. It surfaces in `unavailable` with the
-    reason, not in `alternatives` where a caller might try to use it.
+    When it is not on the disk it cannot be loaded, and it is not a
+    vendor build either. It surfaces in `unavailable` with the reason,
+    not in `alternatives` where a caller might try to use it.
     """
-    resolution = resolver.resolve(_vector(dict(artifact="icon", alpha="required")))
+    resolution = resolver_without_community.resolve(
+        _vector(dict(artifact="icon", alpha="required")))
 
     alternative_ids = [alternative.id for alternative in resolution.alternatives]
     assert "abenzerps/Qwen-Image-2.1-Uncensored-Quantized" not in alternative_ids
@@ -123,6 +147,28 @@ def test_community_build_surfaces_as_unavailable(resolver: Resolver):
     assert "abenzerps/Qwen-Image-2.1-Uncensored-Quantized" in unavailable_ids
 
     assert "not downloaded" in resolution.justification
+
+
+def test_the_community_build_is_offered_but_never_chosen(resolver: Resolver):
+    """Once it IS on the appliance, it is offered - with its caveat.
+
+    It is still never CHOSEN: it is a community-run quant whose output
+    has not been measured, and a vendor model that can do the same job
+    exists. What changed is that it is no longer a model the agency
+    cannot load, so it belongs in the alternatives rather than in the
+    unavailable list.
+    """
+    resolution = resolver.resolve(_vector(dict(artifact="icon",
+                                               alpha="required")))
+
+    alternative_ids = [alternative.id for alternative in resolution.alternatives]
+    assert "abenzerps/Qwen-Image-2.1-Uncensored-Quantized" in alternative_ids
+
+    unavailable_ids = [model.id for model in resolution.unavailable]
+    assert "abenzerps/Qwen-Image-2.1-Uncensored-Quantized" not in unavailable_ids
+
+    assert "community-run build" in resolution.justification, (
+        "an alternative that is a community build must say so")
 
 
 def test_a_model_that_is_not_downloaded_is_never_chosen(resolver: Resolver):

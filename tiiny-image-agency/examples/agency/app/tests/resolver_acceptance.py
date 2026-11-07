@@ -311,8 +311,14 @@ CASES: list[tuple[str, dict, str]] = [
      dict(artifact="photo", style="photoreal"), "Tongyi-MAI/Z-Image-Turbo"),
 
     # --- speed ---------------------------------------------------------
-    ("fastest stays on the hot path when the 4-step model is not downloaded",
-     dict(artifact="illustration", speed="fastest"), "Tongyi-MAI/Z-Image-Turbo"),
+    # A PAIR, for the same reason as the style cases above: the 4-step
+    # model is the fastest thing on the appliance WHEN IT IS THERE, and
+    # the hot path is the answer when it is not. The store gained it on
+    # 7 Nov, and the answer moved with it — which is the resolver doing
+    # its job, not a regression.
+    ("fastest takes the 4-step model when it is on the appliance",
+     dict(artifact="illustration", speed="fastest"),
+     ("black-forest-labs/FLUX.2-klein-4B", "Tongyi-MAI/Z-Image-Turbo")),
     ("quality first wins the fidelity leader",
      dict(artifact="photo", speed="quality_first"), "HiDream-ai/HiDream-O1-Image-Dev"),
     ("quality first on a poster stays on the hot path",

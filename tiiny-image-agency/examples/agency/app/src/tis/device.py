@@ -26,7 +26,17 @@ from .config import Settings
 
 # The appliance takes minutes, not seconds, for a full-size generation.
 REQUEST_TIMEOUT = 900.0
-CLI_TIMEOUT = 600.0
+#: How long the CLI has to load or unload a model. The device's own
+#: `load_time` field says 4 seconds for the hot-path image model and 13
+#: for the judge, so this is twenty times the slowest one it reports.
+#:
+#: It matters that this is not generous. When the appliance REFUSES a
+#: load - and it does refuse, with an NPU buffer allocation failure -
+#: the CLI does not exit: it prints the error and then hangs. So the
+#: timeout is how long a FAILURE takes to surface. At ten minutes, four
+#: research models in a row failed and each failure cost ten minutes of
+#: the device's time.
+CLI_TIMEOUT = 240.0
 
 #: How long the CLI has to START a download. The appliance does the
 #: work; the CLI's part is to ask for it and get out of the way. The
@@ -432,9 +442,26 @@ class TiinyDevice:
             result = subprocess.run(
                 command, capture_output=True, text=True, timeout=timeout
             )
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as expired:
+            # The CLI HANGS when it fails, and it says why on the way
+            # past. The observed case: the appliance could not allocate
+            # an NPU buffer for the model, aborted its container, and
+            # the CLI sat there showing the error instead of exiting.
+            # So a bare "timed out" throws away the only sentence that
+            # explains the failure.
+            detail = ""
+            for part in (expired.stdout, expired.stderr):
+                if not part:
+                    continue
+                text = part.decode("utf-8", "replace") if isinstance(part, bytes) else part
+                detail = detail + text
+            detail = detail.strip()
+            detail = detail.splitlines()[-1].strip() if detail else ""
+            message = f"tiiny {action} timed out"
+            if detail:
+                message += f": {detail}"
             raise DeviceError(
-                self._redact(f"tiiny {action} timed out"), retryable=True
+                self._redact(message), retryable=True
             ) from None
         except OSError as exc:
             raise DeviceError(

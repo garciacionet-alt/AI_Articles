@@ -22,9 +22,9 @@ def registry() -> Registry:
 
 
 def test_registry_loads_real_registry(registry: Registry):
-    assert len(registry.generators) == 14
+    assert len(registry.generators) == 15
     assert len(registry.enhancers) == 2
-    assert len(registry) == 16
+    assert len(registry) == 17
     assert registry.planner.id == "Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo"
     assert registry.planner.npu_usage == 55
     assert isinstance(registry.planner, PlannerSpec)
@@ -176,7 +176,7 @@ def test_registry_planner_must_be_an_object(tmp_path: Path):
 
 
 def test_registry_supports_len_and_iter(registry: Registry):
-    assert len(registry) == 16
+    assert len(registry) == 17
     assert list(registry) == list(registry.models)
     assert "Qwen/Qwen-Image-2.1" in registry
     assert "nonexistent" not in registry

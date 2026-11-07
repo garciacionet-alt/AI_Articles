@@ -140,7 +140,7 @@
         "context_window": 262144,
         "input": "Text,Image",
         "type": "Image-Text-to-Text",
-        "status": "running",
+        "status": "downloaded",
         "size_bytes": 17422442601,
         "load_time": 13,
         "thinking": {
@@ -451,8 +451,8 @@
           "default_level": "medium"
         }
       },
-      "notes": "The appliance's default text model, and the one the watchdog\nholds. It reads text only. It is a reasonable conversation agent\nand it cannot be a critic that sees.",
-      "provenance": "d"
+      "notes": "MEASURED as the conversation agent. It is the appliance's default\ntext model, and the watchdog holds it, so it is resident and a\nplan costs no swap at all. Asked for a requirement vector it\nanswered with one: \"a photorealistic picture of a child\" became\nartifact=photo and style=photoreal, and \"the same picture but in\nanime format\" became style=anime - a word the keyword planner\ncould not have produced, because no curated model declares that\nstyle. It reads text only, so it cannot be a critic that sees.",
+      "provenance": "m"
     },
     {
       "id": "Qwen/Qwen3-8B",

@@ -293,6 +293,33 @@ models:
     notes: |
       Generates in pixel space, no separate VAE decoder. 48% NPU — needs a swap alongside a 55% planner.
     provenance: d
+  krea/Krea-2-Turbo:
+    role: general
+    artifact:
+    - photo
+    - illustration
+    alpha: false
+    text_rendering: unknown
+    style:
+    - general
+    - photoreal
+    edit_ops: []
+    quality: unknown
+    speed: unknown
+    dialect: |
+      Provisionally the DESCRIPTIVE dialect: SUBJECT FIRST, then the
+      modifiers. That is the safest guess for a photoreal generator and
+      it is only a guess - NOT YET CHARACTERISED. The appliance offers
+      this model, it was downloaded on 7 Nov, and a model nobody has run
+      is a model nobody can route to. The research loop measures it and
+      replaces this entry with what it found. Until then the resolver
+      will not pick it for a request it has not been shown to satisfy.
+    notes: |
+      The device's description claims photoreal rendering from a 12B
+      rectified-flow transformer at 36% NPU. NONE of that is measured
+      here yet — the research run is what will say whether it is true.
+      Kept out of the acceptance table until it has a card.
+    provenance: d
   Qwen/Qwen-Image-2.1:
     role: flagship
     artifact:
