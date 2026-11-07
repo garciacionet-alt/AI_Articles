@@ -53,12 +53,22 @@ const els = {
     roleCritic: $('role-critic'),
     roleNote: $('role-note'),
     modelAlternatives: $('model-alternatives'),
+    dialogBackdrop: $('dialog-backdrop'),
+    dialogModel: $('dialog-model'),
+    dialogWhy: $('dialog-why'),
+    dialogCost: $('dialog-cost'),
+    dialogAlts: $('dialog-alts'),
+    dialogCancel: $('dialog-cancel'),
+    dialogGo: $('dialog-go'),
 };
 
 // The model the user chose, if any. Empty means "the resolver decides".
 // It survives between requests: choosing a model is a standing
 // preference, not a one-off.
 let chosenModelId = '';
+
+// The request the dialog is asking about.
+let lastRequest = '';
 
 let currentJobId = null;
 let currentAssetId = null;
@@ -121,20 +131,65 @@ async function submit(event) {
     }
     els.request.value = '';
     say(request, 'ask');
+    lastRequest = request;
 
+    // Plan first, and then ASK. A generation costs a minute and
+    // sometimes three, and the plan is where the agency says what it
+    // is about to do and why. The user gets to see that, and to change
+    // it, before anything is spent.
+    let plan;
     try {
-        // Plan first: it costs one planner call and it tells the user
-        // which model, whether a swap is coming, and whether a DOWNLOAD
-        // is coming — before any of that starts.
-        const plan = await apiPost('/v1/plan', {request, model_id: chosenModelId});
+        plan = await apiPost('/v1/plan', {request, model_id: chosenModelId});
         renderPlan(plan);
     } catch (error) {
         say('The plan failed: ' + error.message, 'bad');
         return;
     }
 
+    openDialog(plan, request);
+}
+
+async function openDialog(plan, request) {
+    const model = plan.model || {};
+    els.dialogModel.textContent = model.id || '—';
+    els.dialogWhy.textContent = plan.justification || '';
+
+    if (plan.download) {
+        const gib = ((plan.download.size_bytes || 0)
+            / (1024 * 1024 * 1024)).toFixed(1);
+        els.dialogCost.hidden = false;
+        els.dialogCost.textContent = plan.download.model + ' is not on the '
+            + 'appliance yet. It will be downloaded first — about '
+            + gib + ' GiB, five minutes.';
+    } else {
+        els.dialogCost.hidden = true;
+    }
+
+    els.dialogAlts.innerHTML = '';
+    const alternatives = plan.alternatives || [];
+    for (const alternative of alternatives) {
+        const button = document.createElement('button');
+        const onDevice = alternative.downloaded ? '' : ', needs a download';
+        button.className = 'alt';
+        button.textContent = alternative.id + '  ('
+            + alternative.npu_usage + '%' + onDevice + ')';
+        button.addEventListener('click', () => {
+            chosenModelId = alternative.id;
+            els.dialogBackdrop.hidden = true;
+            say('Using ' + alternative.id + '.', 'event');
+            startGeneration(request, alternative.id);
+        });
+        els.dialogAlts.appendChild(button);
+    }
+
+    els.dialogBackdrop.hidden = false;
+    els.dialogGo.focus();
+}
+
+async function startGeneration(request, modelId) {
     try {
-        const queued = await apiPost('/v1/generate', {request, model_id: chosenModelId});
+        const queued = await apiPost('/v1/generate',
+            {request, model_id: modelId || chosenModelId});
         currentJobId = queued.job_id;
         watch(currentJobId);
     } catch (error) {
@@ -626,6 +681,23 @@ els.composer.addEventListener('submit', submit);
 els.feedbackForm.addEventListener('submit', revise);
 els.roleConversation.addEventListener('change', () => setRole('conversation'));
 els.roleCritic.addEventListener('change', () => setRole('critic'));
+
+// THE DIALOG. The user approves the model before anything is spent.
+els.dialogCancel.addEventListener('click', () => {
+    els.dialogBackdrop.hidden = true;
+    say('Cancelled.', 'event');
+});
+els.dialogGo.addEventListener('click', () => {
+    const request = lastRequest;
+    els.dialogBackdrop.hidden = true;
+    startGeneration(request, chosenModelId);
+});
+els.dialogBackdrop.addEventListener('click', (event) => {
+    // A click on the backdrop is a click outside the dialog.
+    if (event.target === els.dialogBackdrop) {
+        els.dialogBackdrop.hidden = true;
+    }
+});
 
 loadRoles();
 

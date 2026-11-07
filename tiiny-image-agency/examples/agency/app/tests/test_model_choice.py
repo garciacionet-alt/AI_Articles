@@ -84,6 +84,7 @@ def test_a_model_that_is_not_in_the_registry_is_refused_with_a_reason(
 def test_the_api_accepts_a_chosen_model(tmp_path, registry: Registry):
     from fastapi.testclient import TestClient
 
+    from fake_device import FakeDevice
     from tis.api import create_app
     from tis.config import Settings
     from tis.service import Agency
@@ -94,7 +95,7 @@ def test_the_api_accepts_a_chosen_model(tmp_path, registry: Registry):
         assets_dir=tmp_path / "assets",
         planner_model=registry.planner.id,
     )
-    agency = Agency(settings, registry=registry)
+    agency = Agency(settings, device=FakeDevice(registry), registry=registry)
     try:
         client = TestClient(create_app(agency=agency))
         response = client.post("/v1/plan", json={
@@ -114,6 +115,7 @@ def test_the_api_says_so_when_the_choice_cannot_be_honoured(tmp_path,
                                                              registry: Registry):
     from fastapi.testclient import TestClient
 
+    from fake_device import FakeDevice
     from tis.api import create_app
     from tis.config import Settings
     from tis.service import Agency
@@ -124,7 +126,7 @@ def test_the_api_says_so_when_the_choice_cannot_be_honoured(tmp_path,
         assets_dir=tmp_path / "assets",
         planner_model=registry.planner.id,
     )
-    agency = Agency(settings, registry=registry)
+    agency = Agency(settings, device=FakeDevice(registry), registry=registry)
     try:
         client = TestClient(create_app(agency=agency))
         response = client.post("/v1/plan", json={

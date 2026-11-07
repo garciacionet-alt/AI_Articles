@@ -58,12 +58,17 @@ def registry() -> Registry:
 
 
 def _settings(tmp_path: Path) -> Settings:
+    # The Coder is pinned as the conversation model here, because these
+    # tests script the judge's reply by model id. The Agency's default is
+    # the 27% chat model, which is resident on the appliance and plans
+    # better - but it is not the model these fixtures answer for.
     return Settings(
         api_key=BEARER,
         registry_path=REGISTRY_PATH,
         assets_dir=tmp_path / "assets",
         hold_file=tmp_path / "tiiny-hold",
         watchdog_lock=tmp_path / "tiiny-watch.lock",
+        planner_model="Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo",
     )
 
 
@@ -199,6 +204,16 @@ def _fresh_registry(registry: Registry) -> Registry:
     return Registry.load(registry.path)
 
 
+def _not_on_the_device(device, model_id: str) -> None:
+    """Make a model look absent, so the download path can be tested.
+
+    The appliance's downloads finish on their own. A test that says "a
+    request only an UNDOWNLOADED model can do downloads it first" has to
+    say so, rather than depend on what the store happens to hold today.
+    """
+    device._downloaded.discard(model_id)
+
+
 def test_a_generation_downloads_the_model_it_needs(tmp_path: Path,
                                                   registry: Registry,
                                                   monkeypatch):
@@ -212,6 +227,7 @@ def test_a_generation_downloads_the_model_it_needs(tmp_path: Path,
     monkeypatch.setattr("tis.service.DOWNLOAD_POLL_SECONDS", 0.01)
     fresh = _fresh_registry(registry)
     device = FakeDevice(fresh)
+    _not_on_the_device(device, "fal/FLUX.2-klein-4B-Object-Remove")
     agency = _agency(tmp_path, fresh, device=device)
     try:
         job_id = agency.generate("remove the object from the photo")
@@ -235,6 +251,7 @@ def test_a_download_is_published_as_progress(tmp_path: Path, registry: Registry,
     monkeypatch.setattr("tis.service.DOWNLOAD_POLL_SECONDS", 0.01)
     fresh = _fresh_registry(registry)
     device = FakeDevice(fresh)
+    _not_on_the_device(device, "fal/FLUX.2-klein-4B-Object-Remove")
     agency = _agency(tmp_path, fresh, device=device)
     try:
         subscriber = agency.events.subscribe("default")
@@ -261,6 +278,7 @@ def test_a_plan_that_needs_a_download_names_it(tmp_path: Path,
     generation would fetch."""
     fresh = _fresh_registry(registry)
     device = FakeDevice(fresh)
+    _not_on_the_device(device, "fal/FLUX.2-klein-4B-Object-Remove")
     agency = _agency(tmp_path, fresh, device=device)
     try:
         plan = agency.plan("remove the object from the photo")
@@ -279,6 +297,7 @@ def test_a_download_is_refused_when_the_disk_has_no_room(tmp_path: Path,
     monkeypatch.setattr("tis.service.DOWNLOAD_POLL_SECONDS", 0.01)
     fresh = _fresh_registry(registry)
     device = FakeDevice(fresh)
+    _not_on_the_device(device, "fal/FLUX.2-klein-4B-Object-Remove")
     device._total_bytes = 1024
     agency = _agency(tmp_path, fresh, device=device)
     try:

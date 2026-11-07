@@ -216,6 +216,9 @@ def test_a_plan_that_needs_a_download_says_so(tmp_path: Path,
     """
     reply = json.dumps({"artifact": "edit", "edit_op": "object_remove"})
     device = FakeDevice(registry, replies={registry.planner.id: reply})
+    # The adapter's own download finishes on the appliance. A test that
+    # says "a request only an UNDOWNLOADED model can do" has to say so.
+    device._downloaded.discard("fal/FLUX.2-klein-4B-Object-Remove")
     built = Agency(_settings(tmp_path), device=device, registry=registry)
     try:
         response = _client(built).post(

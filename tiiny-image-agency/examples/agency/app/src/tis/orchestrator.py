@@ -179,9 +179,10 @@ class Orchestrator:
             # model's dialect rather than carried across in the old one.
             modifiers = modifiers + tuple(changes)
 
-            if attempt == 1 and len(candidates) > 1:
-                # The prompt was wrong and has now been fixed. If the
-                # image is STILL wrong, the prompt is not the problem.
+            if attempt >= 2 and len(candidates) > 1:
+                # The prompt was wrong and has now been fixed, and the
+                # image is STILL wrong. So the prompt is not the
+                # problem, and the job moves to a different model.
                 current = candidates[1]
                 self._publish("model.changed", {
                     "from": models_used[-1],

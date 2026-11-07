@@ -369,6 +369,14 @@ class Agency:
         fit in it at once, or one of them has to be swapped out and
         back between stages. So the guide says whether the CURRENT
         choice fits, and what to change if it does not.
+
+        The `recommended` section applies the sizing logic. A talker
+        writes a requirement vector and a judge reads a picture; neither
+        needs the biggest model on the appliance, and a big one that is
+        not resident costs a swap before every plan. So the guide names
+        the SMALLEST model that can do the job - and says how it knows.
+        The user can still choose any other model: this is a
+        recommendation, not a policy.
         """
         models = [m.as_dict() for m in self.roles.all()]
         return {
@@ -384,6 +392,70 @@ class Agency:
             "models": models,
             "vision_models": [m.as_dict() for m in self.roles.vision_models()],
             "fit": self._fit(),
+            "recommended": self._recommended(),
+        }
+
+    def _recommended(self) -> dict:
+        """The smallest model that can do each job, and why.
+
+        THE SIZING LOGIC. Three questions, in order:
+
+        1. Can it do the job at all? A judge that must SEE the image
+           needs a vision model; a talker needs a text model, and text
+           is what it reads.
+        2. Is it on the device? A model that is not on disk costs a
+           download, which is minutes and gigabytes.
+        3. Is it SMALL? Every point of NPU a role occupies is a point
+           the generator cannot have, and a swap interrupts the
+           conversation. The smallest model that does the job is the
+           one that leaves the most room for the picture.
+
+        A model that has been MEASURED for the job outranks an equally
+        small one that has not. The appliance's own description of a
+        model is not evidence - it described one model as producing text
+        correctly, and eleven probes found it mangled text every time.
+        """
+        talker = self._smallest_for(vision=False)
+        judge = self._smallest_for(vision=True)
+        return {
+            "conversation": talker,
+            "critic": judge,
+            "note": (
+                "The smallest model that can do the job, and that is on "
+                "the appliance. A bigger one may do it better, but it "
+                "takes more of the pool and costs a swap when it is not "
+                "already resident. Choose any other model at any time."
+            ),
+        }
+
+    def _smallest_for(self, vision: bool | None) -> dict | None:
+        """The smallest model that can hold a role, or None."""
+        options = []
+        for model in self.roles.all():
+            if not model.downloaded:
+                continue
+            if vision is True and not model.vision:
+                continue
+            if vision is False and model.vision:
+                continue
+            options.append(model)
+        if not options:
+            return None
+        # Measured first, then smallest, then the id so the answer is
+        # stable rather than dependent on the catalogue's order.
+        options.sort(key=lambda m: (m.provenance != "m", m.npu_usage, m.id))
+        best = options[0]
+        return {
+            "model": best.id,
+            "npu_usage": best.npu_usage,
+            "vision": best.vision,
+            "measured": best.provenance == "m",
+            "why": (
+                f"{best.npu_usage}% of the pool"
+                + (", and it has been measured here" if best.provenance == "m"
+                   else ", on the appliance's own description")
+                + (", and it can see the image" if best.vision else "")
+            ),
         }
 
     def _fit(self) -> dict:
@@ -536,6 +608,36 @@ class Agency:
         result["fit"] = fit
         return result
 
+    def _plan_request(self, request: str, width: int, height: int):
+        """Plan a request, making sure the conversation model is resident.
+
+        The planner's model is not necessarily on the appliance. It WAS
+        not, once - a 55% Coder that the watchdog does not hold - and
+        every plan silently fell back to the keyword planner because of
+        it. The words a request used were being thrown away.
+
+        So the model is loaded when it is not there. The default is
+        resident and this costs nothing; a model the user chose may not
+        be, and it gets a swap rather than a silent fallback.
+        """
+        if self.planner.model_id in self._resident_models():
+            return self.planner.plan(request, width, height)
+        with self.residency.swap_to(self.planner.model_id):
+            return self.planner.plan(request, width, height)
+
+    def _resident_models(self) -> list[str]:
+        """What is on the appliance, or an empty list if it will not say.
+
+        A device that cannot answer is a device that cannot be loaded
+        from either. Asking it anyway would turn "the appliance is
+        unreachable" into "the planner failed", and the fallback would
+        hide the first problem behind the second.
+        """
+        try:
+            return list(self.device.resident())
+        except Exception:
+            return []
+
     def plan(self, request: str, width: int = 1024, height: int = 1024,
              session_id: str = "default", model_id: str = "") -> dict:
         """Plan a request without generating anything.
@@ -548,7 +650,7 @@ class Agency:
         ``model_id`` is a model the user chose. It is honoured when it can
         do the job, and the plan says so when it cannot.
         """
-        plan = self.planner.plan(request, width, height)
+        plan = self._plan_request(request, width, height)
         self._refresh_status()
         try:
             resolution = self.resolver.resolve(plan.requirements,
@@ -798,7 +900,7 @@ class Agency:
 
     def _generate(self, work: _Work) -> None:
         """Plan, resolve, generate, deliver."""
-        plan = self.planner.plan(work.request, work.width, work.height)
+        plan = self._plan_request(work.request, work.width, work.height)
         self._resolve(work, plan.requirements, plan.source)
         scene = SceneDescription(subject=work.request)
         result = self.orchestrator.generate(plan.requirements, scene,

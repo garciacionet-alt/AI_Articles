@@ -48,7 +48,7 @@
         ],
         "context_window": null,
         "image_size": "2048x2048 (recommended)",
-        "status": "not_downloaded",
+        "status": "downloading",
         "version_label": "20261029",
         "load_time": 0
       },
@@ -233,7 +233,7 @@
         ],
         "context_window": null,
         "image_size": "512x512 (fastest), up to 1536x1536",
-        "status": "not_downloaded",
+        "status": "downloaded",
         "version_label": "20261106",
         "load_time": 4
       },
@@ -409,7 +409,7 @@
         "supported": [],
         "context_window": null,
         "image_size": "512x512 (fastest), up to 1536x1536",
-        "status": "downloading",
+        "status": "downloaded",
         "version_label": "20261106",
         "load_time": 4
       },
@@ -530,7 +530,7 @@
         "supported": [],
         "context_window": null,
         "image_size": "512x512 (fastest), up to 1536x1536",
-        "status": "not_downloaded",
+        "status": "downloaded",
         "version_label": "20261106",
         "load_time": 5
       },

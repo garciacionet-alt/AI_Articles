@@ -125,25 +125,36 @@ def test_a_second_failure_moves_the_job_to_another_model(registry, tmp_path):
     result = orchestrator.generate(RequirementVector(), _scene())
 
     generated = [call[1] for call in device.calls if call[0] == "generate"]
-    assert len(generated) >= 2
-    assert generated[0] != generated[1], (
+    assert len(generated) >= 3
+    assert generated[0] == generated[1], (
+        "the first retry must be the same model with a corrected prompt")
+    assert generated[2] != generated[0], (
         "a model that failed twice must not be asked a third time")
     assert result.models_used == generated[:len(result.models_used)]
     assert len(set(result.models_used)) > 1
 
 
-def test_an_alternative_too_big_for_the_judge_is_not_used(registry, tmp_path):
-    """The 55% planner as the judge leaves 26% for a generator, and the
-    only 23% models are the ones already chosen or not on disk."""
+def test_every_model_tried_must_fit_beside_the_judge(registry, tmp_path):
+    """An alternative that cannot RUN beside the judge is not used.
+
+    A 30% generator and a 55% judge is 85%, which the appliance admits
+    and then refuses. So the escalation only considers models that fit
+    under the execution ceiling - and every model the job actually used
+    fits beside the judge.
+    """
     orchestrator, device = _build(registry, tmp_path,
                                    {registry.planner.id: [FAIL, FAIL]},
-                                   default_reply=FAIL)
+                                   default_reply=FAIL,
+                                   judge="openai/gpt-oss-20b")
     result = orchestrator.generate(RequirementVector(), _scene())
 
-    generated = [call[1] for call in device.calls if call[0] == "generate"]
-    assert len(set(generated)) == 1, (
-        "no alternative fits beside a 55% judge, so the job must stay on "
-        "one model rather than pick one that cannot run")
+    assert result.models_used, "no model was used"
+    assert len(set(result.models_used)) > 1, (
+        "the job should have moved to another model")
+    for model_id in result.models_used:
+        assert orchestrator.residency.fits_with_judge(
+            model_id, orchestrator.critic.model_id), (
+            f"{model_id} was used and cannot run beside the judge")
 
 
 def test_the_loop_stops_at_three_attempts(registry, tmp_path):

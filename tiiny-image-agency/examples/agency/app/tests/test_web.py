@@ -387,3 +387,27 @@ def test_the_surface_offers_the_other_models(app_js: str, index_html: str):
 def test_the_surface_says_when_the_job_moves_to_another_model(app_js: str):
     assert "model.changed" in app_js, (
         "the surface does not know the job moved to another model")
+
+
+# -- the dialog ------------------------------------------------------------
+
+
+def test_the_surface_asks_before_it_generates(index_html: str, app_js: str):
+    """The user sees the model and the reason before anything is spent."""
+    assert 'id="dialog-backdrop"' in index_html, (
+        "there is no dialog before the generation")
+    assert 'id="dialog-why"' in index_html, (
+        "the dialog does not say why the model was chosen")
+    assert 'id="dialog-go"' in index_html, "the dialog has no way to proceed"
+    assert "openDialog" in app_js, "the plan does not open a dialog"
+
+
+def test_the_dialog_says_what_a_download_will_cost(app_js: str):
+    assert "dialogCost" in app_js, (
+        "the dialog does not say what a download will cost")
+    assert "GiB" in app_js, "the download cost is not in gigabytes"
+
+
+def test_the_dialog_offers_the_other_models(app_js: str):
+    assert "dialogAlts" in app_js, (
+        "the dialog does not offer the other models")

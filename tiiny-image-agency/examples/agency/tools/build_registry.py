@@ -34,7 +34,19 @@ import yaml
 DEVICE_BASE = "http://openai.api.tiiny"
 STORE_PATH = "/api/v1/models/online_models"
 
-# Planner model assumed by the residency planner.
+# The model the REGISTRY measures co-residency against.
+#
+# This is deliberately NOT the Agency's conversation agent. The registry
+# is a published artefact with a pinned spec - the acceptance table
+# says which model wins for which request - and re-deriving that spec
+# because a runtime default changed would make the table a function of
+# a setting rather than of the catalogue.
+#
+# The Agency's conversation agent is openai/gpt-oss-20b at 27%, which
+# is resident on the appliance. The registry's planner here is the 55%
+# Coder. The difference is conservative in one direction: models that
+# would fit beside the 27% talker are recorded as not fitting beside
+# the 55% one, so the resolver errs towards a swap it may not need.
 PLANNER = "Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo"
 
 

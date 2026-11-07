@@ -23,10 +23,20 @@ class Settings:
     base_url: str = DEFAULT_BASE_URL
     api_key: str = ""
     #: The CONVERSATION AGENT - the model that turns a request into a
-    #: requirement vector. It is also the default critic, because until
-    #: the critic can see the image there was nothing to distinguish it.
-    planner_model: str = "Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo"
-    planner_npu_pct: int = 55
+    #: requirement vector.
+    #:
+    #: It was a 55% Coder, and it was NOT ON THE APPLIANCE. Every plan
+    #: was therefore failing and falling back to the keyword planner, so
+    #: the style words a request used were being thrown away - "anime"
+    #: became "general", because no curated model declares that style,
+    #: and the fallback only knows the catalogue's vocabulary.
+    #:
+    #: The default is now the 27% chat model the watchdog already holds.
+    #: It is resident, so planning costs no swap at all, and it writes a
+    #: better vector than the bigger model did - it put "anime" into the
+    #: modifiers where the image model can see it.
+    planner_model: str = "openai/gpt-oss-20b"
+    planner_npu_pct: int = 27
     #: The CRITIC - the model that judges the result. It is a SEPARATE
     #: setting because a critic that can SEE the image is a different
     #: model from the one that wrote the prompt, and because the two

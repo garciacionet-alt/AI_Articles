@@ -133,19 +133,41 @@ def test_a_model_that_is_not_downloaded_is_never_chosen(resolver: Resolver):
             f"{name} chose {resolution.chosen.id}, which is not downloaded")
 
 
+@pytest.fixture
+def resolver_without_adapters() -> Resolver:
+    """A resolver over a registry where the edit adapters are absent.
+
+    The appliance downloads them on its own, and a test about what
+    happens when a model is NOT on the disk has to say so rather than
+    depend on what the store happens to hold today.
+    """
+    registry = Registry.load(REGISTRY)
+    catalogue = [
+        {
+            "fullname": model.id,
+            "status": ("not_downloaded"
+                       if "FLUX.2-klein-4B" in model.id else "downloaded"),
+        }
+        for model in registry.models
+    ]
+    registry.refresh_status(catalogue)
+    return Resolver(registry)
+
+
 @pytest.mark.parametrize(
     "name,req,missing_model",
     REFUSAL_CASES,
     ids=[case[0] for case in REFUSAL_CASES],
 )
 def test_a_refusal_names_the_model_to_download(name, req, missing_model,
-                                                resolver: Resolver):
+                                                resolver_without_adapters: Resolver):
     """A request only an undownloaded model can do is refused, and the
     refusal says what to download.
 
     Falling back to a model that cannot do the job would produce an
     image that silently fails the request — worse than an error.
     """
+    resolver = resolver_without_adapters
     with pytest.raises(ResolverError) as error:
         resolver.resolve(_vector(req))
 

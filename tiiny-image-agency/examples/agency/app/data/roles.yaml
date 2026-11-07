@@ -113,10 +113,15 @@ models:
     role: conversation
     vision: false
     notes: |
-      The appliance's default text model, and the one the watchdog
-      holds. It reads text only. It is a reasonable conversation agent
-      and it cannot be a critic that sees.
-    provenance: d
+      MEASURED as the conversation agent. It is the appliance's default
+      text model, and the watchdog holds it, so it is resident and a
+      plan costs no swap at all. Asked for a requirement vector it
+      answered with one: "a photorealistic picture of a child" became
+      artifact=photo and style=photoreal, and "the same picture but in
+      anime format" became style=anime - a word the keyword planner
+      could not have produced, because no curated model declares that
+      style. It reads text only, so it cannot be a critic that sees.
+    provenance: m
 
   Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo:
     role: conversation

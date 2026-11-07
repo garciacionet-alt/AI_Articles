@@ -91,6 +91,25 @@
                      picks a different one. -->
                 <div class="alternatives" id="model-alternatives"></div>
 
+                <!-- THE DIALOG. The app says what it is about to do and
+                     why, and waits. A generation costs a minute and
+                     sometimes three, and a model it did not need is
+                     worse than a slow one. -->
+                <div class="dialog-backdrop" id="dialog-backdrop" hidden>
+                    <div class="dialog" id="dialog">
+                        <h3>About to generate</h3>
+                        <div class="dialog-model" id="dialog-model"></div>
+                        <p class="dialog-why" id="dialog-why"></p>
+                        <p class="dialog-cost" id="dialog-cost" hidden></p>
+                        <div class="dialog-alts" id="dialog-alts"></div>
+                        <div class="dialog-actions">
+                            <button type="button" id="dialog-cancel">Cancel</button>
+                            <button type="button" id="dialog-go" class="primary">
+                                Make it</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- THE LINEAGE -->
                 <div class="lineage" id="lineage">
                     <h3>Lineage</h3>
