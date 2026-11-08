@@ -334,13 +334,61 @@ def test_the_surface_offers_the_role_choices(index_html: str):
     assert 'id="role-conversation"' in index_html, "there is no talker picker"
     assert 'id="role-note"' in index_html, "the roles say nothing"
 
-
 def test_the_surface_reads_the_guides_own_catalogue(app_js: str):
     """Not a hard-coded list: the agency knows which models can see."""
     assert "v1/roles" in app_js, "the surface does not read the roles guide"
     assert "v1/roles" in app_js and "model.vision" in app_js, (
         "the picker does not know which models can see an image"
     )
+
+
+# -- the tab strip ---------------------------------------------------------
+
+
+def test_the_surface_has_three_tabs(index_html: str):
+    """Make, Models, References — one place for each kind of work."""
+    for name in ("make", "models", "references"):
+        assert f'data-tab="{name}"' in index_html, (
+            f"there is no {name} tab")
+
+
+def test_each_tab_has_a_panel(index_html: str):
+    """A tab without a panel is a button that does nothing."""
+    for name in ("make", "models", "references"):
+        assert f'id="panel-{name}"' in index_html, (
+            f"the {name} tab has no panel to show")
+
+
+def test_the_surface_switches_tabs(app_js: str):
+    assert "showTab" in app_js, "the tabs do not switch"
+    assert "aria-selected" in app_js, "the tabs do not report their state"
+
+
+def test_only_one_panel_is_visible_at_a_time(index_html: str, app_js: str):
+    """Two panels showing at once is not a tab strip, it is a mess."""
+    assert "panel-" in app_js and "hidden" in app_js, (
+        "the surface does not hide the panels it is not showing"
+    )
+
+
+def test_the_models_tab_is_not_fetched_until_it_is_opened(app_js: str):
+    """A request the user did not ask for is a request the user waits for.
+
+    Seventeen cards is one request, but it is still a request, and the
+    Make tab does not need it.
+    """
+    assert "loadAllCards" in app_js, (
+        "the surface has no way to fetch every card at once"
+    )
+    # The fetch must be reachable from the tab, not from page load.
+    assert "v1/models/cards" in app_js, (
+        "the card browser does not read the all-cards route"
+    )
+
+
+def test_the_models_tab_has_a_grid_and_a_detail_pane(index_html: str):
+    assert 'id="card-grid"' in index_html, "there is no grid of cards"
+    assert 'id="card-detail"' in index_html, "there is nowhere to read one"
 
 
 def test_the_judge_picker_only_offers_models_that_can_see(app_js: str):

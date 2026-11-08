@@ -145,23 +145,12 @@ while the judge and the generator have the pool to themselves.
 
 ## Timing — and Why You Must Not Interrupt It
 
-The appliance takes **16 to 200 seconds** for one image. The measured
-figures across the catalogue:
-
-| model | NPU | time |
-|---|---|---|
-| FLUX.2-klein-4B and its four adapters | 19–20% | **~16 s** |
-| HiDream-O1-Image-Dev | 30% | ~34 s |
-| Z-Image-Turbo (the default) | 23% | ~55 s |
-| TaoBaiBai realistic, Children-Drawing, CharacterDesignSheet | 23% | ~54 s |
-| ERNIE-Image-Turbo | 27% | ~71 s |
-| Krea-2-Turbo | 36% | ~80 s |
-| SenseNova-U1.5-8B-MoT | 48% | ~130 s |
-| community quant build | 0% as reported | ~188 s |
-| Qwen-Image-2.1 (the flagship, native alpha) | 62% | ~200 s |
-
-The spread is thirty-fold across models that are all "installed", so the
-model choice is as much a latency decision as a quality one.
+The appliance takes **16 to 200 seconds** for one image, and the spread
+across models that are all "installed" is thirty-fold — so the model
+choice is as much a latency decision as a quality one. The FLUX family
+is the fast path at ~16 s; the flagship is ~188 s; the community build
+is ~188 s and 14.5 GiB. The per-model table is in
+[references/measured-catalogue.md](references/measured-catalogue.md).
 
 `tis generate` prints each progress event as it arrives. **Let it run.** A
 generation that is interrupted leaves the appliance in a state somebody
@@ -195,12 +184,9 @@ the community build is the proof that they are.
 
 But the flagship's alpha is **prompt-dependent**, and a measurement of
 one image is not a property of the model. Measured on the appliance,
-same model, same icon:
-
-| request | fully transparent |
-|---|---|
-| "app icon of a fox head, flat, transparent background" | **0%** — a white background, not a cut-out |
-| the same icon, iterated with "make the background fully transparent so it is a clean cut-out" | **40.76%** |
+the same icon came back with **0%** transparency when the request asked
+for "a transparent background", and **40.76%** when the iteration asked
+for the background to be made fully transparent.
 
 So if the request needs a cut-out, **say "transparent background" in
 those words**, and then CHECK the result rather than trusting the plan:
@@ -265,6 +251,44 @@ says it is free and the weight is not small. The mechanism and the
 evidence are in
 [references/appliance-sharing.md](references/appliance-sharing.md).
 
+**The appliance CAN take a source image into generation — and the Agency
+was not sending one.** `POST /v1/images/generations` accepts a source
+image in a field called `image` (a base64 **string**) or `images` (an
+**array** of them). Finding the field takes a trick: the appliance
+reports a type error **without naming the field**, so it has to be
+identified by the STATUS CODE — 400 `type must be string` for `image`,
+400 `type must be array` for `images`, and a normal 200 (ignored) for
+`image_url`, `init_image`, `input_image`, `source_image`,
+`image_base64` and `reference_image`.
+
+**An accepted field is not an honoured field,** and the two were proven
+apart with a CONTROL: a half-red, half-blue rectangle, the prompt
+*"reproduce this image as a pencil sketch"*, and the same prompt with
+**no image at all**. The control drew a completely different subject — a
+face, not a rectangle — and every image-bearing run drew the input's
+structure. The timing agreed: **16.3 s without an image, ~34 s with one.**
+
+**So every drag-and-drop edit was a text-only regeneration wearing an
+edit's name.** The catalogue already advertised `input: Text,Image` and
+`supported: ['Image Editing']` for several models, and the curated
+overlay already carried `max_refs: 10` and `identity_preservation` for
+exactly the two that take an image — unused. The bare-base64 form is the
+one to use: it preserved the input's structure more faithfully than the
+data-URL form.
+
+**Do not assume every model honours it.** The catalogue says which
+models *claim* `Text,Image`; whether they *use* the bytes is a separate
+measurement, and the resolver must not offer an image-conditioned edit
+to a model that cannot take one.
+
+**The catalogue has no "new model" signal.** The appliance's catalogue
+holds 92 rows, and `need_update` is `False` on every one of them — it
+cannot signal that anything is new. The only usable signals are
+`created_time` and `udpate_time`, and there is no vendor "what's new"
+endpoint to ask. **So an app that wants to notice new models has to keep
+its own watermark** — the catalogue ids seen at the last check — and diff
+against it. Do not build on `need_update`.
+
 **A model card reports three separate claims.** `GET /v1/models/card?model_id=`
 keeps them apart: what the device **advertises** it does, what we
 **measured**, and what we have **noticed** that the device does not say. The
@@ -272,7 +296,10 @@ third part is the point. A card exists for every model — "not measured yet"
 is a fact the card reports, not a 404.
 
 The whole catalogue is measured now, and the measurements are in the
-routing. Two findings worth carrying:
+routing. The per-model results and the findings that changed the routing
+are in
+[references/measured-catalogue.md](references/measured-catalogue.md).
+The two worth carrying here:
 
 - **Children-Drawing is a crayon-drawing model.** Its realistic-style probe
   answered "Neither" and it produced an illustration. It is NOT the answer
@@ -319,6 +346,12 @@ the prompt did not already say.
   finished file says whether it is.
 - Do not apply a critique's suggestion verbatim when it restates the size,
   the format, or anything else the generator already received.
+- Do not assume a successful request means an input was USED. The
+  appliance accepts unknown fields and drops them, so a claim that the
+  source image reached the model needs a control run without it.
+- Do not offer an image-conditioned edit to a model whose card does not
+  say it takes an image. The catalogue's `input` field is the vendor's
+  claim, not a measurement.
 
 ## The Work Surface
 

@@ -37,6 +37,27 @@
             </div>
         </div>
 
+        <!-- THE TABS. Three kinds of work, three places. Making an
+             image is one thing; LEARNING what the models are is
+             another; and keeping the good ones is a third. Cramming
+             them onto one long page means the thing you came back
+             for is somewhere below the fold. -->
+        <div class="tabs" role="tablist" aria-label="Sections">
+            <button type="button" class="tab active" data-tab="make"
+                    role="tab" aria-selected="true"
+                    aria-controls="panel-make">Make</button>
+            <button type="button" class="tab" data-tab="models"
+                    role="tab" aria-selected="false"
+                    aria-controls="panel-models">Models</button>
+            <button type="button" class="tab" data-tab="references"
+                    role="tab" aria-selected="false"
+                    aria-controls="panel-references">References</button>
+        </div>
+
+        <!-- THE MAKE PANEL: everything that was here before, unchanged.
+             The conversation, the canvas, the roles, the alternatives,
+             the dialog and the lineage. -->
+        <div class="panel" id="panel-make" role="tabpanel">
         <div class="main-content">
 
             <!-- THE CONVERSATION -->
@@ -117,24 +138,6 @@
                      picks a different one. -->
                 <div class="alternatives" id="model-alternatives"></div>
 
-                <!-- THE MODEL CARDS. Every model in the catalogue has a
-                     card: what the device says it is for, what we
-                     measured, and what we have noticed that the device
-                     does not say. The third part is the point - it is
-                     the difference between the advertisement and the
-                     model. -->
-                <div class="cards" id="cards">
-                    <h3>Model cards</h3>
-                    <div class="card-picker">
-                        <select id="card-model"></select>
-                    </div>
-                    <div class="card" id="card">
-                        <p class="card-empty">
-                            Choose a model to read its card.
-                        </p>
-                    </div>
-                </div>
-
                 <!-- THE DIALOG. The app says what it is about to do and
                      why, and waits. A generation costs a minute and
                      sometimes three, and a model it did not need is
@@ -161,6 +164,66 @@
 prompt that was actually sent, the attempts and the critique appear
 here.</pre>
                 </div>
+            </div>
+        </div>
+        </div><!-- /panel-make -->
+
+        <!-- THE MODELS PANEL. The card browser.
+
+             Every model in the catalogue has a card, and a card has
+             THREE parts, kept apart on purpose: what the DEVICE says
+             it is for, what we MEASURED on the appliance, and what we
+             have NOTICED that the device does not say. The third part
+             is the point. It is the distance between the advertisement
+             and the model, and flattening the three into one paragraph
+             would throw away the only thing worth reading.
+
+             The grid is a way to BROWSE — seventeen models, each with
+             what it costs and what it can do — and the detail pane is
+             where one is read. -->
+        <div class="panel hidden" id="panel-models" role="tabpanel">
+            <div class="models-layout">
+                <div class="models-browser">
+                    <h2>Model cards</h2>
+                    <p class="models-intro">
+                        Every model the appliance can generate with. What
+                        it costs, what it was measured to do, and what
+                        the device does not tell you.
+                    </p>
+                    <div class="card-filters" id="card-filters">
+                        <input id="card-search" autocomplete="off"
+                               placeholder="search by name or capability">
+                        <select id="card-filter-artifact">
+                            <option value="">any kind of picture</option>
+                        </select>
+                        <select id="card-filter-measured">
+                            <option value="">measured or not</option>
+                            <option value="measured">measured</option>
+                            <option value="unmeasured">not measured yet</option>
+                        </select>
+                    </div>
+                    <div class="card-grid" id="card-grid"></div>
+                </div>
+                <div class="models-detail" id="card-detail">
+                    <p class="card-empty">
+                        Choose a model to read its card.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- THE REFERENCES PANEL. Where the good results are kept, so
+             the next one comes out like them. -->
+        <div class="panel hidden" id="panel-references" role="tabpanel">
+            <div class="models-browser">
+                <h2>References</h2>
+                <p class="models-intro">
+                    A saved result keeps the model, the style and the
+                    settings it was made with, so the next one comes out
+                    like it. This is how a repeated job stays a repeated
+                    job.
+                </p>
+                <div class="reference-grid" id="reference-grid"></div>
             </div>
         </div>
 

@@ -317,10 +317,19 @@ def test_the_surface_shows_where_the_file_is(index_html: str, app_js: str):
 
 
 def test_the_surface_has_a_model_card_browser(index_html: str, app_js: str):
-    assert 'id="card-model"' in index_html, (
-        "there is no browser for the model cards")
+    """A GRID of cards, not a dropdown.
+
+    The dropdown showed one model at a time, at the bottom of a long
+    page, in the middle of the generation flow. A person who wants to
+    learn what the models are was hunting for it. The grid is for
+    browsing: seventeen models, what each costs, what each can do.
+    """
+    assert 'id="card-grid"' in index_html, (
+        "there is no grid of cards to browse")
+    assert 'id="card-detail"' in index_html, (
+        "there is nowhere to read a card once it is chosen")
     assert "loadModelCard" in app_js
-    assert "loadCardModels" in app_js
+    assert "loadAllCards" in app_js
 
 
 def test_the_card_shows_the_advertisement_and_what_we_noticed(

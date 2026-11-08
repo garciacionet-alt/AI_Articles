@@ -797,6 +797,41 @@ class Agency:
         except (OSError, ValueError):
             return None
 
+    def all_model_cards(self) -> list[dict]:
+        """Every image model's card, in catalogue order.
+
+        A card has THREE parts and they are kept apart on purpose: what
+        the DEVICE advertises, what we MEASURED, and what we have
+        NOTICED that the device does not say. The distance between the
+        first and the second is the interesting part of a card, so it is
+        not flattened into one paragraph anywhere here.
+
+        A model with no research card still gets one — the card says it
+        has not been measured yet. A model with no card at all is a
+        model the user cannot judge, and that is not acceptable.
+        """
+        cards = []
+        for spec in self.registry.models:
+            if spec.kind != "image_generator":
+                continue
+            measured = self.model_card(spec.id)
+            cards.append({
+                "model_id": spec.id,
+                "advertised": spec.advertised,
+                "notes": spec.notes,
+                "measured": measured,
+                "researched": measured is not None,
+                "downloaded": spec.downloaded,
+                "npu_usage": spec.npu_usage,
+                "role": spec.role,
+                "artifact": list(spec.artifact),
+                "alpha": spec.alpha,
+                "text_rendering": spec.text_rendering,
+                "speed": spec.speed,
+                "quality": spec.quality,
+            })
+        return cards
+
     def npu(self) -> dict:
         """What the NPU pool is doing right now.
 

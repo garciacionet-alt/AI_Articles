@@ -530,6 +530,195 @@ button:hover { filter: brightness(1.08); }
     word-break: break-all;
 }
 
+/* -- THE TAB STRIP -------------------------------------------------------- */
+
+/* Three kinds of work. The strip is flat and quiet so the CONTENT is
+   what draws the eye. */
+.tabs {
+    display: flex;
+    gap: 2px;
+    flex: 0 0 auto;
+    border-bottom: 1px solid var(--line);
+}
+
+.tab {
+    appearance: none;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 550;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 8px 14px;
+    cursor: pointer;
+}
+
+.tab:hover {
+    color: var(--ink);
+}
+
+.tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+/* A panel that is not showing takes no space. */
+.panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.panel.hidden {
+    display: none;
+}
+
+/* -- THE MODEL BROWSER ---------------------------------------------------- */
+
+/* The grid on the left, the reading pane on the right. */
+.models-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 16px;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.models-browser,
+.models-detail {
+    overflow-y: auto;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+}
+
+.models-browser h2 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 650;
+}
+
+.models-intro {
+    margin: 0 0 12px;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--muted);
+}
+
+.card-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.card-filters input,
+.card-filters select {
+    font: inherit;
+    font-size: 12px;
+    padding: 6px 9px;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+}
+
+.card-filters input {
+    flex: 1 1 180px;
+    min-width: 0;
+}
+
+/* THE GRID. A tile says what a model costs and what it can do, at a
+   glance. The reading is in the pane beside it. */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px;
+}
+
+.card-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    text-align: left;
+    font: inherit;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.card-tile:hover {
+    border-color: var(--accent);
+}
+
+.card-tile.current {
+    border-color: var(--accent);
+    background: #f2f7ff;
+}
+
+.card-tile-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    word-break: break-all;
+}
+
+.card-tile-facts {
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.card-tile-badge {
+    align-self: flex-start;
+    margin-top: 3px;
+    font-size: 9.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 1px 7px;
+}
+
+.card-tile-badge.measured {
+    color: #14653c;
+    border-color: #bfe3d0;
+    background: #effaf4;
+}
+
+/* -- THE REFERENCES ------------------------------------------------------- */
+
+.reference-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px;
+}
+
+.reference-tile {
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: #fff;
+}
+
+.reference-name {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.reference-facts {
+    margin: 3px 0 0;
+    font-size: 11px;
+    color: var(--muted);
+    word-break: break-all;
+}
+
 /* -- THE MODEL CARDS ------------------------------------------------------ */
 
 .cards {

@@ -116,6 +116,21 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
         
         return {"models": models}
 
+    @app.get("/v1/models/cards")
+    async def model_cards():
+        """Every card in the catalogue, in ONE request.
+
+        The single-card route below exists for a link to one model. A
+        browser listing wants all of them, and seventeen round trips to
+        draw a grid is a grid that arrives in pieces.
+
+        The card has three parts and they are kept apart on purpose:
+        what the DEVICE advertises, what we MEASURED, and what we have
+        NOTICED that the device does not say. The distance between the
+        first two is the interesting part of a card.
+        """
+        return {"cards": agency.all_model_cards()}
+
     @app.get("/v1/models/card")
     async def model_card(model_id: str):
         """The card for a model: what it is advertised to do, and what we

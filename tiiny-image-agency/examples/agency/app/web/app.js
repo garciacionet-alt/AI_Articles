@@ -61,8 +61,12 @@ const els = {
     sourcePath: $('source-path'),
     sourceClear: $('source-clear'),
     filePath: $('file-path'),
-    cardModel: $('card-model'),
-    card: $('card'),
+    cardGrid: $('card-grid'),
+    cardDetail: $('card-detail'),
+    cardSearch: $('card-search'),
+    cardFilterArtifact: $('card-filter-artifact'),
+    cardFilterMeasured: $('card-filter-measured'),
+    referenceGrid: $('reference-grid'),
     dialogBackdrop: $('dialog-backdrop'),
     dialogModel: $('dialog-model'),
     dialogWhy: $('dialog-why'),
@@ -298,6 +302,38 @@ function clearSource() {
     els.sourcePreview.removeAttribute('src');
 }
 
+// -- the tabs -------------------------------------------------------------
+
+// Three kinds of work, three places. The Models tab is where a person
+// goes to LEARN what the models are, so it is a tab of its own and not
+// something buried under the generator.
+const TAB_LOADERS = {};
+
+function showTab(name) {
+    for (const tab of document.querySelectorAll('.tab')) {
+        const active = tab.dataset.tab === name;
+        tab.classList.toggle('active', active);
+        tab.setAttribute('aria-selected', String(active));
+    }
+    for (const panel of document.querySelectorAll('.panel')) {
+        panel.classList.toggle('hidden', panel.id !== 'panel-' + name);
+    }
+    // The tab's content is fetched the FIRST time it is opened, not at
+    // page load. Seventeen cards is one request, but it is still a
+    // request, and the Make tab does not need it.
+    const loader = TAB_LOADERS[name];
+    if (loader && !loader.done) {
+        loader.done = true;
+        loader.run();
+    }
+}
+
+function wireTabs() {
+    for (const tab of document.querySelectorAll('.tab')) {
+        tab.addEventListener('click', () => showTab(tab.dataset.tab));
+    }
+}
+
 // -- the model cards ------------------------------------------------------
 
 // Every model in the catalogue has a card: what the device says it is
@@ -309,23 +345,23 @@ async function loadModelCard(modelId) {
     }
     const card = await apiGet('/v1/models/card?model_id='
         + encodeURIComponent(modelId));
-    els.card.innerHTML = '';
+    els.cardDetail.innerHTML = '';
     if (!card) {
-        els.card.textContent = 'No card for ' + modelId + '.';
+        els.cardDetail.textContent = 'No card for ' + modelId + '.';
         return;
     }
 
     const head = document.createElement('p');
     head.className = 'card-model';
     head.textContent = card.model_id;
-    els.card.appendChild(head);
+    els.cardDetail.appendChild(head);
 
     const status = document.createElement('p');
     status.className = 'card-status';
     status.textContent = (card.npu_usage || 0) + '% of the NPU · '
         + (card.downloaded ? 'on the appliance' : 'not on the appliance yet')
         + ' · ' + (card.researched ? 'measured' : 'not measured yet');
-    els.card.appendChild(status);
+    els.cardDetail.appendChild(status);
 
     const advertised = document.createElement('div');
     advertised.className = 'card-part';
@@ -336,7 +372,7 @@ async function loadModelCard(modelId) {
     advertisedText.textContent = card.advertised
         || 'The device says nothing about this model.';
     advertised.appendChild(advertisedText);
-    els.card.appendChild(advertised);
+    els.cardDetail.appendChild(advertised);
 
     if (card.measured) {
         const measured = document.createElement('div');
@@ -364,7 +400,7 @@ async function loadModelCard(modelId) {
         }
         measuredText.textContent = bits.join(' · ') || '—';
         measured.appendChild(measuredText);
-        els.card.appendChild(measured);
+        els.cardDetail.appendChild(measured);
     }
 
     const notes = document.createElement('div');
@@ -376,24 +412,186 @@ async function loadModelCard(modelId) {
     notesText.textContent = card.notes
         || 'Nothing yet — this model has not been characterised.';
     notes.appendChild(notesText);
-    els.card.appendChild(notes);
+    els.cardDetail.appendChild(notes);
 }
 
-async function loadCardModels() {
-    const catalogue = await apiGet('/v1/models');
-    if (!catalogue) {
+// Every card, in ONE request. Seventeen separate requests to draw one
+// grid is a grid that arrives in pieces.
+let allCards = null;
+
+async function loadAllCards() {
+    const data = await apiGet('/v1/models/cards');
+    if (!data) {
         return;
     }
-    els.cardModel.innerHTML = '';
-    for (const model of catalogue.models || []) {
+    allCards = data.cards || [];
+    fillArtifactFilter(allCards);
+    renderCardGrid();
+    if (allCards.length) {
+        showCardDetail(allCards[0]);
+    }
+}
+
+// The kind of picture a model is good at — the filter a person would
+// actually reach for ("I want a photo").
+function fillArtifactFilter(cards) {
+    const kinds = new Set();
+    for (const card of cards) {
+        for (const artifact of (card.artifact || [])) {
+            kinds.add(artifact);
+        }
+    }
+    els.cardFilterArtifact.innerHTML = '';
+    const any = document.createElement('option');
+    any.value = '';
+    any.textContent = 'any kind of picture';
+    els.cardFilterArtifact.appendChild(any);
+    for (const kind of [...kinds].sort()) {
         const option = document.createElement('option');
-        option.value = model.id;
-        option.textContent = model.id + '  (' + model.npu_usage + '%)';
-        els.cardModel.appendChild(option);
+        option.value = kind;
+        option.textContent = kind;
+        els.cardFilterArtifact.appendChild(option);
     }
-    if (catalogue.models && catalogue.models.length) {
-        await loadModelCard(catalogue.models[0].id);
+}
+
+// The grid is for BROWSING: what each model costs and what it can do,
+// at a glance. The detail pane is where one is read.
+function renderCardGrid() {
+    els.cardGrid.innerHTML = '';
+    if (!allCards) {
+        return;
     }
+    const search = (els.cardSearch.value || '').trim().toLowerCase();
+    const artifact = els.cardFilterArtifact.value || '';
+    const measured = els.cardFilterMeasured.value || '';
+
+    const shown = allCards.filter((card) => {
+        if (measured === 'measured' && !card.researched) {
+            return false;
+        }
+        if (measured === 'unmeasured' && card.researched) {
+            return false;
+        }
+        if (artifact && !(card.artifact || []).includes(artifact)) {
+            return false;
+        }
+        if (search) {
+            const haystack = [
+                card.model_id,
+                card.role,
+                card.measured && card.measured.summary,
+                (card.artifact || []).join(' '),
+            ].filter(Boolean).join(' ').toLowerCase();
+            if (!haystack.includes(search)) {
+                return false;
+            }
+        }
+        return true;
+    });
+
+    if (!shown.length) {
+        const empty = document.createElement('p');
+        empty.className = 'card-empty';
+        empty.textContent = allCards.length
+            ? 'No model matches that.'
+            : 'No models in the catalogue yet.';
+        els.cardGrid.appendChild(empty);
+        return;
+    }
+
+    for (const card of shown) {
+        els.cardGrid.appendChild(cardTile(card));
+    }
+}
+
+function cardTile(card) {
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'card-tile';
+    tile.dataset.model = card.model_id;
+
+    const name = document.createElement('span');
+    name.className = 'card-tile-name';
+    name.textContent = card.model_id;
+    tile.appendChild(name);
+
+    const facts = document.createElement('span');
+    facts.className = 'card-tile-facts';
+    const bits = [card.npu_usage + '%'];
+    if (card.speed && card.speed !== 'unknown') {
+        bits.push(card.speed);
+    }
+    if (card.alpha) {
+        bits.push('transparent');
+    }
+    facts.textContent = bits.join(' · ');
+    tile.appendChild(facts);
+
+    const badge = document.createElement('span');
+    badge.className = 'card-tile-badge' + (card.researched ? ' measured' : '');
+    badge.textContent = card.researched ? 'measured' : 'not measured';
+    tile.appendChild(badge);
+
+    tile.addEventListener('click', () => showCardDetail(card));
+    return tile;
+}
+
+// The detail pane shows one card, with its three parts kept apart:
+// what the device advertises, what we measured, and what we have
+// noticed. The distance between the first two is the whole point.
+function showCardDetail(card) {
+    for (const tile of els.cardGrid.querySelectorAll('.card-tile')) {
+        tile.classList.toggle('current', tile.dataset.model === card.model_id);
+    }
+    loadModelCard(card.model_id);
+}
+
+function wireCardFilters() {
+    for (const control of [els.cardSearch, els.cardFilterArtifact,
+                           els.cardFilterMeasured]) {
+        control.addEventListener('input', renderCardGrid);
+        control.addEventListener('change', renderCardGrid);
+    }
+}
+
+// -- the references -------------------------------------------------------
+
+// Phase N fills this. The panel exists now so the tab strip is the
+// shape the work will land in, rather than a shape it has to be
+// reshaped into later.
+async function loadReferences() {
+    const data = await apiGet('/v1/references');
+    els.referenceGrid.innerHTML = '';
+    const references = (data && data.references) || [];
+    if (!references.length) {
+        const empty = document.createElement('p');
+        empty.className = 'card-empty';
+        empty.textContent = 'No references yet. Make an image you like, '
+            + 'then save it as a reference.';
+        els.referenceGrid.appendChild(empty);
+        return;
+    }
+    for (const reference of references) {
+        els.referenceGrid.appendChild(referenceTile(reference));
+    }
+}
+
+function referenceTile(reference) {
+    const tile = document.createElement('div');
+    tile.className = 'reference-tile';
+
+    const name = document.createElement('p');
+    name.className = 'reference-name';
+    name.textContent = reference.name || reference.id;
+    tile.appendChild(name);
+
+    const facts = document.createElement('p');
+    facts.className = 'reference-facts';
+    facts.textContent = (reference.model_id || '') + ' · '
+        + (reference.size || '');
+    tile.appendChild(facts);
+
+    return tile;
 }
 
 // -- the plan and the badge ----------------------------------------------
@@ -906,10 +1104,13 @@ els.sourceClear.addEventListener('click', (event) => {
     clearSource();
 });
 
-// THE MODEL CARDS.
-els.cardModel.addEventListener('change', () => {
-    loadModelCard(els.cardModel.value);
-});
+// THE MODEL CARDS. The Models tab fetches its cards the first time it
+// is opened, and the filters re-render the grid from what it already
+// has — a keystroke must not be a request.
+wireTabs();
+wireCardFilters();
+TAB_LOADERS.models = {run: loadAllCards};
+TAB_LOADERS.references = {run: loadReferences};
 
 // THE DIALOG. The user approves the model before anything is spent.
 els.dialogCancel.addEventListener('click', () => {
@@ -929,7 +1130,6 @@ els.dialogBackdrop.addEventListener('click', (event) => {
 });
 
 loadRoles();
-loadCardModels();
 
 updateNpu();
 setInterval(updateNpu, 3000);

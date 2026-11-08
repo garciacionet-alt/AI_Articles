@@ -211,3 +211,42 @@ def test_the_api_serves_the_card(registry: Registry, tmp_path: Path):
         assert slashed.status_code == 200
     finally:
         agency.close()
+
+
+def test_the_api_serves_every_card_in_one_request(registry: Registry,
+                                                   tmp_path: Path):
+    """A browser listing wants all of them at once.
+
+    Seventeen separate requests to draw one grid is a grid that arrives
+    in pieces, and the pieces arrive in the order the network decides.
+    """
+    from tis.config import Settings
+    from tis.service import Agency
+
+    cards = tmp_path / "cards"
+    cards.mkdir()
+    settings = Settings(assets_dir=tmp_path / "assets", cards_dir=cards,
+                        hold_file=tmp_path / "hold",
+                        watchdog_lock=tmp_path / "watch.lock")
+    device = FakeDevice(registry)
+    agency = Agency(settings, device=device, registry=registry)
+    try:
+        client = TestClient(create_app(agency=agency))
+        response = client.get("/v1/models/cards")
+        assert response.status_code == 200
+        body = response.json()
+        assert "cards" in body
+        listed = body["cards"]
+
+        # Every image generator has a card, researched or not: a model
+        # with no card is a model the user cannot judge.
+        generators = [m for m in registry.models
+                      if m.kind == "image_generator"]
+        assert len(listed) == len(generators)
+        for card in listed:
+            assert "model_id" in card
+            assert "advertised" in card
+            assert "notes" in card
+            assert "researched" in card
+    finally:
+        agency.close()
