@@ -447,6 +447,14 @@ and the appliance URL in the CLI and in the surface: neither may have one.
   that cannot be themed will be wrong in one of the two themes. The
   alpha checkerboard is themed too, and has to be: a transparent PNG
   on a light checkerboard in a dark theme is a lie.
+- **One helper, and a test that says so.** The page has a single
+  `apiGet`, which resolves to the parsed JSON. A second definition of
+  the same name was shipped once and silently won - function
+  declarations are hoisted, so the LATER one takes effect - and every
+  caller in the page got a `Response` object instead of the data.
+  Nothing failed; the meter, the cards, the references, the roles and
+  the lineage all quietly showed nothing. A test now says no function
+  may be defined twice.
 - **The meter admits what it does not know.** When the appliance does
   not answer, it says so. It does not claim the pool is empty.
 - **It has a developer tab.** The API tab renders the LIVE schema this
