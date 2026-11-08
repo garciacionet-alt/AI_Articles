@@ -49,12 +49,28 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-#: Where the published, curated tree lives. The release is built from
-#: HERE, not from the working tree, so the tarball is exactly what the
-#: repository contains.
-PUBLISHED = Path(
-    "/Users/gary/Library/Mobile Documents/com~apple~CloudDocs/OpenHuman/"
-    "projects/_amc/publish/articles/tiiny-image-agency")
+#: Where the published, curated tree lives. It is FOUND, not written
+#: down: a path with somebody's name in it does not belong in a public
+#: repository, and the tool that writes the public tree is published
+#: with it.
+PUBLISHED_NAME = "tiiny-image-agency"
+
+
+def find_published() -> Path | None:
+    """The published tree, found by looking for it.
+
+    The script lives in the working tree, and the published tree — the
+    curated copy that goes into the public repository — is a sibling
+    of the project rather than a copy of it. Rather than hard-coding
+    where that is — or anything with a home directory in it — the tree
+    is found by walking up and looking for it.
+    """
+    for parent in Path(__file__).resolve().parents:
+        candidate = (parent / "_amc" / "publish" / "articles"
+                     / PUBLISHED_NAME)
+        if candidate.is_dir():
+            return candidate
+    return None
 
 #: The pieces of the published tree that go into the tarball.
 PAYLOAD = ("examples/agency/app", "examples/agency/registry")
@@ -81,7 +97,7 @@ def sha256_of(path: Path) -> str:
     return digest.hexdigest()
 
 
-def build_tarball(out_dir: Path, version: str) -> Path:
+def build_tarball(out_dir: Path, version: str, published: Path) -> Path:
     """The tarball, built deterministically.
 
     Deterministic means: the same inputs give the same bytes, so the
@@ -93,7 +109,7 @@ def build_tarball(out_dir: Path, version: str) -> Path:
     staging = Path(tempfile.mkdtemp()) / name
     try:
         for piece in PAYLOAD:
-            source = PUBLISHED / piece
+            source = published / piece
             if not source.exists():
                 raise SystemExit(f"missing from the published tree: {piece}")
             # The pieces go in under their short names: `app` and
@@ -169,22 +185,28 @@ def main() -> int:
     parser.add_argument("--out", default="/tmp/tiiny-release",
                         help="where to write the tarball")
     parser.add_argument("--version", default=VERSION)
+    parser.add_argument("--published", default="",
+                        help="the published tree to build from (found by "
+                             "default)")
     parser.add_argument("--cask", default="",
                         help="where to write the cask (default: in the "
                              "published tree)")
     args = parser.parse_args()
 
-    if not PUBLISHED.exists():
-        print(f"FAIL: the published tree is not there: {PUBLISHED}")
+    published = (Path(args.published) if args.published
+                 else find_published())
+    if published is None or not published.is_dir():
+        print("FAIL: the published tree was not found. Run this from the "
+              "working tree, or pass --published.")
         return 1
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    tarball = build_tarball(out_dir, args.version)
+    tarball = build_tarball(out_dir, args.version, published)
     digest = sha256_of(tarball)
 
     cask_path = (Path(args.cask) if args.cask
-                 else PUBLISHED / CASK_DIR / CASK_NAME)
+                 else published / CASK_DIR / CASK_NAME)
     write_cask(cask_path, args.version, digest)
 
     print(f"tarball : {tarball}")
