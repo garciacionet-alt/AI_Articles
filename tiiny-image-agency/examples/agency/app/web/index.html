@@ -4,6 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tiiny Image Agency</title>
+    <!-- THE THEME, BEFORE THE PAGE PAINTS. A dark page that flashes
+         white on the way in is worse than a light one, so the choice
+         is applied here in the head, before the stylesheet paints
+         anything.
+
+         The operating system's answer is the default: somebody who has
+         asked their whole computer to be dark should not have to ask
+         this page as well. A choice made here is remembered and wins
+         over the system from then on. -->
+    <script>
+        (function () {
+            var saved = null;
+            try {
+                saved = window.localStorage.getItem('tis-theme');
+            } catch (error) {
+                // A browser that refuses localStorage still gets a theme.
+            }
+            var systemDark = window.matchMedia
+                && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.setAttribute(
+                'data-theme', saved || (systemDark ? 'dark' : 'light'));
+        })();
+    </script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,8 +34,12 @@
 
         <div class="header-row">
             <h1>Tiiny Image Agency</h1>
-            <a class="diagram-link" href="architecture.html" target="_blank"
-               rel="noopener">architecture diagram</a>
+            <div class="header-tools">
+                <button type="button" class="theme-toggle" id="theme-toggle"
+                        aria-label="Switch to the dark theme">Dark</button>
+                <a class="diagram-link" href="architecture.html" target="_blank"
+                   rel="noopener">architecture diagram</a>
+            </div>
         </div>
 
         <!-- THE THREE PERSISTENT ELEMENTS. These are always visible: they

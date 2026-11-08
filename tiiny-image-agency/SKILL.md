@@ -438,6 +438,17 @@ and the appliance URL in the CLI and in the surface: neither may have one.
   JPEG is stored with a `.jpg` name and served as `image/jpeg`. A JPEG
   carries no alpha channel, so its lineage says so; that loss happened
   before the agency ever saw the file.
+- **It has a dark theme.** The operating system's choice is the
+  default; a toggle overrides it and the override is remembered. The
+  choice is applied before the page paints, so there is no white
+  flash on the way in.
+- **Every colour in the stylesheet is a variable.** Not a convention -
+  a test. A hard-coded colour is a test failure, because a colour
+  that cannot be themed will be wrong in one of the two themes. The
+  alpha checkerboard is themed too, and has to be: a transparent PNG
+  on a light checkerboard in a dark theme is a lie.
+- **The meter admits what it does not know.** When the appliance does
+  not answer, it says so. It does not claim the pool is empty.
 - **It has a developer tab.** The API tab renders the LIVE schema this
   server publishes, so it cannot be out of date — a copy of the API
   would go stale the moment a route changed, and a developer tab that

@@ -1,18 +1,122 @@
 /* Tiiny Image Agency — the work surface.
    No build step: plain CSS, no framework, no preprocessor. */
 
+/* THE PALETTE. Every colour in this file is one of these names.
+
+   A colour written into a rule is a colour the dark theme cannot
+   reach, and a colour that cannot be themed will be wrong in one of
+   the two themes. So: every colour is a variable, and a test says so.
+
+   --on-accent is the text on an accent fill, which is why it is a
+   variable and not just white: in the dark theme the accent is a
+   lighter blue and the text on it is dark, so that it can be read. */
 :root {
     --ink: #1c1f24;
     --muted: #6b7280;
+    --strong: #3f4650;
     --line: #e3e6ea;
+    --hover: #94a3b8;
     --panel: #ffffff;
+    --surface: #fbfbfc;
+    --tint: #f2f7ff;
+    --field: #f1f3f5;
     --page: #f4f5f7;
+    --track: #e8eaed;
     --accent: #0a63d8;
+    --accent-2: #38bdf8;
+    --on-accent: #ffffff;
     --warn: #b45309;
+    --warn-ink: #6b4a06;
     --warn-bg: #fef3c7;
+    --danger: #991b1b;
+    --danger-bg: #fee2e2;
+    --good: #047857;
+    --good-ink: #14653c;
+    --good-bg: #effaf4;
+    --good-line: #bfe3d0;
+    --verb-get: #0a63d8;
+    --verb-post: #15803d;
+    --verb-delete: #b91c1c;
+    /* The ALPHA checkerboard. A transparent PNG is shown on a
+       checkerboard because a transparent image composited onto a flat
+       colour looks opaque, and the checkerboard is the honest display
+       of that. */
+    --checker-a: #ffffff;
+    --checker-b: #e9ebee;
+    /* The OTHER checkerboard - the lineage's little diagram. */
+    --grid-a: #f8f8fb;
+    --grid-b: #e9e9ef;
+}
+
+/* THE DARK THEME. The same names with different values, so switching
+   themes is switching which values apply - not a second stylesheet
+   that can drift away from the first.
+
+   The dark theme is not "the light one, inverted". The accents are
+   lighter because a mid-blue on a dark ground is hard to read; the
+   alpha checkerboard is dark, because a light checkerboard behind a
+   transparent picture would be a lie in the other direction; and the
+   warning ink is lighter, because the warning background is darker
+   rather than paler. */
+[data-theme="dark"] {
+    --ink: #e6e8ec;
+    --muted: #9aa3b0;
+    --strong: #c7cdd6;
+    --line: #2b313a;
+    --hover: #4b5563;
+    --panel: #171a1f;
+    --surface: #1e2229;
+    --tint: #16202f;
+    --field: #20252c;
+    --page: #101317;
+    --track: #2b313a;
+    --accent: #58a6ff;
+    --accent-2: #38bdf8;
+    --on-accent: #0b1017;
+    --warn: #e0a458;
+    --warn-ink: #f2c879;
+    --warn-bg: #33280f;
+    --danger: #f08a8a;
+    --danger-bg: #3a1d1d;
+    --good: #4ade80;
+    --good-ink: #7ee2a8;
+    --good-bg: #14291d;
+    --good-line: #245c3c;
+    --verb-get: #58a6ff;
+    --verb-post: #4ade80;
+    --verb-delete: #f08a8a;
+    --checker-a: #1a1e24;
+    --checker-b: #2a2f37;
+    --grid-a: #191d23;
+    --grid-b: #272c34;
 }
 
 * { box-sizing: border-box; }
+
+/* THE THEME TOGGLE. It sits beside the architecture link because it
+   is a setting about the page, not about the work. */
+.header-tools {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.theme-toggle {
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.theme-toggle:hover {
+    border-color: var(--hover);
+    color: var(--ink);
+}
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -118,7 +222,7 @@ body {
 .npu-bar {
     width: 100%;
     height: 10px;
-    background: #e8eaed;
+    background: var(--track);
     border-radius: 5px;
     overflow: hidden;
     margin: 4px 0 6px;
@@ -126,7 +230,7 @@ body {
 
 .npu-fill {
     height: 100%;
-    background: linear-gradient(90deg, #38bdf8, var(--accent));
+    background: linear-gradient(90deg, var(--accent-2), var(--accent));
     border-radius: 5px;
     transition: width 0.4s ease;
     width: 0%;
@@ -183,13 +287,13 @@ body {
 
 .line.ask {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     align-self: flex-end;
     max-width: 85%;
 }
-.line.event { background: #f1f3f5; color: var(--muted); }
+.line.event { background: var(--field); color: var(--muted); }
 .line.warn { background: var(--warn-bg); color: var(--warn); }
-.line.bad { background: #fee2e2; color: #991b1b; }
+.line.bad { background: var(--danger-bg); color: var(--danger); }
 
 .composer {
     display: flex;
@@ -206,7 +310,7 @@ body {
     padding: 9px 11px;
     border: 1px solid var(--line);
     border-radius: 7px;
-    background: #fbfbfc;
+    background: var(--surface);
 }
 
 .composer input:focus, .feedback input:focus {
@@ -222,7 +326,7 @@ button {
     border: 0;
     border-radius: 7px;
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     cursor: pointer;
 }
 
@@ -248,12 +352,12 @@ button:hover { filter: brightness(1.08); }
     overflow: hidden;
     /* The checkerboard is the alpha, shown honestly: what you see is
        what the PNG actually carries. */
-    background-color: #fff;
+    background-color: var(--checker-a);
     background-image:
-        linear-gradient(45deg, #e9ebee 25%, transparent 25%),
-        linear-gradient(-45deg, #e9ebee 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #e9ebee 75%),
-        linear-gradient(-45deg, transparent 75%, #e9ebee 75%);
+        linear-gradient(45deg, var(--checker-b) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--checker-b) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--checker-b) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--checker-b) 75%);
     background-size: 18px 18px;
     background-position: 0 0, 0 9px, 9px -9px, -9px 0;
 }
@@ -337,7 +441,7 @@ button:hover { filter: brightness(1.08); }
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 11.5px;
     line-height: 1.55;
-    color: #3f4650;
+    color: var(--strong);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     max-height: 132px;
@@ -385,7 +489,7 @@ button:hover { filter: brightness(1.08); }
     padding: 6px 8px;
     border: 1px solid var(--line);
     border-radius: 6px;
-    background: #fbfbfc;
+    background: var(--surface);
     color: var(--ink);
 }
 
@@ -396,7 +500,7 @@ button:hover { filter: brightness(1.08); }
     margin: 6px 0 0;
 }
 
-.role-note.sees { color: #047857; }
+.role-note.sees { color: var(--good); }
 
 /* -- THE OTHER MODELS ---------------------------------------------------- */
 
@@ -425,12 +529,12 @@ button:hover { filter: brightness(1.08); }
     padding: 5px 9px;
     border: 1px solid var(--line);
     border-radius: 999px;
-    background: #fbfbfc;
+    background: var(--surface);
     color: var(--ink);
     cursor: pointer;
 }
 
-.alt:hover { border-color: #94a3b8; }
+.alt:hover { border-color: var(--hover); }
 .alt.current {
     border-color: var(--accent);
     color: var(--accent);
@@ -444,7 +548,7 @@ button:hover { filter: brightness(1.08); }
     border-radius: 10px;
     padding: 14px 16px;
     margin-bottom: 12px;
-    background: #fbfbfd;
+    background: var(--surface);
     cursor: pointer;
     transition: border-color 120ms ease, background 120ms ease;
 }
@@ -452,7 +556,7 @@ button:hover { filter: brightness(1.08); }
 .dropzone:hover,
 .dropzone.dragging {
     border-color: var(--accent);
-    background: #f4f7fd;
+    background: var(--tint);
 }
 
 .dropzone-title {
@@ -484,7 +588,7 @@ button:hover { filter: brightness(1.08); }
     object-fit: contain;
     border-radius: 6px;
     background:
-        repeating-conic-gradient(#e9e9ef 0% 25%, #f8f8fb 0% 50%) 50% / 14px 14px;
+        repeating-conic-gradient(var(--grid-b) 0% 25%, var(--grid-a) 0% 50%) 50% / 14px 14px;
     border: 1px solid var(--line);
 }
 
@@ -515,7 +619,7 @@ button:hover { filter: brightness(1.08); }
     padding: 4px 10px;
     border-radius: 6px;
     border: 1px solid var(--line);
-    background: #fff;
+    background: var(--panel);
     color: var(--ink);
     cursor: pointer;
 }
@@ -592,7 +696,7 @@ button:hover { filter: brightness(1.08); }
     padding: 14px 16px;
     border: 1px solid var(--line);
     border-radius: 10px;
-    background: #fff;
+    background: var(--panel);
 }
 
 .models-browser h2 {
@@ -622,7 +726,7 @@ button:hover { filter: brightness(1.08); }
     padding: 6px 9px;
     border-radius: 7px;
     border: 1px solid var(--line);
-    background: #fff;
+    background: var(--panel);
     color: var(--ink);
 }
 
@@ -640,7 +744,7 @@ button:hover { filter: brightness(1.08); }
     padding: 14px 16px;
     border: 1px solid var(--line);
     border-radius: 10px;
-    background: #fff;
+    background: var(--panel);
 }
 
 .api-browser h2 {
@@ -689,7 +793,7 @@ button:hover { filter: brightness(1.08); }
     margin-bottom: 8px;
     border-radius: 7px;
     border: 1px solid var(--line);
-    background: #fff;
+    background: var(--panel);
     color: var(--ink);
 }
 
@@ -729,9 +833,9 @@ button:hover { filter: brightness(1.08); }
     color: var(--muted);
 }
 
-.api-verb.get { color: #0a63d8; }
-.api-verb.post { color: #15803d; }
-.api-verb.delete { color: #b91c1c; }
+.api-verb.get { color: var(--verb-get); }
+.api-verb.post { color: var(--verb-post); }
+.api-verb.delete { color: var(--verb-delete); }
 
 .api-route {
     grid-area: route;
@@ -841,7 +945,7 @@ button:hover { filter: brightness(1.08); }
     border-radius: 6px;
     border: 1px solid var(--accent);
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     cursor: pointer;
 }
 
@@ -857,7 +961,7 @@ button:hover { filter: brightness(1.08); }
     border: 0;
     border-bottom: 1px solid var(--line);
     color: var(--ink);
-    background: #fff;
+    background: var(--panel);
 }
 
 .api-response {
@@ -871,7 +975,7 @@ button:hover { filter: brightness(1.08); }
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     color: var(--ink);
-    background: #fff;
+    background: var(--panel);
 }
 
 /* THE GRID. A tile says what a model costs and what it can do, at a
@@ -891,7 +995,7 @@ button:hover { filter: brightness(1.08); }
     padding: 9px 11px;
     border: 1px solid var(--line);
     border-radius: 9px;
-    background: #fff;
+    background: var(--panel);
     cursor: pointer;
 }
 
@@ -901,7 +1005,7 @@ button:hover { filter: brightness(1.08); }
 
 .card-tile.current {
     border-color: var(--accent);
-    background: #f2f7ff;
+    background: var(--tint);
 }
 
 .card-tile-name {
@@ -929,9 +1033,9 @@ button:hover { filter: brightness(1.08); }
 }
 
 .card-tile-badge.measured {
-    color: #14653c;
-    border-color: #bfe3d0;
-    background: #effaf4;
+    color: var(--good-ink);
+    border-color: var(--good-line);
+    background: var(--good-bg);
 }
 
 /* -- THE REFERENCES ------------------------------------------------------- */
@@ -946,7 +1050,7 @@ button:hover { filter: brightness(1.08); }
     padding: 9px 11px;
     border: 1px solid var(--line);
     border-radius: 9px;
-    background: #fff;
+    background: var(--panel);
 }
 
 /* The picture itself, so the list can be scanned by eye rather than
@@ -956,7 +1060,7 @@ button:hover { filter: brightness(1.08); }
     width: 100%;
     border-radius: 6px;
     margin-bottom: 7px;
-    background: #f4f5f7;
+    background: var(--page);
 }
 
 .reference-name {
@@ -984,7 +1088,7 @@ button:hover { filter: brightness(1.08); }
     padding: 4px 10px;
     border-radius: 6px;
     border: 1px solid var(--line);
-    background: #fff;
+    background: var(--panel);
     color: var(--ink);
     cursor: pointer;
 }
@@ -1007,7 +1111,7 @@ button:hover { filter: brightness(1.08); }
     gap: 8px;
     padding: 5px 10px;
     border-top: 1px solid var(--line);
-    background: #f2f7ff;
+    background: var(--tint);
     color: var(--accent);
     font-size: 11.5px;
 }
@@ -1026,7 +1130,7 @@ button:hover { filter: brightness(1.08); }
     padding: 2px 8px;
     border-radius: 6px;
     border: 1px solid var(--line);
-    background: #fff;
+    background: var(--panel);
     color: var(--muted);
     cursor: pointer;
 }
@@ -1046,7 +1150,7 @@ button:hover { filter: brightness(1.08); }
     padding: 5px 9px;
     border-radius: 7px;
     border: 1px solid var(--line);
-    background: #fff;
+    background: var(--panel);
     color: var(--ink);
 }
 
@@ -1056,7 +1160,7 @@ button:hover { filter: brightness(1.08); }
     padding: 5px 11px;
     border-radius: 7px;
     border: 1px solid var(--line);
-    background: #fff;
+    background: var(--panel);
     color: var(--ink);
     cursor: pointer;
     white-space: nowrap;
@@ -1074,7 +1178,7 @@ button:hover { filter: brightness(1.08); }
     padding: 12px 14px;
     border: 1px solid var(--line);
     border-radius: 10px;
-    background: #fff;
+    background: var(--panel);
 }
 
 .cards h3 {
@@ -1092,7 +1196,7 @@ button:hover { filter: brightness(1.08); }
     padding: 6px 8px;
     border-radius: 7px;
     border: 1px solid var(--line);
-    background: #fff;
+    background: var(--panel);
     color: var(--ink);
 }
 
@@ -1138,11 +1242,11 @@ button:hover { filter: brightness(1.08); }
     margin: 0;
     font-size: 12px;
     line-height: 1.5;
-    color: #3f4650;
+    color: var(--strong);
 }
 
 .card-notes p {
-    color: #6b4a06;
+    color: var(--warn-ink);
 }
 
 /* -- THE DIALOG ---------------------------------------------------------- */
@@ -1161,7 +1265,7 @@ button:hover { filter: brightness(1.08); }
 .dialog-backdrop[hidden] { display: none; }
 
 .dialog {
-    background: #fff;
+    background: var(--panel);
     border-radius: 12px;
     padding: 20px 22px;
     max-width: 540px;
@@ -1187,14 +1291,14 @@ button:hover { filter: brightness(1.08); }
 .dialog-why {
     font-size: 12.5px;
     line-height: 1.5;
-    color: #3f4650;
+    color: var(--strong);
     margin: 0 0 10px;
 }
 
 .dialog-cost {
     font-size: 12.5px;
     line-height: 1.5;
-    color: #b45309;
+    color: var(--warn);
     margin: 0 0 10px;
 }
 
@@ -1217,7 +1321,7 @@ button:hover { filter: brightness(1.08); }
     padding: 7px 14px;
     border-radius: 7px;
     border: 1px solid var(--line);
-    background: #fbfbfc;
+    background: var(--surface);
     color: var(--ink);
     cursor: pointer;
 }
@@ -1225,7 +1329,7 @@ button:hover { filter: brightness(1.08); }
 .dialog-actions button.primary {
     background: var(--accent);
     border-color: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     font-weight: 600;
 }
 

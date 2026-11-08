@@ -81,6 +81,7 @@ const els = {
     apiBody: $('api-body'),
     apiSend: $('api-send'),
     apiResponse: $('api-response'),
+    themeToggle: $('theme-toggle'),
     dialogBackdrop: $('dialog-backdrop'),
     dialogModel: $('dialog-model'),
     dialogWhy: $('dialog-why'),
@@ -342,18 +343,20 @@ let openApiSchema = null;
 let apiMethod = '';
 let apiPath = '';
 
-function apiGet(path) {
-    return fetch(API + path, {headers: {'Accept': 'application/json'}});
-}
-
 async function loadOpenApi() {
-    const response = await fetch(API + '/openapi.json');
-    if (!response.ok) {
-        els.apiEndpoints.textContent = 'The schema could not be read: HTTP '
-            + response.status;
+    // The ONE apiGet, which returns the parsed JSON. There used to be
+    // a second definition of this function further down the file - and
+    // because function declarations are hoisted, the later one WON, so
+    // every caller in the page got a Response object instead of the
+    // data. The NPU meter said "0% used, nothing resident" because
+    // `npu.used_pct` was undefined on a Response. There is now one
+    // apiGet and a test that says so.
+    const schema = await apiGet('/openapi.json');
+    if (!schema) {
+        els.apiEndpoints.textContent = 'The schema could not be read.';
         return;
     }
-    openApiSchema = await response.json();
+    openApiSchema = schema;
     renderEndpoints();
 }
 
@@ -544,6 +547,52 @@ async function sendApiRequest() {
             + (response.ok ? '' : '  (failed)') + '\n\n' + shown;
     } catch (error) {
         els.apiResponse.textContent = 'The request failed: ' + error.message;
+    }
+}
+
+// -- the theme ------------------------------------------------------------
+
+// The operating system's answer is the default: somebody who has asked
+// their whole computer to be dark should not have to ask this page as
+// well. A choice made here is remembered and wins over the system from
+// then on - a preference that is forgotten between visits is not a
+// preference.
+//
+// The page's own head script has already set the attribute before the
+// first paint, so there is no white flash on the way in. This is the
+// half that lets somebody choose.
+
+function currentTheme() {
+    return document.documentElement.getAttribute('data-theme') || 'light';
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    // The button says what it WILL switch to, not what is: a button
+    // labelled "Dark" while you are already in the dark is a small
+    // lie, and this page does not tell small lies.
+    els.themeToggle.textContent = theme === 'dark' ? 'Light' : 'Dark';
+    els.themeToggle.setAttribute('aria-label',
+        theme === 'dark' ? 'Switch to the light theme'
+            : 'Switch to the dark theme');
+}
+
+function toggleTheme() {
+    const next = currentTheme() === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    try {
+        window.localStorage.setItem('tis-theme', next);
+    } catch (error) {
+        // A browser that refuses localStorage still gets a theme. It
+        // just does not remember it.
+    }
+}
+
+function savedTheme() {
+    try {
+        return window.localStorage.getItem('tis-theme');
+    } catch (error) {
+        return null;
     }
 }
 
@@ -1280,9 +1329,36 @@ function hideBanner() {
 
 // -- the NPU meter -------------------------------------------------------
 
+// The poll counter. The appliance is serial and its answers can take
+// seconds, while the poll is every three - so without a guard an older
+// answer can land after a newer one and put the wrong number on the
+// screen. The answer that counts is the newest one asked for.
+let npuPoll = 0;
+
 async function updateNpu() {
+    const poll = ++npuPoll;
     const npu = await apiGet('/v1/npu');
+    if (poll !== npuPoll) {
+        // A newer poll has already been made; this answer is stale.
+        return;
+    }
     if (!npu) {
+        // The agency itself did not answer.
+        els.npuFill.style.width = '0%';
+        els.npuText.textContent = 'the agency did not answer';
+        els.npuResident.textContent = '—';
+        return;
+    }
+    if (npu.reachable === false) {
+        // THE APPLIANCE DID NOT ANSWER. That is not the same as
+        // nothing being loaded, and the meter must not say it is: five
+        // models can be resident and still unreachable. Saying
+        // "nothing resident" here is a false statement about the one
+        // number somebody glances at to decide whether the appliance
+        // can take a job right now.
+        els.npuFill.style.width = '0%';
+        els.npuText.textContent = 'the appliance did not answer';
+        els.npuResident.textContent = '—';
         return;
     }
     const used = npu.used_pct || 0;
@@ -1466,6 +1542,25 @@ TAB_LOADERS.references = {run: loadReferences};
 TAB_LOADERS.api = {run: loadOpenApi};
 els.apiSearch.addEventListener('input', renderEndpoints);
 els.apiSend.addEventListener('click', sendApiRequest);
+
+// THE THEME. The head script chose one already; this wires the
+// toggle, and follows the operating system if the user has not
+// expressed a preference of their own.
+applyTheme(currentTheme());
+els.themeToggle.addEventListener('click', toggleTheme);
+if (window.matchMedia) {
+    const system = window.matchMedia('(prefers-color-scheme: dark)');
+    const onSystemChange = (event) => {
+        if (!savedTheme()) {
+            applyTheme(event.matches ? 'dark' : 'light');
+        }
+    };
+    if (system.addEventListener) {
+        system.addEventListener('change', onSystemChange);
+    } else if (system.addListener) {
+        system.addListener(onSystemChange);
+    }
+}
 
 // THE REFERENCES. Saving the picture you liked, and using one to make
 // the next one come out the same way.

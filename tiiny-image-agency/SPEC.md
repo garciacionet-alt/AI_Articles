@@ -834,6 +834,53 @@ asks and it should not have to be asked in a terminal.
 FastAPI's own Swagger UI is at `/docs` and the tab points at it, rather
 than pretending to be the only way in.
 
+## 5.10 The theme, and the rule that made it possible
+
+The surface has a **dark theme**, and the operating system's choice is
+the default: somebody who has asked their whole computer to be dark
+should not have to ask this page as well. A toggle overrides it, and
+the override is remembered — a preference that is forgotten between
+visits is not a preference. The choice is applied in the document
+head, before the stylesheet paints, because a dark page that flashes
+white on the way in is worse than a light one.
+
+**The refactor is the substance.** The stylesheet had eight variables
+and about forty hard-coded colours. Each of those forty was a place
+the dark theme could not reach, and a colour that cannot be themed
+will be wrong in one of the two themes.
+
+So the rule is now enforced: **every colour in the stylesheet is the
+value of a variable.** A hard-coded colour is a test failure, not
+something somebody has to remember. That is worth more than the
+palette, because it means the next person to add a colour cannot
+break the dark theme without being told.
+
+The dark theme is the same variable names with different values, so
+switching themes is switching which values apply — not a second
+stylesheet that can drift away from the first. It is not the light
+one inverted: the accents are lighter, because a mid-blue on a dark
+ground is hard to read.
+
+**The alpha checkerboard is themed too, and has to be.** A transparent
+PNG is shown on a checkerboard because a transparent image
+composited onto a flat colour looks opaque — the checkerboard is the
+honest display of transparency. So in the dark theme it is a *dark*
+checkerboard: a light one behind a transparent picture would be a lie
+in the other direction.
+
+## 5.11 The meter does not guess
+
+The NPU meter shows the appliance's resident set. When the appliance
+does not answer — because it is busy, because it is off, because the
+call timed out — the agency says `reachable: false`, and the meter
+says **"the appliance did not answer"**.
+
+It does not say "0% used, nothing resident". Five models can be
+resident and still unreachable, and the meter is the one number
+somebody glances at to decide whether the appliance can take a job
+right now. A wrong answer there sends them to the wrong conclusion,
+so the meter says what it knows and admits what it does not.
+
 ## 6. Work Surface
 
 **The surface has four tabs: Make, Models, References, API.**
