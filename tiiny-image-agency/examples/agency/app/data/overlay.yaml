@@ -278,7 +278,14 @@ models:
 
       MEASURED 2026-11-07: IMAGE INPUT: NO — the judge called the picture with the
       image a rectangle 0 times out of five and the control 0 times — so the image
-      was not used.'
+      was not used.
+
+
+      NOT YET WIRED TO THE SOURCE IMAGE. This adapter is chosen for a request
+      to remove the background, but the Agency does not yet send the source
+      image with the request — Device.generate takes a model, a prompt and a
+      size, and nothing else. So an edit today resolves to the right model and
+      then makes a new picture instead of editing the one that was uploaded.'
     provenance: d,m
     image_input: 'no'
   fal/FLUX.2-klein-4B-Object-Remove:
@@ -319,7 +326,15 @@ models:
 
       MEASURED 2026-11-07: IMAGE INPUT: YES — the judge called the picture with the
       image a rectangle 3 times out of five, and the control 0 times — so the image
-      was used.'
+      was used.
+
+
+      NOT YET WIRED TO THE SOURCE IMAGE. This adapter is chosen for a request
+      to remove an object, but the Agency does not yet send the source image
+      with the request — Device.generate takes a model, a prompt and a size,
+      and nothing else. So an edit today resolves to the right model and then
+      makes a new picture instead of editing the one that was uploaded. This
+      is the one adapter that WOULD honour the image once it is sent.'
     provenance: d,m
     image_input: 'yes'
   fal/FLUX.2-klein-4B-Outpaint:
@@ -358,7 +373,14 @@ models:
 
       MEASURED 2026-11-07: IMAGE INPUT: UNKNOWN — the judge called the picture with
       the image a rectangle 2 times out of five, and the control 0 times — which is
-      too close to call.'
+      too close to call.
+
+
+      NOT YET WIRED TO THE SOURCE IMAGE. This adapter is chosen for a request
+      to extend past the borders, but the Agency does not yet send the source
+      image with the request — Device.generate takes a model, a prompt and a
+      size, and nothing else. So an edit today resolves to the right model and
+      then makes a new picture instead of editing the one that was uploaded.'
     provenance: d,m
     image_input: unknown
   fal/FLUX.2-klein-4B-Zoom:
@@ -398,7 +420,15 @@ models:
 
       MEASURED 2026-11-07: IMAGE INPUT: NO — the judge called the picture with the
       image a rectangle 1 times out of five, and the control 2 times — so the image
-      was not used.'
+      was not used.
+
+
+      NOT YET WIRED TO THE SOURCE IMAGE. This adapter is chosen for a request
+      to regenerate a region with more detail, but the Agency does not yet send
+      the source image with the request — Device.generate takes a model, a
+      prompt and a size, and nothing else. So an edit today resolves to the
+      right model and then makes a new picture instead of editing the one that
+      was uploaded.'
     provenance: d,m
     image_input: 'no'
   HiDream-ai/HiDream-O1-Image-Dev:

@@ -229,7 +229,7 @@
         "combined_npu_pct": 74,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Cuts the main subject out of a photo. Product photography and compositing without manual masking.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration, comic, infographic; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the judge called the picture with the image a rectangle 0 times out of five and the control 0 times \u2014 so the image was not used.",
+      "notes": "Cuts the main subject out of a photo. Product photography and compositing without manual masking.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration, comic, infographic; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the judge called the picture with the image a rectangle 0 times out of five and the control 0 times \u2014 so the image was not used.\n\nNOT YET WIRED TO THE SOURCE IMAGE. This adapter is chosen for a request to remove the background, but the Agency does not yet send the source image with the request \u2014 Device.generate takes a model, a prompt and a size, and nothing else. So an edit today resolves to the right model and then makes a new picture instead of editing the one that was uploaded.",
       "provenance": "d,m"
     },
     {
@@ -297,7 +297,7 @@
         "combined_npu_pct": 74,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Removes marked objects and fills the area contextually.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: YES \u2014 the judge called the picture with the image a rectangle 3 times out of five, and the control 0 times \u2014 so the image was used.",
+      "notes": "Removes marked objects and fills the area contextually.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: YES \u2014 the judge called the picture with the image a rectangle 3 times out of five, and the control 0 times \u2014 so the image was used.\n\nNOT YET WIRED TO THE SOURCE IMAGE. This adapter is chosen for a request to remove an object, but the Agency does not yet send the source image with the request \u2014 Device.generate takes a model, a prompt and a size, and nothing else. So an edit today resolves to the right model and then makes a new picture instead of editing the one that was uploaded. This is the one adapter that WOULD honour the image once it is sent.",
       "provenance": "d,m"
     },
     {
@@ -363,7 +363,7 @@
         "combined_npu_pct": 75,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Extends past the original borders, matching the scene.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: UNKNOWN \u2014 the judge called the picture with the image a rectangle 2 times out of five, and the control 0 times \u2014 which is too close to call.",
+      "notes": "Extends past the original borders, matching the scene.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: UNKNOWN \u2014 the judge called the picture with the image a rectangle 2 times out of five, and the control 0 times \u2014 which is too close to call.\n\nNOT YET WIRED TO THE SOURCE IMAGE. This adapter is chosen for a request to extend past the borders, but the Agency does not yet send the source image with the request \u2014 Device.generate takes a model, a prompt and a size, and nothing else. So an edit today resolves to the right model and then makes a new picture instead of editing the one that was uploaded.",
       "provenance": "d,m"
     },
     {
@@ -384,7 +384,7 @@
         ],
         "context_window": null,
         "image_size": "512x512 (fastest), up to 1536x1536",
-        "status": "running",
+        "status": "downloaded",
         "version_label": "20261106",
         "load_time": 4
       },
@@ -429,7 +429,7 @@
         "combined_npu_pct": 75,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Regenerates a marked region enlarged WITH added detail. Not an upscaler \u2014 it re-imagines the region.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the judge called the picture with the image a rectangle 1 times out of five, and the control 2 times \u2014 so the image was not used.",
+      "notes": "Regenerates a marked region enlarged WITH added detail. Not an upscaler \u2014 it re-imagines the region.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the judge called the picture with the image a rectangle 1 times out of five, and the control 2 times \u2014 so the image was not used.\n\nNOT YET WIRED TO THE SOURCE IMAGE. This adapter is chosen for a request to regenerate a region with more detail, but the Agency does not yet send the source image with the request \u2014 Device.generate takes a model, a prompt and a size, and nothing else. So an edit today resolves to the right model and then makes a new picture instead of editing the one that was uploaded.",
       "provenance": "d,m"
     },
     {
@@ -637,7 +637,7 @@
         "supported": [],
         "context_window": null,
         "image_size": "512x512 (fastest), up to 1536x1536",
-        "status": "running",
+        "status": "downloaded",
         "version_label": "20261106",
         "load_time": 4
       },

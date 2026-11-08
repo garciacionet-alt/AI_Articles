@@ -178,8 +178,9 @@ nothing and sees a hanging terminal is not.
 
 ## Things Worth Knowing
 
-**Only two models in the catalogue actually take an image into generation,
-and the device's own advertisement is not a reliable guide to which.**
+**Only three models in the catalogue actually take an image into
+generation, and the device's own advertisement is not a reliable guide
+to which.**
 Measured on the appliance on 2026-11-07, with a control for every model:
 
 | | |
@@ -290,8 +291,15 @@ apart with a CONTROL: a half-red, half-blue rectangle, the prompt
 face, not a rectangle — and every image-bearing run drew the input's
 structure. The timing agreed: **16.3 s without an image, ~34 s with one.**
 
-**So every drag-and-drop edit was a text-only regeneration wearing an
-edit's name.** The catalogue already advertised `input: Text,Image` and
+**So a drag-and-drop edit is STILL a text-only regeneration wearing an
+edit's name.** The device takes the source image, but the Agency does
+not send one: `Device.generate` takes a model, a prompt and a size and
+nothing else, so the bytes never reach the appliance. The pixel-level
+reference is deliberately deferred — only three models were measured to
+use an image, and one of them is an edit adapter rather than a
+generator — but the edit adapters ARE chosen for an edit request and
+then receive no image to edit. Treat that as known and unfinished, not
+as working. The catalogue already advertised `input: Text,Image` and
 `supported: ['Image Editing']` for several models, and the curated
 overlay already carried `max_refs: 10` and `identity_preservation` for
 exactly the two that take an image — unused. The bare-base64 form is the
@@ -302,6 +310,18 @@ data-URL form.
 models *claim* `Text,Image`; whether they *use* the bytes is a separate
 measurement, and the resolver must not offer an image-conditioned edit
 to a model that cannot take one.
+
+**A JPEG is a real source, and it costs you the structure.** The
+appliance takes a JPEG in its `image` field — measured, HTTP 200 — and
+the agency accepts JPEG uploads, deriving the format from the bytes so
+a JPEG is stored as a `.jpg` and served as `image/jpeg`. But the same
+source given as PNG produced a faithful sketch of the test shape while
+the JPEG produced a different one: **JPEG's lossy compression destroys
+the hard colour edges an image model reads structure from**, so the
+input arrived and the structure did not. Convert to PNG only if the
+caller needs the edges; otherwise pass the bytes through, because the
+appliance decodes the JPEG either way and a conversion changes nothing
+but the compression.
 
 **The catalogue has no "new model" signal.** The appliance's catalogue
 holds 92 rows, and `need_update` is `False` on every one of them — it

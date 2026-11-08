@@ -2,20 +2,51 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 DEFAULT_BASE_URL = "http://openai.api.tiiny"
 INFERENCE_SUFFIX = "/v1"
 
+#: Where an INSTALL puts the data that travels with the package. The
+#: cask installs it beside the virtualenv, and this is the name it
+#: uses.
+SHARE_NAME = "tiiny-image-agency"
 
-def _get_project_root() -> Path:
-    """Return the project root path.
 
-    The package is at app/src/tis, so the project root is three levels up.
-    This path can be overridden via environment variables.
+def _checkout_root() -> Path:
+    """The project root of a SOURCE CHECKOUT.
+
+    The package is at app/src/tis there, so the root is three levels
+    up. In an install the package is in site-packages and three levels
+    up is the virtualenv — which is why this is a separate function and
+    why the caller checks it before trusting it.
     """
     return Path(__file__).resolve().parents[3]
+
+
+def _get_project_root() -> Path:
+    """Where the agency's data lives.
+
+    The data is found by LOOKING FOR IT, not by counting directories,
+    because the two ways this package is used put it in different
+    places:
+
+    1. a source checkout, recognised by its registry;
+    2. an install, recognised by the data the cask put beside the
+       virtualenv — ``<prefix>/share/tiiny-image-agency``;
+    3. and if neither is there, the user's own directory. A missing
+       directory is a bad default, and a directory the user can find is
+       at least writable.
+    """
+    checkout = _checkout_root()
+    if (checkout / "registry" / "image-models.json").is_file():
+        return checkout
+    installed = Path(sys.prefix) / "share" / SHARE_NAME
+    if (installed / "registry" / "image-models.json").is_file():
+        return installed
+    return Path.home() / f".{SHARE_NAME}"
 
 
 @dataclass(frozen=True)

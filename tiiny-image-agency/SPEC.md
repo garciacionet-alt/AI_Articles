@@ -598,6 +598,7 @@ underlies it:
 | `POST` | `/v1/assets` | **Upload** an image — the image bytes are the body (PNG or JPEG) → asset id. The door for "update this image" |
 | `GET` | `/v1/assets/{asset_id}` | The image, in the format it was stored in (PNG, alpha preserved) |
 | `POST` | `/v1/documents` | **Make a PDF** of some assets, one page each. The images go in untouched — a JPEG as JPEG, an RGB PNG's scanlines as they are, and an RGBA PNG's alpha as its own transparency channel |
+| | | The document's title is **metadata only** — it is not drawn on the page, because a drawn title needs a font and a font is a dependency this project has so far refused |
 | `GET` | `/v1/assets/{asset_id}/lineage` | Full provenance: plan, prompts, model, sizes, timings, and the file's path |
 | `POST` | `/v1/references` | **Save an asset as a named reference** — the PNG byte-for-byte plus its recipe: model, dialect, size, requirements, modifiers, critique |
 | `GET` | `/v1/references` | The saved references, newest first |
