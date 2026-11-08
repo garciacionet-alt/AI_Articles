@@ -115,6 +115,23 @@ class ModelSpec:
         return list(self.raw["specialty"].get("edit_ops") or [])
 
     @property
+    def image_input(self) -> str:
+        """Whether this model takes an image into generation: yes, no, or
+        unknown.
+
+        MEASURED, not advertised. The device says several models accept
+        "Text,Image"; some of them refuse an image outright, and others
+        accept it and ignore it. "unknown" means it was not measured —
+        which is not the same as "no", and must never be treated as one.
+        """
+        return str(self.raw["specialty"].get("image_input") or "unknown")
+
+    @property
+    def takes_an_image(self) -> bool:
+        """True only when the model was MEASURED to use one."""
+        return self.image_input == "yes"
+
+    @property
     def quality(self) -> str:
         return self.raw["specialty"]["quality"]
 

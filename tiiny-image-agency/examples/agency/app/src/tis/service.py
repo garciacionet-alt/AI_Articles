@@ -69,8 +69,9 @@ from .events import EventBus
 from .jobs import Job, JobStore
 from .models import ModelChoice, RequirementVector, Resolution
 from .orchestrator import GenerationResult, Orchestrator
-from .planner import Planner
+from .planner import Plan, Planner
 from .registry import ModelSpec, Registry
+from .references import Reference, ReferenceStore
 from .residency import MAX_EXECUTABLE_OCCUPANCY_PCT
 from .roles import RoleError, Roles
 from .residency import APPLIANCE_MODEL_NPU_PCT, HoldFile, ResidencyManager
@@ -255,6 +256,10 @@ class _Work:
     #: wants the file at a path it chose rather than at the agency's.
     #: Empty means "the agency's own asset directory".
     output_path: str = ""
+    #: The reference this job should come out like, if any. A reference
+    #: pins the requirements and the model, so a repeated job comes out
+    #: the same way twice.
+    reference_id: str = ""
 
 
 class Agency:
@@ -272,6 +277,7 @@ class Agency:
                  registry: Registry | None = None,
                  jobs: JobStore | None = None,
                  assets: AssetStore | None = None,
+                 references: ReferenceStore | None = None,
                  events: EventBus | None = None):
         self.settings = settings
         self.registry = (registry if registry is not None
@@ -283,6 +289,11 @@ class Agency:
         self.jobs = (jobs if jobs is not None
                      else JobStore(settings.hold_file.parent / "jobs.db"))
         self.assets = assets if assets is not None else AssetStore(settings.assets_dir)
+        #: The saved references: results the user liked and wants more
+        #: like. Each one keeps its recipe, so a repeated job is a
+        #: repeated job.
+        self.references = (references if references is not None
+                           else ReferenceStore(settings.references_dir))
         self.events = events if events is not None else EventBus()
 
         self.resolver = Resolver(self.registry)
@@ -692,6 +703,66 @@ class Agency:
             "download": None,
         }
 
+    def plan_with_reference(self, request: str, reference_id: str,
+                            width: int = 1024, height: int = 1024,
+                            session_id: str = "default") -> dict:
+        """Plan a request that should come out like a saved reference.
+
+        A reference is a recipe, and using one means: take its
+        REQUIREMENTS, its MODEL and its SIZE, and make the new subject
+        in that style.
+
+        The requirements are the reference's, not the planner's. A weekly
+        newsletter wants THIS look, not a fresh interpretation of the
+        same words — so the planner's reading of the request is
+        overridden by the one that worked last time.
+
+        The model is a strong PREFERENCE, not an absolute. The resolver
+        still refuses a model that cannot do the job, and says so in the
+        justification rather than quietly using something else.
+        """
+        reference = self.references.get(reference_id)
+        if reference is None:
+            raise LookupError(f"there is no reference {reference_id!r}")
+
+        requirements = RequirementVector.model_validate(
+            reference.requirements or {})
+        self._refresh_status()
+        try:
+            resolution = self.resolver.resolve(
+                requirements, preferred=reference.model_id or None)
+        except ResolverError as exc:
+            model = self.resolver.best_unavailable(requirements)
+            if model is None:
+                raise exc
+            planned = self._plan_needing_a_download(
+                Plan(requirements=requirements, source="reference", raw=""),
+                model)
+            planned["justification"] = (
+                f"Using the reference {reference.name!r} "
+                f"({reference_id}). " + planned["justification"])
+            return planned
+
+        justification = (
+            f"Using the reference {reference.name!r} ({reference_id}): "
+            f"the same model, the same requirements and the same size, "
+            f"so the new picture comes out like the old one. "
+            + resolution.justification)
+
+        return {
+            "plan_id": _new_plan_id(),
+            "requirements": requirements.model_dump(mode="json"),
+            "model": _choice(resolution.chosen),
+            "justification": justification,
+            "alternatives": [_choice(a) for a in resolution.alternatives],
+            "unavailable": [_choice(m) for m in resolution.unavailable],
+            "swap_required": resolution.swap_required,
+            "swap_plan": dict(resolution.swap_plan),
+            "planner_source": "reference",
+            "download": None,
+            "reference_id": reference_id,
+        }
+
     def _plan_needing_a_download(self, plan: Any, model: ModelSpec) -> dict:
         """The plan for a request that needs a model the appliance does
         not have.
@@ -727,7 +798,8 @@ class Agency:
 
     def generate(self, request: str, session_id: str = "default",
                  width: int = 1024, height: int = 1024,
-                 model_id: str = "", output_path: str = "") -> str:
+                 model_id: str = "", output_path: str = "",
+                 reference_id: str = "") -> str:
         """Accept a generation and return its job id, immediately.
 
         The appliance needs a minute and sometimes three. A caller that
@@ -737,7 +809,9 @@ class Agency:
         ``model_id`` is a model the user chose, or empty to let the
         resolver decide. ``output_path`` is where the finished PNG should
         also be written, for an agent that wants the file at a path of
-        its own choosing.
+        its own choosing. ``reference_id`` is a saved result the new
+        picture should come out like: its requirements and its model are
+        pinned, so a repeated job is a repeated job.
         """
         job = self.jobs.create(session_id, "generate", request)
         self.events.publish("job.queued", session_id,
@@ -745,7 +819,8 @@ class Agency:
         self._enqueue(_Work(job_id=job.id, session_id=session_id,
                             kind="generate", request=request,
                             width=width, height=height, model_id=model_id,
-                            output_path=output_path))
+                            output_path=output_path,
+                            reference_id=reference_id))
         return job.id
 
     def iterate(self, asset_id: str, feedback: str,
@@ -779,6 +854,62 @@ class Agency:
     def get_asset(self, asset_id: str) -> Asset | None:
         """The asset with this id, or None if there is no such asset."""
         return self.assets.get(asset_id)
+
+    # -- the references: saved results, and how to make more like them ---
+
+    def save_reference(self, asset_id: str, name: str = "") -> Reference:
+        """Save a delivered image as a reference, with its recipe.
+
+        The recipe is what makes a repeated job repeatable. The lineage
+        already records what happened — the requirements, the model that
+        was chosen, the dialect the prompt was written in, the size, the
+        modifiers, and what the judge said — and all of that is what
+        "the same thing again" means.
+
+        The PNG is stored byte for byte, exactly as it was produced.
+        """
+        asset = self.assets.get(asset_id)
+        if asset is None:
+            raise UnknownAssetError(
+                f"there is no asset {asset_id!r} to save as a reference")
+        lineage = asset.lineage or {}
+        recipe = {
+            "requirements": lineage.get("requirements") or {},
+            "model_id": lineage.get("model_id") or "",
+            "dialect": lineage.get("dialect") or "",
+            "size": lineage.get("size") or "",
+            "prompt": lineage.get("prompt") or "",
+            "modifiers": list(lineage.get("modifiers") or ()),
+            "critique": lineage.get("critique"),
+            "created_at": time.time(),
+        }
+        return self.references.save(asset.png, recipe, name=name)
+
+    def save_reference_bytes(self, png: bytes, name: str = "",
+                             recipe: dict | None = None) -> Reference:
+        """Save a PNG the agency did not make as a reference.
+
+        An agent may have an image of its own. It has no lineage, so
+        the recipe is whatever the caller knows — and an empty recipe is
+        honest: the reference can be used as a picture, but it does not
+        know how it was made.
+        """
+        return self.references.save(png, recipe or {}, name=name)
+
+    def list_references(self, limit: int = 50) -> list[dict]:
+        """The saved references, newest first, without their bytes."""
+        listed = []
+        for reference_id in self.references.list(limit=limit):
+            reference = self.references.get(reference_id)
+            if reference is not None:
+                listed.append(reference.to_dict())
+        return listed
+
+    def get_reference(self, reference_id: str) -> Reference | None:
+        return self.references.get(reference_id)
+
+    def delete_reference(self, reference_id: str) -> bool:
+        return self.references.delete(reference_id)
 
     def model_card(self, model_id: str) -> dict | None:
         """The research card for a model, if it has one.
@@ -829,6 +960,10 @@ class Agency:
                 "text_rendering": spec.text_rendering,
                 "speed": spec.speed,
                 "quality": spec.quality,
+                # MEASURED: whether the model takes an image into
+                # generation. The device advertises this for several
+                # models; the measurement is what actually happens.
+                "image_input": spec.image_input,
             })
         return cards
 
@@ -960,13 +1095,33 @@ class Agency:
     # -- the two kinds of job ----------------------------------------------
 
     def _generate(self, work: _Work) -> None:
-        """Plan, resolve, generate, deliver."""
-        plan = self._plan_request(work.request, work.width, work.height)
-        self._resolve(work, plan.requirements, plan.source)
+        """Plan, resolve, generate, deliver.
+
+        A job with a REFERENCE does not plan from the request: it takes
+        the requirements and the model from the reference, so the new
+        picture comes out like the old one. The planner's reading of the
+        request is exactly what a reference is meant to overrule.
+        """
+        if work.reference_id:
+            reference = self.references.get(work.reference_id)
+            if reference is None:
+                raise LookupError(
+                    f"there is no reference {work.reference_id!r}")
+            requirements = RequirementVector.model_validate(
+                reference.requirements or {})
+            preferred = work.model_id or reference.model_id or None
+            source = "reference"
+        else:
+            plan = self._plan_request(work.request, work.width, work.height)
+            requirements = plan.requirements
+            preferred = work.model_id or None
+            source = plan.source
+
+        self._resolve(work, requirements, source)
         scene = SceneDescription(subject=work.request)
-        result = self.orchestrator.generate(plan.requirements, scene,
-                                             preferred=work.model_id or None)
-        self._deliver(work, result, plan.requirements, plan.source,
+        result = self.orchestrator.generate(requirements, scene,
+                                             preferred=preferred)
+        self._deliver(work, result, requirements, source,
                       work.request, scene.modifiers)
 
     def _iterate(self, work: _Work) -> None:

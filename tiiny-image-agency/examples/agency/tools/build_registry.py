@@ -277,6 +277,10 @@ def main() -> int:
                 "style": ov.get("style", []),
                 "edit_ops": ov.get("edit_ops", []),
                 "max_refs": ov.get("max_refs"),
+                # MEASURED: whether the model takes an image into
+                # generation. "unknown" is a real value - it means
+                # nobody measured it, which is not the same as "no".
+                "image_input": ov.get("image_input", "unknown"),
                 "quality": ov.get("quality", "unknown"),
                 "speed": ov.get("speed", "unknown"),
             },

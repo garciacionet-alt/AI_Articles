@@ -63,6 +63,14 @@
             <!-- THE CONVERSATION -->
             <div class="conversation" id="conversation">
                 <div class="log" id="log"></div>
+                <!-- THE ACTIVE REFERENCE. When one is in play, the
+                     request is not a fresh interpretation of the words
+                     — it is the same look, new subject. -->
+                <div class="active-reference hidden" id="active-reference">
+                    <span id="active-reference-name"></span>
+                    <button type="button" id="active-reference-clear">
+                        Use no reference</button>
+                </div>
                 <form class="composer" id="composer">
                     <input id="request" autocomplete="off"
                            placeholder="an app icon of a fox head, flat, transparent background">
@@ -103,6 +111,14 @@
                     <!-- WHERE THE FILE IS. A user who wants the PNG has
                          to be able to find it without asking. -->
                     <p class="file-path hidden" id="file-path"></p>
+                    <!-- KEEP IT. A result the user liked is worth
+                         keeping, so the next one comes out like it. -->
+                    <div class="save-reference hidden" id="save-reference">
+                        <input id="reference-name" autocomplete="off"
+                               placeholder="name it, so you can find it again">
+                        <button type="button" id="save-reference-button">
+                            Save as reference</button>
+                    </div>
                 </div>
 
                 <!-- THE ITERATION STRIP -->

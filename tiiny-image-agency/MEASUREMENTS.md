@@ -839,3 +839,61 @@ model's dialect. `m`
 and `edit_ops: [instruction_edit, local_edit, identity_preservation]`
 sit on exactly the two models the catalogue says take `Text,Image` —
 the code never used them. `m`
+
+---
+
+## M13 — Only three of the fifteen models actually use an image
+
+**M10 proved the ENDPOINT accepts `image` and `images`. This measures
+which models USE one.** The catalogue says several accept "Text,Image";
+the device's advertisement is not a reliable guide to which. `m`
+
+| | models |
+|---|---|
+| **Takes an image** | `Qwen/Qwen-Image-2.1`, `SenseTime/SenseNova-U1.5-8B-MoT`, `fal/FLUX.2-klein-4B-Object-Remove` |
+| **Does not** | `Qwen-Image-2.1`, `ERNIE-Image-Turbo`, `Z-Image-Turbo`, `Children-Drawing`, `CharacterDesignSheet`, `TaoBaiBai`, `krea/Krea-2-Turbo` — these seven **refuse an image outright**, HTTP 400, *"images is not supported by this model"* — plus the `FLUX.2-klein-4B` base, `Background-Remove`, `Zoom` and the community quant, which **accept one and ignore it** |
+| **Unknown** | `HiDream-ai/HiDream-O1-Image-Dev` (its load times out), `FLUX.2-klein-4B-Outpaint` (the judge cannot classify it consistently) |
+
+**THE CONTROL WAS NOT OPTIONAL.** Four models drew the divided rectangle
+with **no image at all**, so a picture that looks like the input proves
+nothing on its own. `m`
+
+**TWO PIXEL METRICS WERE TRIED AND BOTH WERE FOOLED.** The first
+compared the left quarter against the right on every row: it caught a
+clean vertical split and MISSED `Qwen-Image-2.1`, which drew the input
+as a four-quadrant grid — the sign flipped between the top and bottom
+halves. The second measured how much the cells of a coarse grid differ:
+it failed for the opposite reason, because a four-quadrant grid has
+cells of SIMILAR mean tone, and the community quant — which plainly
+ignored the image — scored within 2 points of the model that plainly
+used it. **The appliance's own vision model settled it**: it is asked
+what is in each picture, and it says RECTANGLE for the with-image
+output and OTHER for the control. `m`
+
+**THE JUDGE WAVERS, SO THE VERDICT IS A DIFFERENCE.** Asked the same
+question five times about the same picture, the judge is not perfectly
+consistent: Qwen's CONTROL was called a rectangle twice out of five even
+though it is a blocky figure. So the verdict is the DIFFERENCE between
+the two pictures — at least three of five for the with-image picture
+and at least three more than the control — and a rate of two out of
+five is a coin flip, not evidence. `m`
+
+**The timing agrees.** A model that reads a picture takes longer:
+`Qwen-Image-2.1` 199.9 s → 276.3 s, `SenseNova` 129.6 s → 257.6 s,
+the FLUX family 23 s → 34 s. `m`
+
+**The `images` ARRAY wants a different encoding than `image`** — the
+same base64 string in an array is answered *"image could not be
+decoded"*. So multi-reference is not available in the shape
+single-reference is. `m`
+
+**Not measured:** `HiDream-ai/HiDream-O1-Image-Dev` — its load times
+out and it will not stay resident, which is an appliance problem rather
+than an answer about the model. `FLUX.2-klein-4B-Zoom` is described as
+zooming into "a red-marked region" and fails on an unmarked input.
+`m`
+
+**What this changes:** a reference image can only condition a
+generation on the three models in the first row. The RECIPE-level
+reference — the model, the dialect, the size and the requirements — works
+on every model, and is what a repeated job actually needs.

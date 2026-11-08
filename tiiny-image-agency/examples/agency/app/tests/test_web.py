@@ -391,6 +391,43 @@ def test_the_models_tab_has_a_grid_and_a_detail_pane(index_html: str):
     assert 'id="card-detail"' in index_html, "there is nowhere to read one"
 
 
+# -- the references -------------------------------------------------------
+
+
+def test_a_result_can_be_saved_as_a_reference(index_html: str, app_js: str):
+    """The button appears with the picture it belongs to."""
+    assert 'id="save-reference-button"' in index_html, (
+        "there is no way to keep a result you liked")
+    assert 'id="reference-name"' in index_html, (
+        "a reference with no name cannot be found again")
+    assert "saveCurrentAsReference" in app_js
+    assert "v1/references" in app_js
+
+
+def test_the_references_tab_shows_pictures_not_just_names(index_html: str,
+                                                          app_js: str):
+    """A list of names is a list to read; a list of pictures is a list to
+    scan."""
+    assert 'id="reference-grid"' in index_html, (
+        "the references tab has nowhere to show the references")
+    assert "/image" in app_js, (
+        "the references tab does not show the saved pictures")
+
+
+def test_a_reference_can_be_used_and_cleared(index_html: str, app_js: str):
+    assert "setActiveReference" in app_js, (
+        "a reference cannot be put to use")
+    assert "active-reference" in app_js, (
+        "the composer does not say when a reference is in play")
+    assert "reference_id" in app_js, (
+        "the reference is not sent with the generation request")
+
+
+def test_the_reference_is_forgotten(index_html: str, app_js: str):
+    assert "apiDelete" in app_js, "nothing can be forgotten"
+    assert "v1/references/" in app_js
+
+
 def test_the_judge_picker_only_offers_models_that_can_see(app_js: str):
     """The judge dropdown is built from the vision subset, not from all.
 

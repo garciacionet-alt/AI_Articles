@@ -103,6 +103,22 @@ def test_modelspec_lists_are_copies(registry: Registry):
     assert "new_op" not in model.raw["specialty"]["edit_ops"]
 
 
+def test_modelspec_image_input_is_measured_not_advertised(registry: Registry):
+    """The device says several models accept an image. Some refuse one.
+
+    The field records what was MEASURED, and "unknown" is a real value:
+    a model nobody measured is not a model that cannot take an image.
+    """
+    for model in registry.models:
+        value = model.image_input
+        assert value in ("yes", "no", "unknown"), (
+            f"{model.id} has an image_input of {value!r}, which is not "
+            "one of the three states a measurement can be in")
+        # The convenience property agrees with the field, and says yes
+        # ONLY when it was measured yes.
+        assert model.takes_an_image == (value == "yes")
+
+
 def test_modelspec_vendor_supported(registry: Registry):
     assert registry.by_id("Qwen/Qwen-Image-2.1").vendor_supported is True
     assert registry.by_id(

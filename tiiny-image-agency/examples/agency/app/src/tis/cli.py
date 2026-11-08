@@ -170,6 +170,11 @@ def generate(args: argparse.Namespace, target: Target) -> int:
         # A model the user chose. The agency honours it when it can do
         # the job, and says so when it cannot.
         body["model_id"] = args.model
+    if getattr(args, "reference", None):
+        # A saved result to come out like. Its model and its
+        # requirements are used, so the same job comes out the same way
+        # twice.
+        body["reference_id"] = args.reference
     try:
         data = _post(target, "/v1/generate", body)
     except httpx.RequestError:
@@ -197,6 +202,63 @@ def iterate(args: argparse.Namespace, target: Target) -> int:
         print("Error: the agency did not return a job", file=sys.stderr)
         return 1
     return _follow(target, session_id, job_id, args.out)
+
+
+def reference(args: argparse.Namespace, target: Target) -> int:
+    """Save a result as a reference, list them, or forget one.
+
+    A reference is a result the user liked, kept with the RECIPE that
+    made it - the model, the dialect, the size, the requirements. Using
+    one means: make the new subject in that style. That is how a
+    repeated job stays a repeated job.
+
+        tis reference save ast_0123456789abcdef --name "newsletter"
+        tis reference list
+        tis reference forget ref_0123456789abcdef
+    """
+    try:
+        if args.reference_command == "save":
+            body = {"asset_id": args.asset_id}
+            if args.name:
+                body["name"] = args.name
+            data = _post(target, "/v1/references", body)
+            print(f"{data.get('id')}  {data.get('name')}")
+            print(f"  made with {data.get('model_id')}  "
+                  f"{data.get('size')}")
+            return 0
+
+        if args.reference_command == "forget":
+            response = httpx.delete(f"{target.url}/v1/references/"
+                                    f"{args.reference_id}", timeout=60)
+            response.raise_for_status()
+            print(f"forgot {args.reference_id}")
+            return 0
+
+        data = _get(target, "/v1/references")
+    except httpx.HTTPStatusError as exc:
+        detail = ""
+        try:
+            detail = exc.response.json().get("detail", "")
+        except Exception:
+            detail = exc.response.text[:200]
+        print(f"Error: {detail or exc.response.status_code}", file=sys.stderr)
+        return 1
+    except httpx.RequestError:
+        return _not_running()
+
+    references = data.get("references") or []
+    if not references:
+        print("No references yet. Save one with:")
+        print("  tis reference save <asset_id> --name \"...\"")
+        return 0
+    for entry in references:
+        bits = [entry.get("id", ""), entry.get("name", "")]
+        if entry.get("model_id"):
+            bits.append(entry.get("model_id"))
+        if entry.get("size"):
+            bits.append(entry.get("size"))
+        print("  " + "  ".join(str(bit) for bit in bits if bit))
+    return 0
 
 
 def roles(args: argparse.Namespace, target: Target) -> int:
@@ -497,6 +559,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="the model to use, instead of the one the resolver picks. "
              "Honoured when it can do the job; the agency says so when "
              "it cannot. Run 'tis plan' to see the alternatives.")
+    generate_parser.add_argument(
+        "--reference", default=None,
+        help="a saved reference to come out like. Its model and its "
+             "requirements are used, so the same job comes out the same "
+             "way twice. Run 'tis reference list' to see them.")
 
     iterate_parser = subparsers.add_parser(
         "iterate", parents=[common], help="Revise an existing image")
@@ -504,6 +571,21 @@ def build_parser() -> argparse.ArgumentParser:
     iterate_parser.add_argument("prompt", help="What to change")
     iterate_parser.add_argument("--out", default=None,
                                 help="Where to write the PNG")
+
+    reference_parser = subparsers.add_parser(
+        "reference", parents=[common],
+        help="Save, list or forget a reference")
+    reference_sub = reference_parser.add_subparsers(
+        dest="reference_command", required=True)
+    reference_save = reference_sub.add_parser(
+        "save", help="Save a delivered image as a reference")
+    reference_save.add_argument("asset_id", help="The asset to keep")
+    reference_save.add_argument("--name", default="",
+                                help="A name, so you can find it again")
+    reference_sub.add_parser("list", help="The saved references")
+    reference_forget = reference_sub.add_parser(
+        "forget", help="Forget a reference")
+    reference_forget.add_argument("reference_id", help="The reference to forget")
 
     return parser
 
@@ -533,6 +615,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             return generate(args, target)
         if args.command == "iterate":
             return iterate(args, target)
+        if args.command == "reference":
+            return reference(args, target)
         raise ValueError(f"unknown command: {args.command}")
     except httpx.HTTPStatusError as exc:
         detail = ""

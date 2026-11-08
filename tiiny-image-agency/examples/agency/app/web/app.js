@@ -67,6 +67,12 @@ const els = {
     cardFilterArtifact: $('card-filter-artifact'),
     cardFilterMeasured: $('card-filter-measured'),
     referenceGrid: $('reference-grid'),
+    activeReference: $('active-reference'),
+    activeReferenceName: $('active-reference-name'),
+    activeReferenceClear: $('active-reference-clear'),
+    saveReference: $('save-reference'),
+    referenceName: $('reference-name'),
+    saveReferenceButton: $('save-reference-button'),
     dialogBackdrop: $('dialog-backdrop'),
     dialogModel: $('dialog-model'),
     dialogWhy: $('dialog-why'),
@@ -129,6 +135,24 @@ async function apiPost(path, body) {
         throw new Error(detail);
     }
     return payload;
+}
+
+async function apiDelete(path) {
+    const response = await fetch(API + path, {method: 'DELETE'});
+    if (!response.ok) {
+        const text = await response.text();
+        let detail = response.status;
+        try {
+            const payload = JSON.parse(text);
+            detail = payload.detail || payload.error || detail;
+        } catch (error) {
+            if (text) {
+                detail = text;
+            }
+        }
+        throw new Error(detail);
+    }
+    return true;
 }
 
 // -- the conversation ----------------------------------------------------
@@ -229,7 +253,8 @@ async function openDialog(plan, request) {
 async function startGeneration(request, modelId) {
     try {
         const queued = await apiPost('/v1/generate',
-            {request, model_id: modelId || chosenModelId});
+            {request, model_id: modelId || chosenModelId,
+             reference_id: activeReferenceId});
         currentJobId = queued.job_id;
         watch(currentJobId);
     } catch (error) {
@@ -362,6 +387,18 @@ async function loadModelCard(modelId) {
         + (card.downloaded ? 'on the appliance' : 'not on the appliance yet')
         + ' · ' + (card.researched ? 'measured' : 'not measured yet');
     els.cardDetail.appendChild(status);
+
+    // Whether the model takes an image into generation. This is
+    // MEASURED, and the device's advertisement is not always true of
+    // it, so it is worth saying which is which.
+    if (card.image_input && card.image_input !== 'unknown') {
+        const takes = document.createElement('p');
+        takes.className = 'card-status';
+        takes.textContent = card.image_input === 'yes'
+            ? 'Takes a source image — measured'
+            : 'Does not take a source image — measured';
+        els.cardDetail.appendChild(takes);
+    }
 
     const advertised = document.createElement('div');
     advertised.className = 'card-part';
@@ -556,9 +593,45 @@ function wireCardFilters() {
 
 // -- the references -------------------------------------------------------
 
-// Phase N fills this. The panel exists now so the tab strip is the
-// shape the work will land in, rather than a shape it has to be
-// reshaped into later.
+// A reference is a saved result the user liked, kept so the next one
+// comes out like it. The recipe is what does the work: the same model,
+// the same requirements, the same size, and the new subject.
+//
+// This is the "use this" path. The reference's model is a strong
+// PREFERENCE, not an absolute — the agency says so when the reference's
+// model cannot do the new job.
+let activeReferenceId = '';
+let activeReferenceName = '';
+
+function setActiveReference(referenceId, name) {
+    activeReferenceId = referenceId || '';
+    activeReferenceName = name || '';
+    els.activeReference.classList.toggle('hidden', !activeReferenceId);
+    els.activeReferenceName.textContent = activeReferenceId
+        ? 'Using the reference "' + activeReferenceName + '"'
+        : '';
+}
+
+async function saveCurrentAsReference() {
+    if (!currentAssetId) {
+        say('There is no image to save yet.', 'warn');
+        return;
+    }
+    const name = (els.referenceName.value || '').trim();
+    try {
+        const saved = await apiPost('/v1/references', {
+            asset_id: currentAssetId,
+            name: name,
+        });
+        els.referenceName.value = '';
+        say('Saved as a reference: ' + (saved.name || saved.id), 'event');
+        // The References tab is now out of date.
+        TAB_LOADERS.references.done = false;
+    } catch (error) {
+        say('The reference was not saved: ' + error.message, 'bad');
+    }
+}
+
 async function loadReferences() {
     const data = await apiGet('/v1/references');
     els.referenceGrid.innerHTML = '';
@@ -580,6 +653,13 @@ function referenceTile(reference) {
     const tile = document.createElement('div');
     tile.className = 'reference-tile';
 
+    // The picture itself, so the list can be scanned by eye.
+    const image = document.createElement('img');
+    image.src = '/v1/references/' + reference.id + '/image';
+    image.alt = reference.name || reference.id;
+    image.loading = 'lazy';
+    tile.appendChild(image);
+
     const name = document.createElement('p');
     name.className = 'reference-name';
     name.textContent = reference.name || reference.id;
@@ -587,10 +667,53 @@ function referenceTile(reference) {
 
     const facts = document.createElement('p');
     facts.className = 'reference-facts';
-    facts.textContent = (reference.model_id || '') + ' · '
-        + (reference.size || '');
+    const bits = [];
+    if (reference.model_id) {
+        bits.push(reference.model_id);
+    }
+    if (reference.size) {
+        bits.push(reference.size);
+    }
+    if (reference.requirements
+        && reference.requirements.artifact) {
+        bits.push(reference.requirements.artifact);
+    }
+    facts.textContent = bits.join(' · ');
     tile.appendChild(facts);
 
+    const actions = document.createElement('div');
+    actions.className = 'reference-actions';
+
+    const use = document.createElement('button');
+    use.type = 'button';
+    use.textContent = 'Use this';
+    use.addEventListener('click', () => {
+        setActiveReference(reference.id, reference.name || reference.id);
+        showTab('make');
+        say('The next picture will come out like "'
+            + (reference.name || reference.id) + '".', 'event');
+    });
+    actions.appendChild(use);
+
+    const forget = document.createElement('button');
+    forget.type = 'button';
+    forget.className = 'quiet';
+    forget.textContent = 'Forget';
+    forget.addEventListener('click', async () => {
+        try {
+            await apiDelete('/v1/references/' + reference.id);
+            if (activeReferenceId === reference.id) {
+                setActiveReference('', '');
+            }
+            TAB_LOADERS.references.done = false;
+            await loadReferences();
+        } catch (error) {
+            say('The reference was not forgotten: ' + error.message, 'bad');
+        }
+    });
+    actions.appendChild(forget);
+
+    tile.appendChild(actions);
     return tile;
 }
 
@@ -835,6 +958,9 @@ async function showAsset(assetId, path) {
         els.filePath.textContent = filePath;
         els.filePath.classList.remove('hidden');
     }
+    // KEEP IT. A result the user liked is worth keeping, so the button
+    // appears with the picture it belongs to.
+    els.saveReference.classList.remove('hidden');
     addThumb(assetId);
 }
 
@@ -1111,6 +1237,14 @@ wireTabs();
 wireCardFilters();
 TAB_LOADERS.models = {run: loadAllCards};
 TAB_LOADERS.references = {run: loadReferences};
+
+// THE REFERENCES. Saving the picture you liked, and using one to make
+// the next one come out the same way.
+els.saveReferenceButton.addEventListener('click', saveCurrentAsReference);
+els.activeReferenceClear.addEventListener('click', () => {
+    setActiveReference('', '');
+    say('No reference — the next picture is planned from scratch.', 'event');
+});
 
 // THE DIALOG. The user approves the model before anything is spent.
 els.dialogCancel.addEventListener('click', () => {

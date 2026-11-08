@@ -82,10 +82,17 @@ tis generate "I need an app icon of a fox head, flat, transparent background"
 tis iterate ast_0123456789abcdef "make the ears sharper and the fill warmer"
 tis models          # the catalogue: artefact, NPU cost, alpha, text rendering
 tis roles           # the TALKER and the JUDGE: which models, which can SEE an image
+tis reference list  # the saved references: results kept so the next one matches
 tis npu             # what is resident right now, and the NPU used
 tis health          # is the app alive, is the appliance reachable
 tis alpha file.png  # how much of this PNG is actually transparent
 ```
+
+`tis reference save <asset_id> --name "newsletter"` keeps a result with
+the recipe that made it — its model, its dialect, its size, its
+requirements — and `tis generate ... --reference ref_...` makes the next
+picture come out like it. That is how a repeated job stays a repeated
+job.
 
 If `tis` is not found, it is installed at `~/.hermes/venvs/tis311/bin/tis`
 and linked into `~/.local/bin`.
@@ -169,6 +176,20 @@ nothing and sees a hanging terminal is not.
 - **The critique** — if there was one. What missed, and what to change.
 
 ## Things Worth Knowing
+
+**Only two models in the catalogue actually take an image into generation,
+and the device's own advertisement is not a reliable guide to which.**
+Measured on the appliance on 2026-11-07, with a control for every model:
+
+| | |
+|---|---|
+| **Takes an image** | `Qwen/Qwen-Image-2.1`, `SenseTime/SenseNova-U1.5-8B-MoT`, `fal/FLUX.2-klein-4B-Object-Remove` |
+| **Refuses one outright** | `Qwen-Image-2.1`, `ERNIE-Image-Turbo`, both `Z-Image-Turbo` variants, `Children-Drawing`, `CharacterDesignSheet`, `TaoBaiBai`, `krea/Krea-2-Turbo` — HTTP 400, *"images is not supported by this model"* |
+| **Accepts one and ignores it** | the `FLUX.2-klein-4B` base, `Background-Remove`, `Outpaint`, the community quant |
+
+So a reference image can only condition a generation on the three models
+in the first row. **Four models drew the divided rectangle on their own
+with no image at all** — which is why every measurement had a control.
 
 **Transparency is the expensive thing — and it has to be asked for
 plainly.** Only the flagship `Qwen/Qwen-Image-2.1` is a VENDOR model that
@@ -359,10 +380,19 @@ While the agency is running, a person can watch it work:
 
     http://127.0.0.1:8080
 
-That is the same port as the API. The screen shows the conversation, the
+That is the same port as the API. The screen has three tabs: **Make**,
+**Models** and **References**. Make is the generation flow. Models is a
+grid of every model's card, with a pane beside it to read one in full —
+what the device **advertises** it does, what we **measured** it to do,
+and what we have **noticed** that the device does not say. References is
+where the saved results live. The screen shows the conversation, the
 canvas, which model made the picture and why, the NPU meter, and a banner
 whenever the appliance is swapping models or downloading one. The user can
 iterate from the screen as well as from the CLI.
+
+The cards are fetched the FIRST time the Models tab is opened, not at
+page load — the Make tab does not need fifteen of them, and a request
+the user did not ask for is a request the user waits for.
 
 If someone asks "what is it doing?" or "can I see it?", that URL is the
 answer. It is also the fastest way for a person to see the appliance's
@@ -387,11 +417,19 @@ and the appliance URL in the CLI and in the surface: neither may have one.
   bytes as the body; there is no multipart form.
 - **It tells you where the file is.** The path is under the image, in the
   lineage, and in the `asset.ready` event.
-- **It has a card for every model.** `GET /v1/models/card?model_id=`
-  gives three parts kept apart: what the device **advertises** it does,
-  what we **measured**, and what we have **noticed** that the device does
-  not say. A card exists for every model — "not measured yet" is a fact
-  the card reports, not a 404. The third part is the point.
+- **It has a card for every model.** `GET /v1/models/cards` returns them
+  all in ONE request — the single-card route
+  `GET /v1/models/card?model_id=` still exists for a link to one model.
+  Each card has three parts kept apart: what the device **advertises** it
+  does, what we **measured**, and what we have **noticed** that the device
+  does not say. A card exists for every model — "not measured yet" is a
+  fact the card reports, not a 404. The third part is the point. The
+  **Models** tab is a grid of them, with filters, and a pane to read one.
+- **It keeps the results you liked.** **Save as reference** on a picture
+  saves it with the recipe that made it, and the **References** tab lists
+  them with their pictures. *Use this* puts one in play: the next
+  request then comes out in that style. `POST /v1/references`,
+  `GET /v1/references`, and `tis reference save|list|forget`.
 
 An agent can also say where the finished PNG should land:
 `POST /v1/generate` and `POST /v1/iterate` take `output_path`, and the

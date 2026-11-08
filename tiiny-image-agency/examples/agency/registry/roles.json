@@ -436,7 +436,7 @@
         "context_window": 131072,
         "input": "Text",
         "type": "Text Generation",
-        "status": "running",
+        "status": "downloaded",
         "size_bytes": 10301832188,
         "load_time": 30,
         "thinking": {

@@ -39,8 +39,13 @@ models:
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, photo, poster,
       comic, illustration; handled flat and realistic style; rendered an opaque background;
-      got text right.'
+      got text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: NO — the appliance refuses an image for this
+      model.'
     provenance: d,m
+    image_input: 'no'
   TaoBaiBai2025/Z-Image-Turbo-Creating-Realistic:
     role: specialist
     artifact:
@@ -74,8 +79,13 @@ models:
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration,
       comic; handled flat and realistic style; rendered an opaque background; got
-      text right.'
+      text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: NO — the appliance refuses an image for this
+      model.'
     provenance: d,m
+    image_input: 'no'
   Tongyi-MAI/Z-Image-Turbo-Children-Drawing:
     role: style
     artifact:
@@ -103,8 +113,13 @@ models:
 
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at illustration; handled
-      flat style; rendered an opaque background; got text right.'
+      flat style; rendered an opaque background; got text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: NO — the appliance refuses an image for this
+      model.'
     provenance: d,m
+    image_input: 'no'
   YeiYeiArt/Z-Image-Turbo-CharacterDesignSheet:
     role: specialist
     artifact:
@@ -137,8 +152,13 @@ models:
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster,
       comic, illustration; handled flat and realistic style; rendered an opaque background;
-      got text right.'
+      got text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: NO — the appliance refuses an image for this
+      model.'
     provenance: d,m
+    image_input: 'no'
   baidu/ERNIE-Image-Turbo:
     role: specialist
     artifact:
@@ -172,8 +192,13 @@ models:
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster,
       illustration; handled flat and realistic style; rendered an opaque background;
-      got text right.'
+      got text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: NO — the appliance refuses an image for this
+      model.'
     provenance: d,m
+    image_input: 'no'
   black-forest-labs/FLUX.2-klein-4B:
     role: fast-base
     artifact:
@@ -207,8 +232,14 @@ models:
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, illustration,
       comic, infographic; handled flat and realistic style; rendered an opaque background;
-      got text right.'
+      got text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: NO — the judge called the picture with the
+      image a rectangle 0 times out of five and the control 0 times — so the image
+      was not used.'
     provenance: d,m
+    image_input: 'no'
   fal/FLUX.2-klein-4B-Background-Remove:
     role: edit-adapter
     artifact:
@@ -242,8 +273,14 @@ models:
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration,
       comic, infographic; handled flat and realistic style; rendered an opaque background;
-      got text right.'
+      got text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: NO — the judge called the picture with the
+      image a rectangle 0 times out of five and the control 0 times — so the image
+      was not used.'
     provenance: d,m
+    image_input: 'no'
   fal/FLUX.2-klein-4B-Object-Remove:
     role: edit-adapter
     artifact:
@@ -277,8 +314,14 @@ models:
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster,
       comic, illustration; handled flat and realistic style; rendered an opaque background;
-      got text right.'
+      got text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: YES — the judge called the picture with the
+      image a rectangle 3 times out of five, and the control 0 times — so the image
+      was used.'
     provenance: d,m
+    image_input: 'yes'
   fal/FLUX.2-klein-4B-Outpaint:
     role: edit-adapter
     artifact:
@@ -310,8 +353,14 @@ models:
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster,
       comic, illustration; handled flat and realistic style; rendered an opaque background;
-      got text right.'
+      got text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: UNKNOWN — the judge called the picture with
+      the image a rectangle 2 times out of five, and the control 0 times — which is
+      too close to call.'
     provenance: d,m
+    image_input: unknown
   fal/FLUX.2-klein-4B-Zoom:
     role: edit-adapter
     artifact:
@@ -344,8 +393,14 @@ models:
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster,
       comic, illustration; handled flat and realistic style; rendered an opaque background;
-      got text right.'
+      got text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: NO — the judge called the picture with the
+      image a rectangle 1 times out of five, and the control 2 times — so the image
+      was not used.'
     provenance: d,m
+    image_input: 'no'
   HiDream-ai/HiDream-O1-Image-Dev:
     role: quality-leader
     artifact:
@@ -376,8 +431,12 @@ models:
 
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration;
-      handled flat and realistic style; rendered an opaque background; got text right.'
+      handled flat and realistic style; rendered an opaque background; got text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: UNKNOWN — no picture was made to judge.'
     provenance: d,m
+    image_input: unknown
   SenseTime/SenseNova-U1.5-8B-MoT:
     role: unified
     artifact:
@@ -406,8 +465,14 @@ models:
 
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at illustration, logo, poster;
-      handled flat and realistic style; rendered an opaque background; got text right.'
+      handled flat and realistic style; rendered an opaque background; got text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: YES — the judge called the picture with the
+      image a rectangle 5 times out of five and the control 0 times — so the image
+      was used.'
     provenance: d,m
+    image_input: 'yes'
   krea/Krea-2-Turbo:
     role: general
     artifact:
@@ -451,8 +516,13 @@ models:
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster,
       comic, illustration; handled flat and realistic style; rendered an opaque background;
-      got text right.'
+      got text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: NO — the appliance refuses an image for this
+      model.'
     provenance: d,m
+    image_input: 'no'
   Qwen/Qwen-Image-2.1:
     role: flagship
     artifact:
@@ -496,8 +566,14 @@ models:
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration,
       comic; handled flat and realistic style; rendered 16.07% transparent pixels;
-      got text right.'
+      got text right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: YES — the judge called the picture with the
+      image a rectangle 5 times out of five, and the control 2 times — so the image
+      was used.'
     provenance: d,m
+    image_input: 'yes'
   abenzerps/Qwen-Image-2.1-Uncensored-Quantized:
     role: flagship-co-resident
     artifact:
@@ -539,8 +615,14 @@ models:
 
       MEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, comic, illustration;
       handled flat and realistic style; rendered 25.52% transparent pixels; got text
-      right.'
+      right.
+
+
+      MEASURED 2026-11-07: IMAGE INPUT: NO — the judge called the picture with the
+      image a rectangle 0 times out of five and the control 0 times — so the image
+      was not used.'
     provenance: d,m
+    image_input: 'no'
   Qwen/Qwen-Image-2.1-PE-T2I:
     role: prompt-enhancer
     kind: prompt_enhancer

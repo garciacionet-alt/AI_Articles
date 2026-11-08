@@ -696,7 +696,7 @@ button:hover { filter: brightness(1.08); }
 .reference-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-    gap: 8px;
+    gap: 10px;
 }
 
 .reference-tile {
@@ -704,6 +704,16 @@ button:hover { filter: brightness(1.08); }
     border: 1px solid var(--line);
     border-radius: 9px;
     background: #fff;
+}
+
+/* The picture itself, so the list can be scanned by eye rather than
+   read. */
+.reference-tile img {
+    display: block;
+    width: 100%;
+    border-radius: 6px;
+    margin-bottom: 7px;
+    background: #f4f5f7;
 }
 
 .reference-name {
@@ -717,6 +727,101 @@ button:hover { filter: brightness(1.08); }
     font-size: 11px;
     color: var(--muted);
     word-break: break-all;
+}
+
+.reference-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.reference-actions button {
+    font: inherit;
+    font-size: 11.5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.reference-actions button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.reference-actions button.quiet {
+    color: var(--muted);
+}
+
+/* THE ACTIVE REFERENCE. When one is in play the composer says so,
+   because the request is no longer a fresh interpretation of the
+   words. */
+.active-reference {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    border-top: 1px solid var(--line);
+    background: #f2f7ff;
+    color: var(--accent);
+    font-size: 11.5px;
+}
+
+.active-reference span {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.active-reference button {
+    font: inherit;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+/* SAVING THE PICTURE YOU LIKED. */
+.save-reference {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.save-reference input {
+    flex: 1 1 auto;
+    min-width: 0;
+    font: inherit;
+    font-size: 12px;
+    padding: 5px 9px;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+}
+
+.save-reference button {
+    font: inherit;
+    font-size: 12px;
+    padding: 5px 11px;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.save-reference button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
 }
 
 /* -- THE MODEL CARDS ------------------------------------------------------ */

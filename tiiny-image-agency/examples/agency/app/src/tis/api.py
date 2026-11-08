@@ -20,7 +20,7 @@ from fastapi.responses import StreamingResponse
 from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
 
-from .service import Agency
+from .service import Agency, UnknownAssetError
 from .models import ModelChoice
 from .registry import ModelSpec
 from .planner import PlannerError
@@ -115,6 +115,82 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
             models.append(model_dict)
         
         return {"models": models}
+
+    # -- the references ----------------------------------------------------
+
+    @app.post("/v1/references", status_code=status.HTTP_201_CREATED)
+    async def save_reference(request: Request):
+        """Save a result as a reference, so the next one comes out like it.
+
+        Two ways in:
+
+          * a JSON body naming an ASSET the agency delivered — the recipe
+            comes from that asset's lineage, so it is exactly the one
+            that made it;
+          * raw PNG bytes as the body — for an agent that has an image
+            of its own.
+
+        The bytes are stored exactly as they arrive. Nothing is decoded
+        or re-encoded, because a round trip through an image library is
+        precisely where a transparent background quietly becomes an
+        opaque one.
+        """
+        content_type = (request.headers.get("content-type") or "").lower()
+        if "application/json" in content_type:
+            payload = await request.json()
+            asset_id = str(payload.get("asset_id") or "")
+            name = str(payload.get("name") or "")
+            if not asset_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="The body must name the asset_id to save")
+            try:
+                reference = agency.save_reference(asset_id, name=name)
+            except UnknownAssetError as exc:
+                raise HTTPException(status_code=404, detail=str(exc))
+            return {**reference.to_dict(), "bytes": len(reference.png)}
+
+        data = await request.body()
+        if not data:
+            raise HTTPException(status_code=400, detail="The body was empty")
+        if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise HTTPException(
+                status_code=400,
+                detail="Only PNG images are accepted - the body was not a PNG")
+        filename = request.query_params.get("filename") or "reference.png"
+        reference = agency.save_reference_bytes(data, name=filename)
+        return {**reference.to_dict(), "bytes": len(data)}
+
+    @app.get("/v1/references")
+    async def list_references():
+        """The saved references, newest first."""
+        return {"references": agency.list_references()}
+
+    @app.get("/v1/references/{reference_id}")
+    async def get_reference(reference_id: str):
+        """One reference, with its recipe."""
+        reference = agency.get_reference(reference_id)
+        if reference is None:
+            raise HTTPException(
+                status_code=404, detail=f"No reference {reference_id}")
+        return reference.to_dict()
+
+    @app.get("/v1/references/{reference_id}/image")
+    async def reference_image(reference_id: str):
+        """The reference's PNG, byte for byte."""
+        reference = agency.get_reference(reference_id)
+        if reference is None:
+            raise HTTPException(
+                status_code=404, detail=f"No reference {reference_id}")
+        return Response(content=reference.png, media_type="image/png")
+
+    @app.delete("/v1/references/{reference_id}")
+    async def delete_reference(reference_id: str):
+        """Forget a reference."""
+        if not agency.delete_reference(reference_id):
+            raise HTTPException(
+                status_code=404, detail=f"No reference {reference_id}")
+        return {"deleted": reference_id}
 
     @app.get("/v1/models/cards")
     async def model_cards():
@@ -278,7 +354,8 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
             width=request.width,
             height=request.height,
             model_id=request.model_id,
-            output_path=request.output_path
+            output_path=request.output_path,
+            reference_id=request.reference_id
         )
 
         # Return the job info immediately without waiting
@@ -456,6 +533,10 @@ class GenerateRequest(BaseModel):
     #: wants the file at a path of its own. The agency's own copy is
     #: written either way.
     output_path: str = ""
+    #: A saved result the new picture should come out like. Its
+    #: requirements and its model are pinned, so a repeated job comes
+    #: out the same way twice.
+    reference_id: str = ""
 
 
 class IterateRequest(BaseModel):

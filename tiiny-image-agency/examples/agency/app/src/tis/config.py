@@ -58,6 +58,9 @@ class Settings:
         default_factory=lambda: Path(os.environ.get("TIIS_REGISTRY_PATH", _get_project_root() / "registry" / "image-models.json")).expanduser()
     )
     assets_dir: Path = field(default_factory=lambda: Path(os.environ.get("TIIS_ASSETS_DIR", _get_project_root() / "assets")).expanduser())
+    #: Where the saved references live. A reference is a result the user
+    #: liked and wants more like, so it is kept with its recipe.
+    references_dir: Path = field(default_factory=lambda: Path(os.environ.get("TIIS_REFERENCES_DIR", _get_project_root() / "references")).expanduser())
     #: Where the research cards live. The research loop writes them.
     cards_dir: Path = field(default_factory=lambda: Path(os.environ.get("TIIS_CARDS_DIR", _get_project_root() / "research")).expanduser())
     hold_file: Path = field(default_factory=lambda: Path(os.path.expanduser("~/.hermes/tiiny-hold")))

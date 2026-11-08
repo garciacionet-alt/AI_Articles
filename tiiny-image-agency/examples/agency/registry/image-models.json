@@ -77,6 +77,7 @@
           "identity_preservation"
         ],
         "max_refs": 10,
+        "image_input": "no",
         "quality": "highest",
         "speed": "slow"
       },
@@ -98,7 +99,7 @@
         "combined_npu_pct": 55,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Community uncensored quant build of Qwen-Image-2.1 with its own packaged runtime. Reports 0% NPU, so it coexists with a resident planner. Treat as a research build: the quantization is community-run, not vendor-supported.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, comic, illustration; handled flat and realistic style; rendered 25.52% transparent pixels; got text right.",
+      "notes": "Community uncensored quant build of Qwen-Image-2.1 with its own packaged runtime. Reports 0% NPU, so it coexists with a resident planner. Treat as a research build: the quantization is community-run, not vendor-supported.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, comic, illustration; handled flat and realistic style; rendered 25.52% transparent pixels; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the judge called the picture with the image a rectangle 0 times out of five and the control 0 times \u2014 so the image was not used.",
       "provenance": "d,m"
     },
     {
@@ -139,6 +140,7 @@
         ],
         "edit_ops": [],
         "max_refs": null,
+        "image_input": "no",
         "quality": "medium",
         "speed": "fastest"
       },
@@ -160,7 +162,7 @@
         "combined_npu_pct": 74,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Fastest generating model in the catalogue \u2014 sub-second on the device's own terms. Apache 2.0. The only non-Z-Image generator with multi-reference support.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, illustration, comic, infographic; handled flat and realistic style; rendered an opaque background; got text right.",
+      "notes": "Fastest generating model in the catalogue \u2014 sub-second on the device's own terms. Apache 2.0. The only non-Z-Image generator with multi-reference support.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, illustration, comic, infographic; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the judge called the picture with the image a rectangle 0 times out of five and the control 0 times \u2014 so the image was not used.",
       "provenance": "d,m"
     },
     {
@@ -205,6 +207,7 @@
           "background_remove"
         ],
         "max_refs": null,
+        "image_input": "no",
         "quality": "n/a",
         "speed": "fastest"
       },
@@ -226,7 +229,7 @@
         "combined_npu_pct": 74,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Cuts the main subject out of a photo. Product photography and compositing without manual masking.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration, comic, infographic; handled flat and realistic style; rendered an opaque background; got text right.",
+      "notes": "Cuts the main subject out of a photo. Product photography and compositing without manual masking.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration, comic, infographic; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the judge called the picture with the image a rectangle 0 times out of five and the control 0 times \u2014 so the image was not used.",
       "provenance": "d,m"
     },
     {
@@ -272,6 +275,7 @@
           "inpaint"
         ],
         "max_refs": null,
+        "image_input": "yes",
         "quality": "n/a",
         "speed": "fastest"
       },
@@ -293,7 +297,7 @@
         "combined_npu_pct": 74,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Removes marked objects and fills the area contextually.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "notes": "Removes marked objects and fills the area contextually.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: YES \u2014 the judge called the picture with the image a rectangle 3 times out of five, and the control 0 times \u2014 so the image was used.",
       "provenance": "d,m"
     },
     {
@@ -337,6 +341,7 @@
           "outpaint"
         ],
         "max_refs": null,
+        "image_input": "unknown",
         "quality": "n/a",
         "speed": "fastest"
       },
@@ -358,7 +363,7 @@
         "combined_npu_pct": 75,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Extends past the original borders, matching the scene.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "notes": "Extends past the original borders, matching the scene.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: UNKNOWN \u2014 the judge called the picture with the image a rectangle 2 times out of five, and the control 0 times \u2014 which is too close to call.",
       "provenance": "d,m"
     },
     {
@@ -379,7 +384,7 @@
         ],
         "context_window": null,
         "image_size": "512x512 (fastest), up to 1536x1536",
-        "status": "downloaded",
+        "status": "running",
         "version_label": "20261106",
         "load_time": 4
       },
@@ -402,6 +407,7 @@
           "detail_regen"
         ],
         "max_refs": null,
+        "image_input": "no",
         "quality": "n/a",
         "speed": "fastest"
       },
@@ -423,7 +429,7 @@
         "combined_npu_pct": 75,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Regenerates a marked region enlarged WITH added detail. Not an upscaler \u2014 it re-imagines the region.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "notes": "Regenerates a marked region enlarged WITH added detail. Not an upscaler \u2014 it re-imagines the region.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the judge called the picture with the image a rectangle 1 times out of five, and the control 2 times \u2014 so the image was not used.",
       "provenance": "d,m"
     },
     {
@@ -463,6 +469,7 @@
         ],
         "edit_ops": [],
         "max_refs": null,
+        "image_input": "no",
         "quality": "high",
         "speed": "fast"
       },
@@ -484,7 +491,7 @@
         "combined_npu_pct": 78,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Same adapter family and NPU cost as the base. The device's own description for this model is wrong (it carries the CharacterDesignSheet text) \u2014 trust the name, not `desc`.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration, comic; handled flat and realistic style; rendered an opaque background; got text right.",
+      "notes": "Same adapter family and NPU cost as the base. The device's own description for this model is wrong (it carries the CharacterDesignSheet text) \u2014 trust the name, not `desc`.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration, comic; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the appliance refuses an image for this model.",
       "provenance": "d,m"
     },
     {
@@ -526,6 +533,7 @@
         ],
         "edit_ops": [],
         "max_refs": null,
+        "image_input": "no",
         "quality": "high",
         "speed": "fast"
       },
@@ -551,7 +559,7 @@
         "combined_npu_pct": 78,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "8 steps, guidance 0.0. ~9s at 512px, ~55s at 1024px. The default for good reason \u2014 cheapest iteration loop in the catalogue.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "notes": "8 steps, guidance 0.0. ~9s at 512px, ~55s at 1024px. The default for good reason \u2014 cheapest iteration loop in the catalogue.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the appliance refuses an image for this model.",
       "provenance": "d,m"
     },
     {
@@ -588,6 +596,7 @@
         ],
         "edit_ops": [],
         "max_refs": null,
+        "image_input": "no",
         "quality": "medium",
         "speed": "fast"
       },
@@ -609,7 +618,7 @@
         "combined_npu_pct": 78,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "A LoRA that drops into any existing prompt unmodified.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at illustration; handled flat style; rendered an opaque background; got text right.",
+      "notes": "A LoRA that drops into any existing prompt unmodified.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at illustration; handled flat style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the appliance refuses an image for this model.",
       "provenance": "d,m"
     },
     {
@@ -628,7 +637,7 @@
         "supported": [],
         "context_window": null,
         "image_size": "512x512 (fastest), up to 1536x1536",
-        "status": "downloaded",
+        "status": "running",
         "version_label": "20261106",
         "load_time": 4
       },
@@ -650,6 +659,7 @@
         ],
         "edit_ops": [],
         "max_refs": null,
+        "image_input": "no",
         "quality": "high",
         "speed": "fast"
       },
@@ -671,7 +681,7 @@
         "combined_npu_pct": 78,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "For concept artists and game character designers.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "notes": "For concept artists and game character designers.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the appliance refuses an image for this model.",
       "provenance": "d,m"
     },
     {
@@ -712,6 +722,7 @@
         ],
         "edit_ops": [],
         "max_refs": null,
+        "image_input": "no",
         "quality": "high",
         "speed": "fast"
       },
@@ -733,7 +744,7 @@
         "combined_npu_pct": 82,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "The typography specialist. 8 steps, guidance 0.0.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "notes": "The typography specialist. 8 steps, guidance 0.0.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the appliance refuses an image for this model.",
       "provenance": "d,m"
     },
     {
@@ -775,6 +786,7 @@
           "subject_personalization"
         ],
         "max_refs": null,
+        "image_input": "unknown",
         "quality": "highest",
         "speed": "fast"
       },
@@ -793,7 +805,7 @@
         "combined_npu_pct": 85,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "The fidelity ceiling in the catalogue \u2014 fur, foliage, reflections. ~34s at 1024x1024. Earns its keep only when detail IS the subject.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "notes": "The fidelity ceiling in the catalogue \u2014 fur, foliage, reflections. ~34s at 1024x1024. Earns its keep only when detail IS the subject.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: UNKNOWN \u2014 no picture was made to judge.",
       "provenance": "d,m"
     },
     {
@@ -834,6 +846,7 @@
         ],
         "edit_ops": [],
         "max_refs": null,
+        "image_input": "no",
         "quality": "unknown",
         "speed": "fast"
       },
@@ -849,7 +862,7 @@
         "combined_npu_pct": 91,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "The device's description claims photoreal rendering from a 12B\nrectified-flow transformer at 36% NPU. NONE of that is measured\nhere yet \u2014 the research run is what will say whether it is true.\nKept out of the acceptance table until it has a card.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "notes": "The device's description claims photoreal rendering from a 12B\nrectified-flow transformer at 36% NPU. NONE of that is measured\nhere yet \u2014 the research run is what will say whether it is true.\nKept out of the acceptance table until it has a card.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: NO \u2014 the appliance refuses an image for this model.",
       "provenance": "d,m"
     },
     {
@@ -890,6 +903,7 @@
           "instruction_edit"
         ],
         "max_refs": null,
+        "image_input": "yes",
         "quality": "high",
         "speed": "slow"
       },
@@ -908,7 +922,7 @@
         "combined_npu_pct": 103,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Generates in pixel space, no separate VAE decoder. 48% NPU \u2014 needs a swap alongside a 55% planner.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at illustration, logo, poster; handled flat and realistic style; rendered an opaque background; got text right.",
+      "notes": "Generates in pixel space, no separate VAE decoder. 48% NPU \u2014 needs a swap alongside a 55% planner.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at illustration, logo, poster; handled flat and realistic style; rendered an opaque background; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: YES \u2014 the judge called the picture with the image a rectangle 5 times out of five and the control 0 times \u2014 so the image was used.",
       "provenance": "d,m"
     },
     {
@@ -957,6 +971,7 @@
           "identity_preservation"
         ],
         "max_refs": 10,
+        "image_input": "yes",
         "quality": "highest",
         "speed": "slow"
       },
@@ -978,7 +993,7 @@
         "combined_npu_pct": 117,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "THE transparency model. Native RGBA output \u2014 stickers, logos and cutouts come out ready to place, no background-removal step. 40 steps, 62% NPU: the most expensive image model here, and it cannot coexist with a 55% planner. Planning consequence, not a reason to avoid it.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration, comic; handled flat and realistic style; rendered 16.07% transparent pixels; got text right.",
+      "notes": "THE transparency model. Native RGBA output \u2014 stickers, logos and cutouts come out ready to place, no background-removal step. 40 steps, 62% NPU: the most expensive image model here, and it cannot coexist with a 55% planner. Planning consequence, not a reason to avoid it.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration, comic; handled flat and realistic style; rendered 16.07% transparent pixels; got text right.\n\nMEASURED 2026-11-07: IMAGE INPUT: YES \u2014 the judge called the picture with the image a rectangle 5 times out of five, and the control 2 times \u2014 so the image was used.",
       "provenance": "d,m"
     },
     {
@@ -1015,6 +1030,7 @@
         ],
         "edit_ops": [],
         "max_refs": null,
+        "image_input": "unknown",
         "quality": "n/a",
         "speed": "fast"
       },
@@ -1067,6 +1083,7 @@
         ],
         "edit_ops": [],
         "max_refs": null,
+        "image_input": "unknown",
         "quality": "n/a",
         "speed": "fast"
       },

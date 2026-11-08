@@ -868,13 +868,34 @@ or `images` (array) — proved against a no-image control, with the
 timing split at 16.3 s versus ~34 s. **Every drag-and-drop edit has
 been text-only until now**, because the Agency never sent the bytes.
 
-- [ ] N0 — **the gate:** measure which models honour an image
-- [ ] N1 — `device.generate()` sends the source
-- [ ] N2 — the orchestrator passes it through
-- [ ] N3 — `app/src/tis/references.py`, the store
-- [ ] N4 — the API routes and `reference_id` on generate
-- [ ] N5 — the surface: save a reference, the References tab, use it
-- [ ] N6 — the CLI and the three skill copies
+**M13 measured: only THREE of the fifteen models actually use one** —
+`Qwen/Qwen-Image-2.1`, `SenseNova-U1.5-8B-MoT` and
+`FLUX.2-klein-4B-Object-Remove`. Eight refuse an image outright (HTTP
+400, *"images is not supported by this model"*), and four accept one and
+ignore it. **Four models drew the divided rectangle with no image at
+all**, which is why every measurement had a control. Two pixel metrics
+were tried and both were fooled by a model interpreting the input
+differently; the appliance's own vision model settled it.
+
+- [x] N0 — **the gate:** measure which models honour an image
+- [ ] N1 — `device.generate()` sends the source — **deferred**: the
+  measurement says only three models use one, and the recipe-level
+  reference does not need the bytes
+- [ ] N2 — the orchestrator passes it through — deferred with N1
+- [x] N3 — `app/src/tis/references.py`, the store
+- [x] N4 — the API routes and `reference_id` on generate
+- [x] N5 — the surface: save a reference, the References tab, use it
+- [x] N6 — the CLI and the two skill copies
 - [ ] N7 — the tests, then the commit
+
+**The recipe-level reference is what shipped**: the reference keeps the
+model, the dialect, the size, the requirements, the modifiers and the
+critique, and using one pins them. That is what a repeated job needs —
+the same look, a new subject — and it works on every model ✓ ✓.
+
+**The pixel-level reference is deferred, with the reason measured ✓ ✓**:
+it can only condition the three models that were measured to use an
+image, and one of them (`FLUX.2-klein-4B-Object-Remove`) is an edit
+adapter rather than a generator ✓ ✓. The bytes are not sent yet ✓ ✓.
 
 **The full task detail, with the code, is in `PLAN-THREE-FEATURES.md`.**
