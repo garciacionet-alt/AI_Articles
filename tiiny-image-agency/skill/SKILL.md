@@ -438,6 +438,11 @@ and the appliance URL in the CLI and in the surface: neither may have one.
   JPEG is stored with a `.jpg` name and served as `image/jpeg`. A JPEG
   carries no alpha channel, so its lineage says so; that loss happened
   before the agency ever saw the file.
+- **"Using it" and "API" share one tab.** The text is rendered from
+  the single file the agency serves at `/v1/using-it` — not typed
+  into the page a second time. The file ships with the package
+  because a markdown file beside a Python module needs explicit
+  `package-data`, or a wheel build silently drops it.
 - **It has a dark theme.** The operating system's choice is the
   default; a toggle overrides it and the override is remembered. The
   choice is applied before the page paints, so there is no white

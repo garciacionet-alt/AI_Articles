@@ -753,6 +753,75 @@ button:hover { filter: brightness(1.08); }
     font-weight: 650;
 }
 
+/* THE SUB-TABS. "Using it" and "API" share this tab because both
+   answer "how does this thing work". */
+.api-subtabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.api-subtab {
+    appearance: none;
+    font: inherit;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.api-subtab:hover {
+    color: var(--ink);
+}
+
+.api-subtab.active {
+    background: var(--tint);
+    border-color: var(--line);
+    color: var(--accent);
+    font-weight: 600;
+}
+
+/* THE RENDERED TEXT. Headings and paragraphs from the one file the
+   agency itself serves - no colour here that is not a variable,
+   same as everywhere else in this sheet. */
+.using-it-panel {
+    max-width: 640px;
+}
+
+.using-it-content h4,
+.using-it-content h5 {
+    margin: 18px 0 4px;
+    font-size: 13px;
+    font-weight: 650;
+    color: var(--strong);
+}
+
+.using-it-content h4:first-child {
+    margin-top: 0;
+}
+
+.using-it-content p {
+    margin: 0 0 10px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink);
+}
+
+.using-it-content strong {
+    color: var(--strong);
+}
+
+.using-it-content code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--page);
+}
+
 .api-intro,
 .api-note {
     margin: 0 0 8px;

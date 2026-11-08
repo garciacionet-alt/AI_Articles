@@ -1029,6 +1029,18 @@ class Agency:
             "reachable": True,
         }
 
+    def using_it(self) -> str:
+        """The "Using it" panel's text.
+
+        It ships as a file beside this module rather than being typed
+        into the web page, so there is exactly one place to edit it -
+        and the published SKILL.md carries the identical text between
+        markers, checked by a test, so the two cannot drift apart.
+        """
+        resource = (Path(__file__).resolve().parent
+                    / "resources" / "using_it.md")
+        return resource.read_text(encoding="utf-8")
+
     def health(self) -> dict:
         """Whether the app is alive, the device is reachable, the registry
         is loaded.

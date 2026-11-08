@@ -283,6 +283,15 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
         """Get the current NPU usage and resident models."""
         return agency.npu()
 
+    @app.get("/v1/using-it")
+    async def get_using_it():
+        """The "Using it" panel's text, as markdown.
+
+        One file is the source; the developer tab renders it rather
+        than carrying its own copy.
+        """
+        return {"markdown": agency.using_it()}
+
     @app.post("/v1/plan")
     async def plan(request: PlanRequest):
         """Plan an image generation request."""

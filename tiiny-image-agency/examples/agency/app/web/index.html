@@ -275,28 +275,47 @@ here.</pre>
             </div>
         </div>
 
-        <!-- THE API PANEL. For somebody building against this.
-             It reads the LIVE schema the running server publishes,
-             because a copy of the API would go stale the moment a
-             route changed — and a developer tab that lies is worse
-             than no developer tab. -->
+        <!-- THE API PANEL. For somebody building against this, and
+             for somebody who just opened the app and wants to know
+             what it does. Two sub-panels share the tab because both
+             questions are "how does this thing work", and a third
+             tab for it would be a third place to look. -->
         <div class="panel hidden" id="panel-api" role="tabpanel">
             <div class="api-browser">
                 <div class="api-head">
                     <h2>API</h2>
-                    <p class="api-intro">
-                        This is the live schema this server publishes at
-                        <code>/openapi.json</code>, so it cannot be out of
-                        date. The full Swagger UI is at
-                        <a href="/docs" target="_blank" rel="noopener">/docs</a>.
-                    </p>
-                    <p class="api-note">
-                        The appliance's bearer never appears in the page and
-                        never leaves the agency — the browser already talks
-                        to it, so the credential stays where it is.
-                    </p>
+                    <div class="api-subtabs" role="tablist">
+                        <button type="button" class="api-subtab active"
+                                id="api-subtab-using" role="tab"
+                                aria-selected="true">Using it</button>
+                        <button type="button" class="api-subtab"
+                                id="api-subtab-schema" role="tab"
+                                aria-selected="false">API</button>
+                    </div>
                 </div>
-                <div class="api-columns">
+
+                <!-- "USING IT". Rendered from the one file the agency
+                     itself serves at /v1/using-it, so the page and the
+                     file cannot say two different things. -->
+                <div class="using-it-panel" id="panel-using-it">
+                    <div class="using-it-content" id="using-it-content">
+                        <p class="api-empty">Loading…</p>
+                    </div>
+                </div>
+
+                <div class="api-schema-panel hidden" id="panel-api-schema">
+                <p class="api-intro">
+                    This is the live schema this server publishes at
+                    <code>/openapi.json</code>, so it cannot be out of
+                    date. The full Swagger UI is at
+                    <a href="/docs" target="_blank" rel="noopener">/docs</a>.
+                </p>
+                <p class="api-note">
+                    The appliance's bearer never appears in the page and
+                    never leaves the agency — the browser already talks
+                    to it, so the credential stays where it is.
+                </p>
+                <div class="api-columns" id="api-columns">
                     <div class="api-list-pane">
                         <input type="search" id="api-search"
                                placeholder="Filter the endpoints…"
@@ -318,6 +337,7 @@ here.</pre>
                             <pre class="api-response" id="api-response">The response appears here.</pre>
                         </div>
                     </div>
+                </div>
                 </div>
             </div>
         </div>

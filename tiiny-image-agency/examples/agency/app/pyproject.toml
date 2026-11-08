@@ -18,6 +18,13 @@ tis = "tis.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+# The "Using it" panel's text ships WITH the package. Without this,
+# setuptools only packages .py files and the wheel silently drops it -
+# a gap invisible from a source checkout and a 404 for every installed
+# user.
+tis = ["resources/*.md"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]

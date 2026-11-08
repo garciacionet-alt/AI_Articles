@@ -834,7 +834,26 @@ asks and it should not have to be asked in a terminal.
 FastAPI's own Swagger UI is at `/docs` and the tab points at it, rather
 than pretending to be the only way in.
 
-## 5.10 The theme, and the rule that made it possible
+## 5.10 "Using it", and the API, in one tab
+
+The API tab has two panels: **Using it** and **API**. They sit
+together because an integrator and a first-time user are both asking
+the same underlying question — "how does this work" — and a third tab
+for it would be a third place to look.
+
+"Using it" is not typed into the page. It is rendered from
+`app/src/tis/resources/using_it.md`, the file the agency itself
+serves at `GET /v1/using-it`. There is exactly one place to edit this
+text, and the page cannot say something the file does not.
+
+That file ships WITH the package — a markdown file beside a Python
+module is not included in a wheel unless `package-data` says so, and
+forgetting that entry would make the panel 404 for every installed
+user while working fine from a source checkout. The oversight is
+invisible from a developer's machine and real for everyone else's, so
+there is a test for it.
+
+## 5.11 The theme, and the rule that made it possible
 
 The surface has a **dark theme**, and the operating system's choice is
 the default: somebody who has asked their whole computer to be dark
@@ -868,7 +887,7 @@ honest display of transparency. So in the dark theme it is a *dark*
 checkerboard: a light one behind a transparent picture would be a lie
 in the other direction.
 
-## 5.11 The meter does not guess
+## 5.12 The meter does not guess
 
 The NPU meter shows the appliance's resident set. When the appliance
 does not answer — because it is busy, because it is off, because the

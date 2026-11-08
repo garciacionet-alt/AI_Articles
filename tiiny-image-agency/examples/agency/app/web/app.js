@@ -81,6 +81,11 @@ const els = {
     apiBody: $('api-body'),
     apiSend: $('api-send'),
     apiResponse: $('api-response'),
+    usingItContent: $('using-it-content'),
+    apiSubtabUsing: $('api-subtab-using'),
+    apiSubtabSchema: $('api-subtab-schema'),
+    panelUsingIt: $('panel-using-it'),
+    panelApiSchema: $('panel-api-schema'),
     themeToggle: $('theme-toggle'),
     dialogBackdrop: $('dialog-backdrop'),
     dialogModel: $('dialog-model'),
@@ -593,6 +598,80 @@ function savedTheme() {
         return window.localStorage.getItem('tis-theme');
     } catch (error) {
         return null;
+    }
+}
+
+// -- the "Using it" panel --------------------------------------------------
+
+// Loaded once per page, not once per click: the text does not change
+// while the tab is open.
+let usingItLoaded = false;
+
+// A small renderer for a small, known shape of markdown - headers,
+// bold, inline code, and paragraphs. Not a general markdown engine:
+// this page has no build step and no new dependency, and the ONE file
+// it renders is written to fit what this can do.
+function renderMarkdown(text) {
+    const escape = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    const inline = (s) => escape(s)
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`(.+?)`/g, '<code>$1</code>');
+
+    const lines = text.split('\n');
+    const html = [];
+    let paragraph = [];
+    const flush = () => {
+        if (paragraph.length) {
+            html.push('<p>' + inline(paragraph.join(' ')) + '</p>');
+            paragraph = [];
+        }
+    };
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+            flush();
+            continue;
+        }
+        const heading = trimmed.match(/^(#{1,3})\s+(.*)$/);
+        if (heading) {
+            flush();
+            const level = heading[1].length + 2; // ## -> h4
+            html.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+            continue;
+        }
+        paragraph.push(trimmed);
+    }
+    flush();
+    return html.join('\n');
+}
+
+async function loadUsingIt() {
+    if (usingItLoaded) {
+        return;
+    }
+    const data = await apiGet('/v1/using-it');
+    if (!data || !data.markdown) {
+        els.usingItContent.innerHTML =
+            '<p class="api-empty">The text could not be read.</p>';
+        return;
+    }
+    els.usingItContent.innerHTML = renderMarkdown(data.markdown);
+    usingItLoaded = true;
+}
+
+function showApiSubtab(name) {
+    const usingActive = name === 'using';
+    els.apiSubtabUsing.classList.toggle('active', usingActive);
+    els.apiSubtabUsing.setAttribute('aria-selected', String(usingActive));
+    els.apiSubtabSchema.classList.toggle('active', !usingActive);
+    els.apiSubtabSchema.setAttribute('aria-selected', String(!usingActive));
+    els.panelUsingIt.classList.toggle('hidden', !usingActive);
+    els.panelApiSchema.classList.toggle('hidden', usingActive);
+    if (usingActive) {
+        loadUsingIt();
+    } else if (!openApiSchema) {
+        loadOpenApi();
     }
 }
 
@@ -1539,9 +1618,11 @@ TAB_LOADERS.references = {run: loadReferences};
 // THE API TAB. It reads the live schema the first time it is opened,
 // and the filter re-renders the list from what it already has — the
 // same rule as the card grid: a keystroke is not a request.
-TAB_LOADERS.api = {run: loadOpenApi};
+TAB_LOADERS.api = {run: loadUsingIt};
 els.apiSearch.addEventListener('input', renderEndpoints);
 els.apiSend.addEventListener('click', sendApiRequest);
+els.apiSubtabUsing.addEventListener('click', () => showApiSubtab('using'));
+els.apiSubtabSchema.addEventListener('click', () => showApiSubtab('schema'));
 
 // THE THEME. The head script chose one already; this wires the
 // toggle, and follows the operating system if the user has not
