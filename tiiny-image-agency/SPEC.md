@@ -753,6 +753,32 @@ Skill rules, in order of priority:
 
 ## 7. Work Surface
 
+**The surface has three tabs: Make, Models, References.**
+
+**Make** is the generation flow: the conversation, the canvas, the drop
+zone, the iteration strip, the roles, the resolver's alternatives, the
+confirmation dialog and the lineage.
+
+**Models** is the card browser. The cards were a dropdown at the bottom
+of a long page, which meant a person who wanted to learn what the
+models were had to go looking for them. It is a grid instead: every
+model at a glance, with what it costs and what it was measured to do,
+and a pane beside it to read one in full.
+
+**References** is where the saved results live, so a repeated job comes
+out consistent. It is empty until a reference is saved.
+
+The three parts of a card stay visually separate: what the device
+advertises, what we measured, and what we have noticed that the device
+does not say. The distance between the first two is the whole reason a
+card exists.
+
+**The tab is fetched when it is opened, not at page load.** The Make tab
+does not need seventeen cards, and a request the user did not ask for is
+a request the user waits for. The filters — by kind of picture, by
+measured or not, and a text search — run against what is already in the
+browser, so a keystroke is not a round trip.
+
 Three panes, one screen.
 
 ```
@@ -777,6 +803,9 @@ Three panes, one screen.
 
 Required elements:
 
+- **Tab strip** — *Make*, *Models*, *References*. The strip is flat and
+  quiet so the content is what draws the eye, and each tab reports its
+  state with `aria-selected` rather than only by colour.
 - **Model badge** — which model produced the current asset, and why it was
   chosen. One line, always visible.
 - **NPU meter** — used/free MB, and the resident set. This is the app's
@@ -807,11 +836,16 @@ Required elements:
   difference between "make this better" and "make me something else".
 - **The file's path** — under the image, the path of the finished PNG. A
   user who wants the file should not have to ask where it went.
-- **The model-card browser** — every model in the catalogue, and for the
-  selected one its card: what the device **advertises** it does, what we
-  **measured** it to do, and what we have **noticed** that the device does
-  not say. The third part is the point. The card exists for every model —
-  "not measured yet" is a fact it reports, not a missing page.
+- **The model-card browser** — on the *Models* tab, a grid of every model
+  in the catalogue with what it costs and what it was measured to do, and
+  beside it a pane to read one in full: what the device **advertises** it
+  does, what we **measured** it to do, and what we have **noticed** that
+  the device does not say. The third part is the point. The card exists
+  for every model — "not measured yet" is a fact it reports, not a
+  missing page.
+- **The card filters** — by kind of picture, by measured or not, and a
+  text search. They run against what is already in the browser, so a
+  keystroke is not a round trip.
 
 ## 8. Build phases and verification
 

@@ -834,18 +834,18 @@ The prerequisite for Phase L and Phase N. Three tabs: **Make**, **Models**,
 Models tab.
 
 - [x] K1 — the tab strip in `app/web/index.html`
-- [ ] K2 — the switching behaviour in `app/web/app.js` + `app/web/style.css`
-- [ ] K3 — the tests, then the commit
+- [x] K2 — the switching behaviour in `app/web/app.js` + `app/web/style.css`
+- [x] K3 — the tests, then the commit
 
 ## Phase L — Feature 1: the model card browser (2026-11-07)
 
 A grid of every model's card, with the three parts kept distinct: what
 the device advertises, what we measured, and what we have noticed.
 
-- [ ] L1 — `GET /v1/models/cards`, one request for all of them
-- [ ] L2 — the grid and the detail pane
-- [ ] L3 — the filters (artifact, measured, can see, text search)
-- [ ] L4 — the tests, then the commit
+- [x] L1 — `GET /v1/models/cards`, one request for all of them
+- [x] L2 — the grid and the detail pane
+- [x] L3 — the filters (artifact, measured, text search)
+- [x] L4 — the tests, then the commit
 
 ## Phase M — Feature 2: notice a new model, ask, download, benchmark (2026-11-07)
 
