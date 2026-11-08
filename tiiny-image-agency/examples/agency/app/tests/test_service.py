@@ -456,7 +456,7 @@ def test_the_png_is_byte_for_byte_what_the_device_returned(registry, tmp_path):
         job_id = agency.generate("a friendly robot waving hello")
         job = _wait(agency, job_id)
         asset = agency.get_asset(job.payload["asset_id"])
-        assert asset.png == png_bytes()
+        assert asset.image == png_bytes()
         on_disk = tmp_path / "assets" / f"{asset.id}.png"
         assert on_disk.read_bytes() == png_bytes()
     finally:

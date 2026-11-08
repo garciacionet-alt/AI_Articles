@@ -288,19 +288,26 @@ async function revise(event) {
 // An image the user dropped in. It is uploaded, kept byte for byte,
 // and becomes the source of the next request - so the request is an
 // EDIT of that image, not a new picture.
+//
+// PNG and JPEG are accepted. The appliance was MEASURED taking a JPEG
+// in its image field, so a JPEG is a real source and not a guess. It
+// is sent with its own content type, and the agency works out the
+// format from the BYTES rather than from what the browser said.
+const SOURCE_TYPES = ['image/png', 'image/jpeg'];
+
 async function uploadSource(file) {
     if (!file) {
         return;
     }
-    if (!file.type || file.type !== 'image/png') {
-        say('Only a PNG can be dropped in — ' + file.name + ' is not one.',
-            'bad');
+    if (!file.type || !SOURCE_TYPES.includes(file.type)) {
+        say('Only a PNG or a JPEG can be dropped in — ' + file.name +
+            ' is neither.', 'bad');
         return;
     }
     try {
         const response = await fetch(API + '/v1/assets', {
             method: 'POST',
-            headers: {'Content-Type': 'image/png'},
+            headers: {'Content-Type': file.type},
             body: file,
         });
         const payload = await response.json();

@@ -143,16 +143,55 @@ def test_the_uploaded_image_is_written_where_the_answer_says(tmp_path,
     assert path.read_bytes() == PNG
 
 
-def test_a_file_that_is_not_a_png_is_refused(tmp_path, registry: Registry):
-    """Every model on the appliance reads PNG. A JPEG would arrive as
-    pixels the agency never saw."""
+def test_the_drop_zone_accepts_a_jpeg(app_js: str, index_html: str):
+    """A JPEG may be dropped in. It was measured: the appliance reads
+    one."""
+    assert "image/jpeg" in index_html
+    assert "image/jpeg" in app_js
+
+
+def test_the_drop_zone_still_refuses_a_format_it_cannot_store(app_js: str):
+    """The refusal names the formats that ARE accepted, so the user is
+    told what to do next rather than just what went wrong."""
+    assert "image/png" in app_js and "image/jpeg" in app_js
+
+
+def test_the_drop_zone_hint_no_longer_says_png_only(index_html: str):
+    assert "PNG only" not in index_html
+
+
+def test_the_upload_keeps_the_format_the_file_had(app_js: str):
+    """The content type sent is the file's own, not a guess."""
+    assert "file.type" in app_js
+    assert "'Content-Type': file.type" in app_js
+
+
+def test_a_format_that_is_neither_png_nor_jpeg_is_refused(tmp_path,
+                                                           registry: Registry):
+    """A JPEG IS accepted now — it was measured, and the appliance reads
+    one. A GIF is a different thing: an animation this agency cannot
+    pretend to support, and a format the appliance was never asked
+    about."""
+    agency = _agency(tmp_path, registry)
+    response = _client(agency).post(
+        "/v1/assets", content=b"GIF89a" + b"\x00" * 16,
+        headers={"Content-Type": "image/gif"})
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "PNG" in detail and "JPEG" in detail
+
+
+def test_the_old_png_only_refusal_is_gone(tmp_path, registry: Registry):
+    """The rule changed because it was measured to be wrong: the
+    appliance takes a JPEG in its image field."""
     agency = _agency(tmp_path, registry)
     response = _client(agency).post(
         "/v1/assets", content=b"\xff\xd8\xff\xe0 not a png",
         headers={"Content-Type": "image/jpeg"})
 
-    assert response.status_code == 400
-    assert "PNG" in response.json()["detail"]
+    assert response.status_code == 200
+    assert response.json()["format"] == "jpeg"
 
 
 def test_an_empty_upload_is_refused(tmp_path, registry: Registry):

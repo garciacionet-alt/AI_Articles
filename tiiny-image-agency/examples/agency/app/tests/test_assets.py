@@ -132,7 +132,8 @@ def test_the_asset_round_trips_with_its_png_and_lineage(store: AssetStore):
 
     assert fetched is not None
     assert fetched.id == asset.id
-    assert fetched.png == image
+    assert fetched.image == image
+    assert fetched.format == "png"
     assert fetched.lineage == LINEAGE
 
 
@@ -230,7 +231,7 @@ def test_a_known_asset_can_be_read_back_after_the_store_is_reopened(
 
     reopened = AssetStore(root)
 
-    assert reopened.get(asset.id).png == _rgba_png()
+    assert reopened.get(asset.id).image == _rgba_png()
     assert reopened.get_lineage(asset.id) == LINEAGE
     assert reopened.list() == [asset.id]
 

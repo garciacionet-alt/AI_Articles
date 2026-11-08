@@ -21,6 +21,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
 
 from .service import Agency, UnknownAssetError
+from .assets import FORMATS, image_format
 from .models import ModelChoice
 from .registry import ModelSpec
 from .planner import PlannerError
@@ -310,34 +311,54 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
         """Store an uploaded image as an asset.
 
         This is the door for an image that came from somewhere else:
-        the surface drops a file on it, an agent posts a PNG it already
-        has, and the agency treats it exactly like an image it made -
-        the same asset id, the same lineage, the same edit workflow.
+        the surface drops a file on it, an agent posts an image it
+        already has, and the agency treats it exactly like an image it
+        made - the same asset id, the same lineage, the same edit
+        workflow.
 
         The body is the image BYTES, exactly as given. They are not
         decoded, re-encoded or resized, because a round trip through an
         image library is precisely where a transparent background
         quietly becomes an opaque one.
 
-        Only PNG is accepted. Every model on the appliance reads PNG,
-        and a JPEG would arrive as pixels the agency never saw.
+        PNG and JPEG are accepted, and the format is taken from the
+        BYTES rather than from what the caller says - so a JPEG is
+        stored as a JPEG, with a .jpg name, and served as image/jpeg.
+
+        A JPEG carries no alpha channel. That loss happened before the
+        agency ever saw the file, and the lineage says so in words,
+        rather than leaving the caller to discover it later.
         """
         data = await request.body()
         if not data:
             raise HTTPException(status_code=400, detail="The body was empty")
-        if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        kind = image_format(data)
+        if kind not in FORMATS:
             raise HTTPException(
                 status_code=400,
-                detail="Only PNG images are accepted - the body was not a PNG")
+                detail="Only PNG and JPEG images are accepted - the body "
+                       "was neither")
+        extension, _ = FORMATS[kind]
         asset = agency.assets.save(data, {
             "origin": "upload",
-            "filename": filename or "upload.png",
+            "filename": filename or f"upload{extension}",
+            "format": kind,
+            # "as-stored" is the honest word for a PNG: the agency
+            # does not decode it, so it does not claim to know whether
+            # this one carries an alpha channel.
+            "alpha": "none" if kind == "jpeg" else "as-stored",
+            "notes": (
+                "the source was a JPEG, so it carries no alpha channel - "
+                "that loss happened before the agency saw the file"
+                if kind == "jpeg" else
+                "the bytes are stored exactly as they arrived"),
             "created_at": time.time(),
         })
         return {
             "asset_id": asset.id,
-            "path": str(agency.assets.root / f"{asset.id}.png"),
+            "path": str(agency.assets.root / f"{asset.id}{extension}"),
             "bytes": len(data),
+            "format": kind,
         }
 
     @app.post("/v1/generate", status_code=status.HTTP_202_ACCEPTED)
@@ -396,13 +417,16 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
 
     @app.get("/v1/assets/{asset_id}")
     async def get_asset(asset_id: str):
-        """Get the PNG of an asset."""
+        """Get the image of an asset, in the format it was stored in."""
         asset = agency.get_asset(asset_id)
         if asset is None:
             raise HTTPException(status_code=404, detail="Asset not found")
-            
-        # Return the PNG bytes exactly as stored
-        return Response(content=asset.png, media_type="image/png")
+
+        # Return the bytes exactly as stored, under the content type
+        # the FORMAT calls for — a JPEG served as image/png would be a
+        # browser's problem to unpick.
+        _, content_type = FORMATS.get(asset.format, FORMATS["png"])
+        return Response(content=asset.image, media_type=content_type)
 
     @app.get("/v1/assets/{asset_id}/lineage")
     async def get_lineage(asset_id: str):

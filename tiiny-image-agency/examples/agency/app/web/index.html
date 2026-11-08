@@ -88,10 +88,11 @@
                 <div class="dropzone" id="dropzone">
                     <p class="dropzone-title">Drop an image to update it</p>
                     <p class="dropzone-hint">
-                        PNG only. The file is kept byte for byte, and the
+                        PNG or JPEG. The file is kept byte for byte, and the
                         request you type next becomes an edit of it.
                     </p>
-                    <input type="file" id="file-input" accept="image/png"
+                    <input type="file" id="file-input"
+                           accept="image/png,image/jpeg"
                            class="hidden">
                     <div class="dropzone-source hidden" id="dropzone-source">
                         <img id="source-preview" alt="The image you dropped">

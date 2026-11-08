@@ -595,8 +595,8 @@ underlies it:
 | `POST` | `/v1/plan` | Request → requirement vector + resolved model + justification + swap plan |
 | `POST` | `/v1/generate` | Request or plan → asset. Handles load/swap/generate/restore. Takes `output_path` and `reference_id` |
 | `POST` | `/v1/iterate` | Asset + feedback → revised prompt (dialect-translated) → new asset. Takes `output_path` |
-| `POST` | `/v1/assets` | **Upload** an image — the PNG bytes are the body — → asset id. The door for "update this image" |
-| `GET` | `/v1/assets/{asset_id}` | The image (PNG, alpha preserved) |
+| `POST` | `/v1/assets` | **Upload** an image — the image bytes are the body (PNG or JPEG) → asset id. The door for "update this image" |
+| `GET` | `/v1/assets/{asset_id}` | The image, in the format it was stored in (PNG, alpha preserved) |
 | `GET` | `/v1/assets/{asset_id}/lineage` | Full provenance: plan, prompts, model, sizes, timings, and the file's path |
 | `POST` | `/v1/references` | **Save an asset as a named reference** — the PNG byte-for-byte plus its recipe: model, dialect, size, requirements, modifiers, critique |
 | `GET` | `/v1/references` | The saved references, newest first |
@@ -690,9 +690,34 @@ becomes an opaque one, so the agency copies and never decodes.
 }
 ```
 
-The uploaded bytes are stored **exactly as given**. Only PNG is accepted:
-every model on the appliance reads PNG, and a JPEG would arrive as pixels
-the agency never saw.
+The uploaded bytes are stored **exactly as given**. PNG and JPEG are
+accepted, and the format is taken from the **bytes** rather than from
+what the caller says — so a JPEG is stored with a `.jpg` name and
+served as `image/jpeg`. Anything else is refused.
+
+A JPEG was **measured**, not assumed: the appliance takes one in its
+`image` field (HTTP 200, 34.1 s). It is not converted to PNG at
+upload, because the appliance decodes it to pixels itself, so a
+conversion would produce exactly the same picture and would cost a
+re-encode that could only lose what the JPEG already lost. What a JPEG
+*did* lose is its alpha channel, and that happened before the agency
+ever saw the file — so the lineage says `"alpha": "none"` and names the
+loss in words rather than leaving the caller to discover it later.
+
+```jsonc
+// POST /v1/assets — the door for "update this image"
+// The body IS the image. No multipart: the bytes are the image.
+// Content-Type: image/png or image/jpeg
+{
+  // ...raw image bytes
+}
+{
+  "asset_id": "ast_5f3c...",
+  "path": ".../assets/ast_5f3c....png",
+  "bytes": 1030281,
+  "format": "png"
+}
+```
 
 ```jsonc
 // GET /v1/models/card?model_id=Tongyi-MAI%2FZ-Image-Turbo

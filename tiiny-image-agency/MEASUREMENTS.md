@@ -842,6 +842,32 @@ the code never used them. `m`
 
 ---
 
+## M14 — a JPEG is a real source, and what it costs (2026-11-07)
+
+**THE APPLIANCE TAKES A JPEG.** The `image` field was measured with a
+JPEG made by `sips` (2,013 bytes, magic `ff d8 ff`): **HTTP 200** in
+34.1 s, against 41.6 s for the same picture as a PNG. `m`
+
+**BUT THE STRUCTURE DID NOT SURVIVE.** The same source given as PNG
+produced a faithful pencil sketch of the divided square (judged 3/5
+rectangle, confirmed by eye). The same source given as a JPEG produced a
+narrow vertical shape with a line down the middle — the quadrant edges
+were gone (judged 1/5, confirmed by eye). Two independent readings
+agree. `m`
+
+**THE REASON IS JPEG ITSELF** — its lossy compression destroys exactly
+the hard colour edges an image model reads structure from, and the
+model reasonably drew a vertical split rather than a four-way one. `m`
+
+**THE CONSEQUENCE FOR THE DESIGN.** The appliance decodes the JPEG to
+pixels either way, so passing the JPEG bytes straight through and
+converting them to PNG at upload produce **the same picture**. **JPEG
+input therefore needs no image library at all** — the agency accepts the
+bytes, passes them through unchanged, and records the format by its
+magic bytes. What is lost is the alpha, and it was lost before the
+agency ever saw the file, so the lineage says `"alpha": "none"` and
+names the loss. `m`
+
 ## M13 — Only three of the fifteen models actually use an image
 
 **M10 proved the ENDPOINT accepts `image` and `images`. This measures

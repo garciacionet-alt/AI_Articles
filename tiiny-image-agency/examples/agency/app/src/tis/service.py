@@ -883,7 +883,7 @@ class Agency:
             "critique": lineage.get("critique"),
             "created_at": time.time(),
         }
-        return self.references.save(asset.png, recipe, name=name)
+        return self.references.save(asset.image, recipe, name=name)
 
     def save_reference_bytes(self, png: bytes, name: str = "",
                              recipe: dict | None = None) -> Reference:

@@ -413,8 +413,12 @@ and the appliance URL in the CLI and in the surface: neither may have one.
 - **You can drop an image into it.** The file becomes the source of the
   next request, so the next request is an EDIT of that image rather than
   a new picture — the difference between "make this better" and "make me
-  something else". The upload route is `POST /v1/assets` with the PNG
-  bytes as the body; there is no multipart form.
+  something else". The upload route is `POST /v1/assets` with the image
+  bytes as the body; there is no multipart form. PNG and JPEG are both
+  accepted, and the format is taken from the bytes — a JPEG is stored
+  with a `.jpg` name and served as `image/jpeg`. A JPEG carries no
+  alpha channel, so its lineage says so; that loss happened before the
+  agency ever saw the file.
 - **It tells you where the file is.** The path is under the image, in the
   lineage, and in the `asset.ready` event.
 - **It has a card for every model.** `GET /v1/models/cards` returns them
