@@ -51,6 +51,21 @@ MAX_EXECUTABLE_OCCUPANCY_PCT = 81
 #: while it is within this window, or while the held model is resident.
 HOLD_GRACE_SECONDS = 600
 
+#: The NPU pool. Measured on the device: 47.9 GiB. It is what a model's
+#: share of the pool is a fraction of.
+NPU_POOL_BYTES = int(47.9 * 1024 ** 3)
+
+#: How large a model may be and still count as free when the device
+#: prices it at 0% NPU.
+#:
+#: The voice is 0.21 GiB and the OCR models less than that - genuinely
+#: free, and the share of the pool they imply rounds to zero anyway.
+#: The community quant build is 14.5 GiB and reports 0% as well, and it
+#: is NOT free: leaving it resident made every load fail to allocate its
+#: buffer and every generation answer HTTP 500. A gigabyte is a wide gap
+#: between the two kinds, and the evidence is on both sides of it.
+FREE_MODEL_WEIGHT_LIMIT = 1024 ** 3
+
 #: The NPU cost of the appliance's own resident models, which the registry
 #: does not carry because they are not image generators. Measured on the
 #: device 2026-11-05.
@@ -299,18 +314,57 @@ class ResidencyManager:
         the table above. A model in none of them is treated as free, which
         is the safe assumption: a model we cannot cost is not one we should
         evict someone else for.
+
+        ONE EXCEPTION, and it is the whole point: **a model the device
+        prices at zero is only free if it is small.**
+
+        The community quant build reports 0% NPU and is 14.5 GiB of
+        weights — thirty percent of the pool. Believing the 0% meant the
+        eviction planner never evicted it, so it sat resident through the
+        whole research run and every subsequent load failed to allocate
+        its buffer:
+
+            CreateDeviceBuffer: FAILED! ... Assertion failed
+
+        and every generation answered HTTP 500. Unloading it and asking
+        again produced a 980 KB PNG. The device's zero was a number about
+        its own accounting, and the pool's allocation told a different
+        one.
+
+        Every model that really is free is tiny: the voice is 0.21 GiB,
+        the OCR models less. A model over a gigabyte that the device
+        calls free is charged the share of the pool its weights imply.
         """
         if self.registry.planner.id == model_id:
             return self.registry.planner.npu_usage
         try:
-            return self.registry.by_id(model_id).npu_usage
+            spec = self.registry.by_id(model_id)
+            cost = spec.npu_usage
+            if cost == 0:
+                return self._cost_of_a_free_looking_model(spec)
+            return cost
         except Exception:
             pass
         if self.roles is not None:
             spec = self.roles.get(model_id)
             if spec is not None:
-                return spec.npu_usage
+                if spec.npu_usage:
+                    return spec.npu_usage
+                return self._cost_of_a_free_looking_model(spec)
         return APPLIANCE_MODEL_NPU_PCT.get(model_id, 0)
+
+    def _cost_of_a_free_looking_model(self, spec) -> int:
+        """What a model the device prices at zero actually costs.
+
+        Small means free: the voice and the OCR models really do cost
+        nothing, and the measured share of the pool for a model of that
+        size rounds to zero anyway. Big means the device's number is
+        wrong, and the weights are the better evidence.
+        """
+        size = getattr(spec, "size_bytes", 0) or 0
+        if size <= FREE_MODEL_WEIGHT_LIMIT:
+            return 0
+        return round(size / NPU_POOL_BYTES * 100)
 
     @contextmanager
     def _watchdog_lock(self, timeout: Optional[float] = None) -> Iterator[None]:

@@ -76,6 +76,16 @@ class RoleSpec:
         return int(self.raw.get("device", {}).get("npu_usage") or 0)
 
     @property
+    def size_bytes(self) -> int:
+        """How much disk this model's weights take on the appliance.
+
+        Zero means the device did not say. It matters for the models the
+        device prices at 0% NPU: the voice is tiny and genuinely free,
+        and the community quant build is 14.5 GiB and not free at all.
+        """
+        return int(self.raw.get("device", {}).get("size_bytes") or 0)
+
+    @property
     def context_window(self) -> int:
         return int(self.raw.get("device", {}).get("context_window") or 0)
 
