@@ -283,8 +283,13 @@ class FakeDevice:
             "model": model,
         }
 
-    def generate(self, model: str, prompt: str, size: str) -> bytes:
+    def generate(self, model: str, prompt: str, size: str,
+                 image: bytes | None = None) -> bytes:
         self.calls.append(("generate", model, size))
+        #: The source image this call was given, if any. The Agency's
+        #: edit path is only real if the image ARRIVES, so the fake
+        #: keeps what it was handed.
+        self.last_image = image
         if model not in self._resident:
             raise DeviceError(
                 f'"{model}" is not loaded.', retryable=True, status=404, code=404

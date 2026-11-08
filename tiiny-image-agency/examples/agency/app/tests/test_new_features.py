@@ -343,10 +343,17 @@ def test_the_surface_has_a_drop_zone(index_html: str, app_js: str):
 
 def test_a_dropped_image_makes_the_next_request_an_edit(app_js: str):
     """The difference between "make this better" and "make me
-    something else"."""
+    something else".
+
+    The dropped image used to be an ITERATION of the asset, which
+    regenerates it from its requirements. It is now the SOURCE of an
+    edit: its bytes go to the appliance with the request, so the
+    operation happens to that picture rather than beside it.
+    """
     assert "sourceAssetId" in app_js
-    assert "startEdit" in app_js, (
-        "a request with a dropped image does not become an edit")
+    assert "source_asset_id" in app_js, (
+        "the dropped image is not sent with the request, so it is not "
+        "an edit")
 
 
 def test_the_surface_shows_where_the_file_is(index_html: str, app_js: str):

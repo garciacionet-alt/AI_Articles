@@ -96,11 +96,7 @@ picture come out like it. That is how a repeated job stays a repeated
 job.
 
 If `tis` is not found, it is installed at `~/.hermes/venvs/tis311/bin/tis`
-and linked into `~/.local/bin`. It is also published as a Homebrew cask
-(`tiiny-image-agency/Casks/tiiny-image-agency.rb`) with a v0.1.0 release
-behind it, so `brew install --cask` puts `tis` on the path and puts the
-model registry beside the virtualenv, where the app looks for it when
-the package is not in a checkout.
+and linked into `~/.local/bin`.
 
 `tis plan` costs nothing but a planner call and tells you the model, the
 NPU cost, whether a swap is required, and the resolver's justification.
@@ -182,9 +178,8 @@ nothing and sees a hanging terminal is not.
 
 ## Things Worth Knowing
 
-**Only three models in the catalogue actually take an image into
-generation, and the device's own advertisement is not a reliable guide
-to which.**
+**Only two models in the catalogue actually take an image into generation,
+and the device's own advertisement is not a reliable guide to which.**
 Measured on the appliance on 2026-11-07, with a control for every model:
 
 | | |
@@ -295,37 +290,34 @@ apart with a CONTROL: a half-red, half-blue rectangle, the prompt
 face, not a rectangle — and every image-bearing run drew the input's
 structure. The timing agreed: **16.3 s without an image, ~34 s with one.**
 
-**So a drag-and-drop edit is STILL a text-only regeneration wearing an
-edit's name.** The device takes the source image, but the Agency does
-not send one: `Device.generate` takes a model, a prompt and a size and
-nothing else, so the bytes never reach the appliance. The pixel-level
-reference is deliberately deferred — only three models were measured to
-use an image, and one of them is an edit adapter rather than a
-generator — but the edit adapters ARE chosen for an edit request and
-then receive no image to edit. Treat that as known and unfinished, not
-as working. The catalogue already advertised `input: Text,Image` and
+**So every drag-and-drop edit was a text-only regeneration wearing an
+edit's name.** The catalogue already advertised `input: Text,Image` and
 `supported: ['Image Editing']` for several models, and the curated
 overlay already carried `max_refs: 10` and `identity_preservation` for
 exactly the two that take an image — unused. The bare-base64 form is the
 one to use: it preserved the input's structure more faithfully than the
 data-URL form.
 
+**The Agency now sends it.** `POST /v1/generate` takes `source_asset_id`
+— the asset being edited — and its bytes go to the appliance in the
+`image` field. `tis generate "remove the object" --source ast_...` is
+the command-line form, and dropping an image into the surface is the
+browser form.
+
 **Do not assume every model honours it.** The catalogue says which
 models *claim* `Text,Image`; whether they *use* the bytes is a separate
 measurement, and the resolver must not offer an image-conditioned edit
-to a model that cannot take one.
+to a model that cannot take one. **Measured: only three of the fifteen
+honour an image** — `Qwen/Qwen-Image-2.1`,
+`SenseTime/SenseNova-U1.5-8B-MoT` and
+`fal/FLUX.2-klein-4B-Object-Remove`.
 
-**A JPEG is a real source, and it costs you the structure.** The
-appliance takes a JPEG in its `image` field — measured, HTTP 200 — and
-the agency accepts JPEG uploads, deriving the format from the bytes so
-a JPEG is stored as a `.jpg` and served as `image/jpeg`. But the same
-source given as PNG produced a faithful sketch of the test shape while
-the JPEG produced a different one: **JPEG's lossy compression destroys
-the hard colour edges an image model reads structure from**, so the
-input arrived and the structure did not. Convert to PNG only if the
-caller needs the edges; otherwise pass the bytes through, because the
-appliance decodes the JPEG either way and a conversion changes nothing
-but the compression.
+**Only ONE edit adapter works.** `object_remove` goes to Object-Remove
+and edits the picture. `outpaint` is tried, because the measurement was
+inconclusive. `background_remove` and `detail_regen` are **refused** —
+their adapters were measured ignoring the image they are given, and the
+refusal says so rather than answering with a new picture wearing an
+edit's name.
 
 **The catalogue has no "new model" signal.** The appliance's catalogue
 holds 92 rows, and `need_update` is `False` on every one of them — it
@@ -439,11 +431,13 @@ and the appliance URL in the CLI and in the surface: neither may have one.
   next request, so the next request is an EDIT of that image rather than
   a new picture — the difference between "make this better" and "make me
   something else". The upload route is `POST /v1/assets` with the image
-  bytes as the body; there is no multipart form. PNG and JPEG are both
-  accepted, and the format is taken from the bytes — a JPEG is stored
-  with a `.jpg` name and served as `image/jpeg`. A JPEG carries no
-  alpha channel, so its lineage says so; that loss happened before the
-  agency ever saw the file.
+  bytes as the body; there is no multipart form. The dropped image is
+  then sent WITH the next request as `source_asset_id`, so its bytes
+  reach the appliance and the operation happens to that picture. PNG and
+  JPEG are both accepted, and the format is taken from the bytes — a
+  JPEG is stored with a `.jpg` name and served as `image/jpeg`. A JPEG
+  carries no alpha channel, so its lineage says so; that loss happened
+  before the agency ever saw the file.
 - **It can put your images in a document.** `tis pdf ast_1 ast_2 --out
   news.pdf` writes a PDF with one page per image. The images go into the
   PDF without being decoded and re-encoded: a JPEG is embedded as
@@ -604,17 +598,6 @@ cannot provide.
 
 The findings, the checks that establish them, and the recipe are in
 [references/portability.md](references/portability.md).
-
-### A script in the vault may need a scratch copy to run
-
-The project lives in a cloud-synced vault, and the gateway's lifecycle
-guard refuses to scan a script it cannot read — and a path under a
-cloud-synced folder often is one it cannot read. When a script is
-refused for that reason, copy it to the profile's scratch directory and
-run it from there, passing the paths it needs as arguments rather than
-letting it resolve them from its own location. The guard's objection is
-to the location, not to the script, and the same script runs unchanged
-from a path it can scan.
 
 ## Related
 

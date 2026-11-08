@@ -72,7 +72,8 @@ class _BrokenDevice:
             raise self.answer
         return self.answer
 
-    def generate(self, model: str, prompt: str, size: str) -> bytes:
+    def generate(self, model: str, prompt: str, size: str,
+                 image: bytes | None = None) -> bytes:
         raise NotImplementedError
 
     def resident(self) -> list[str]:

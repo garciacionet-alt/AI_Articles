@@ -489,7 +489,7 @@ plus ~200 s of generation, with the conversation interrupted for the duration.
 Against the hot path's 54.5 s with no interruption. That comparison is the
 honest answer to "which model should the resolver pick?"
 
-### 5.6 The appliance takes a source image, and the Agency was not sending one
+### 5.6 The appliance takes a source image, and the Agency now sends one
 
 `POST /v1/images/generations` accepts a source image. The field is
 `image` (a base64 **string**) or `images` (an **array** of them). Both
@@ -520,20 +520,44 @@ Two independent signals agree. The control drew a completely different
 *subject*; every image-bearing variant drew the input's *structure*. And
 the timing splits cleanly — 16.3 s without an image, ~34 s with one.
 
-**This changes the product.** The catalogue already advertised
-`input: Text,Image` and `supported: ['Image Editing']` for
-`Qwen/Qwen-Image-2.1` and the FLUX adapters, and the curated overlay
-already carried `max_refs: 10` and `identity_preservation` for exactly
-the two models that take an image. But `device.generate()` sent only
-`model`, `prompt`, `size` and `n`, so **every drag-and-drop edit had
-been a text-only regeneration wearing an edit's name.** The appliance
-was always capable; the Agency was simply not asking.
+**The bare-base64 form is the one to use:** it is what the appliance
+accepts as a string, and it preserved the input's structure more
+faithfully than the data-URL form. The bytes are sent as they are —
+a JPEG that has been through a codec once cannot go through it twice
+without losing more, and the appliance decodes it to pixels itself
+either way.
 
-The bare-base64 form is the one to use: it is what the appliance accepts
-as a string, and it preserved the input's structure more faithfully
-than the data-URL form. Which *models* honour it is a separate
-measurement, and the resolver must not offer an image-conditioned edit
-to a model that cannot take one.
+**WHICH MODELS HONOUR IT, AND WHAT THE AGENCY DOES ABOUT THAT**
+
+Measured (M13): of the fifteen models, only **three** honour a source
+image — `Qwen/Qwen-Image-2.1`, `SenseTime/SenseNova-U1.5-8B-MoT` and
+`fal/FLUX.2-klein-4B-Object-Remove`. Seven refuse an image outright;
+four accept one and ignore it; two are unknown.
+
+So an edit request may only go to a model that honours an image.
+Sending a picture to a model that ignores it and answering with the
+result would be an edit in name only — and the cards now say which
+adapters do and do not use the image, checked against the measurement
+so a card cannot drift away from what the appliance does.
+
+Of the four edit adapters, one works and three do not:
+
+| operation | adapter | image_input | what happens |
+|---|---|---|---|
+| `object_remove` | Object-Remove | **yes** | the edit happens to that picture |
+| `outpaint` | Outpaint | unknown | tried; the judge says whether it worked |
+| `background_remove` | Background-Remove | no | **refused**, with the reason |
+| `detail_regen` | Zoom | no | **refused**, with the reason |
+
+The refusal names the adapter that does the operation, says it ignores
+the image, and names the models that take one — so it is a road rather
+than a wall.
+
+**HOW AN EDIT IS REQUESTED.** `POST /v1/generate` takes
+`source_asset_id`: the asset being edited. Its bytes go to the
+appliance with the request, and the lineage records the source so
+"where did this picture come from" has an answer. The dropped image in
+the browser and `tis generate --source ast_…` both use it.
 
 ### 5.7 The catalogue has no "new model" signal
 
@@ -593,7 +617,7 @@ underlies it:
 | `POST` | `/v1/roles` | The **choice** — `{"critic": "..."}` and/or `{"conversation": "..."}`. Applies to the next job. A critic that cannot see an image is refused |
 | `GET` | `/v1/npu` | Live residency: resident models, NPU MB used/free, loaded set |
 | `POST` | `/v1/plan` | Request → requirement vector + resolved model + justification + swap plan |
-| `POST` | `/v1/generate` | Request or plan → asset. Handles load/swap/generate/restore. Takes `output_path` and `reference_id` |
+| `POST` | `/v1/generate` | Request or plan → asset. Handles load/swap/generate/restore. Takes `output_path`, `reference_id` and `source_asset_id` |
 | `POST` | `/v1/iterate` | Asset + feedback → revised prompt (dialect-translated) → new asset. Takes `output_path` |
 | `POST` | `/v1/assets` | **Upload** an image — the image bytes are the body (PNG or JPEG) → asset id. The door for "update this image" |
 | `GET` | `/v1/assets/{asset_id}` | The image, in the format it was stored in (PNG, alpha preserved) |

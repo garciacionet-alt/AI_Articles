@@ -281,11 +281,13 @@ models:
       was not used.
 
 
-      NOT YET WIRED TO THE SOURCE IMAGE. This adapter is chosen for a request
-      to remove the background, but the Agency does not yet send the source
-      image with the request — Device.generate takes a model, a prompt and a
-      size, and nothing else. So an edit today resolves to the right model and
-      then makes a new picture instead of editing the one that was uploaded.'
+      THE SOURCE IMAGE IS WIRED, AND THIS ADAPTER IGNORES IT. The bytes of
+      the picture go to the appliance with the request — that part works.
+      But this adapter was MEASURED ignoring the image it is given: the
+      judge called the picture with the image a rectangle 0 times out of
+      five and the control 0 times. So a request to remove a background is
+      REFUSED rather than answered with a new picture that looks like an
+      edit.'
     provenance: d,m
     image_input: 'no'
   fal/FLUX.2-klein-4B-Object-Remove:
@@ -329,12 +331,13 @@ models:
       was used.
 
 
-      NOT YET WIRED TO THE SOURCE IMAGE. This adapter is chosen for a request
-      to remove an object, but the Agency does not yet send the source image
-      with the request — Device.generate takes a model, a prompt and a size,
-      and nothing else. So an edit today resolves to the right model and then
-      makes a new picture instead of editing the one that was uploaded. This
-      is the one adapter that WOULD honour the image once it is sent.'
+      THE SOURCE IMAGE IS WIRED. This adapter does the operation ON a
+      picture, and the bytes of that picture go to the appliance with the
+      request — base64 in the image field, which is the field the
+      appliance was measured to read. What the appliance does with them
+      is a separate question, and it was MEASURED: this adapter honours
+      the image, so an edit request comes out as an edit of the picture
+      that was given.'
     provenance: d,m
     image_input: 'yes'
   fal/FLUX.2-klein-4B-Outpaint:
@@ -376,11 +379,13 @@ models:
       too close to call.
 
 
-      NOT YET WIRED TO THE SOURCE IMAGE. This adapter is chosen for a request
-      to extend past the borders, but the Agency does not yet send the source
-      image with the request — Device.generate takes a model, a prompt and a
-      size, and nothing else. So an edit today resolves to the right model and
-      then makes a new picture instead of editing the one that was uploaded.'
+      THE SOURCE IMAGE IS WIRED, AND THIS ADAPTER IGNORES IT. The bytes of
+      the picture go to the appliance with the request — that part works.
+      But this adapter was MEASURED ignoring the image it is given: the
+      judge called the picture with the image a rectangle 2 times out of
+      five and the control 0 times, which is too close to call. So an
+      outpaint is TRIED rather than refused, and the judge says whether
+      it worked.'
     provenance: d,m
     image_input: unknown
   fal/FLUX.2-klein-4B-Zoom:
@@ -423,12 +428,13 @@ models:
       was not used.
 
 
-      NOT YET WIRED TO THE SOURCE IMAGE. This adapter is chosen for a request
-      to regenerate a region with more detail, but the Agency does not yet send
-      the source image with the request — Device.generate takes a model, a
-      prompt and a size, and nothing else. So an edit today resolves to the
-      right model and then makes a new picture instead of editing the one that
-      was uploaded.'
+      THE SOURCE IMAGE IS WIRED, AND THIS ADAPTER IGNORES IT. The bytes of
+      the picture go to the appliance with the request — that part works.
+      But this adapter was MEASURED ignoring the image it is given: the
+      judge called the picture with the image a rectangle 1 times out of
+      five and the control 2 times. So a request to regenerate a region
+      in more detail is REFUSED rather than answered with a new picture
+      that looks like an edit.'
     provenance: d,m
     image_input: 'no'
   HiDream-ai/HiDream-O1-Image-Dev:

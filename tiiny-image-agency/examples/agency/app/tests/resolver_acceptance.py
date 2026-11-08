@@ -331,8 +331,13 @@ CASES: list[tuple[str, dict, str]] = [
      dict(artifact="poster", speed="quality_first"), "Tongyi-MAI/Z-Image-Turbo"),
 
     # --- edit operations (hard filter) ---------------------------------
-    ("background removal",
-     dict(artifact="cutout", edit_op="background_remove"), "fal/FLUX.2-klein-4B-Background-Remove"),
+    # "background removal" is NOT here. It was, until the M13
+    # measurement: the adapter was chosen for the request, and the
+    # adapter IGNORES the image it is given - so the operation could
+    # not actually happen. An edit needs a model that takes an image,
+    # and no adapter that removes backgrounds does, so the request is
+    # refused below with the reason. Object removal, whose adapter DOES
+    # take an image, is the edit that works.
 
     # --- the default vector --------------------------------------------
     ("a bare request gets the default model",
@@ -364,6 +369,9 @@ REFUSAL_CASES: list[tuple[str, dict, str]] = [
     ("detail regeneration has no downloaded adapter",
      dict(artifact="edit", edit_op="detail_regen"),
      "fal/FLUX.2-klein-4B-Zoom"),
+    ("background removal has an adapter that ignores the image",
+     dict(artifact="edit", edit_op="background_remove"),
+     "fal/FLUX.2-klein-4B-Background-Remove"),
 ]
 
 
@@ -395,9 +403,9 @@ OCCUPANCY_CASES: list[tuple[str, dict, str, int, bool, bool]] = [
     ("the flagship runs alone and evicts the planner",
      dict(artifact="icon", alpha="required"),
      "Qwen/Qwen-Image-2.1", 62, False, False),
-    ("the background remover stays on the hot path",
-     dict(artifact="cutout", edit_op="background_remove"),
-     "fal/FLUX.2-klein-4B-Background-Remove", 74, True, False),
+    ("the object remover stays on the hot path",
+     dict(artifact="edit", edit_op="object_remove"),
+     "fal/FLUX.2-klein-4B-Object-Remove", 74, True, False),
 ]
 
 

@@ -176,18 +176,15 @@ async function submit(event) {
     say(request, 'ask');
     lastRequest = request;
 
-    // An image was dropped in, so this is an EDIT of that image rather
-    // than a new picture. The flow is the iteration flow: the asset is
-    // the source, the request is the feedback.
-    if (sourceAssetId) {
-        await startEdit(sourceAssetId, request);
-        return;
-    }
-
-    // Plan first, and then ASK. A generation costs a minute and
-    // sometimes three, and the plan is where the agency says what it
-    // is about to do and why. The user gets to see that, and to change
-    // it, before anything is spent.
+    // An image was dropped in, so this request may be an EDIT of that
+    // image rather than a new picture. It is PLANNED like any other
+    // request, because the plan is where the agency says whether the
+    // edit can be done at all — and the refusal arrives before
+    // anything is spent, not after a minute of appliance time.
+    //
+    // The dropped image goes with the generate call, and the agency
+    // sends its bytes to the appliance. That is what makes it an edit
+    // rather than a new picture.
     let plan;
     try {
         plan = await apiPost('/v1/plan', {request, model_id: chosenModelId});
@@ -198,19 +195,6 @@ async function submit(event) {
     }
 
     openDialog(plan, request);
-}
-
-async function startEdit(assetId, feedback) {
-    try {
-        const queued = await apiPost('/v1/iterate', {
-            asset_id: assetId,
-            feedback: feedback,
-        });
-        currentJobId = queued.job_id;
-        watch(currentJobId);
-    } catch (error) {
-        say('The revision was refused: ' + error.message, 'bad');
-    }
 }
 
 async function openDialog(plan, request) {
@@ -254,7 +238,12 @@ async function startGeneration(request, modelId) {
     try {
         const queued = await apiPost('/v1/generate',
             {request, model_id: modelId || chosenModelId,
-             reference_id: activeReferenceId});
+             reference_id: activeReferenceId,
+             // A dropped image is the SOURCE of an edit: its bytes go
+             // to the appliance with the request, which is the whole
+             // difference between editing a picture and making a new
+             // one.
+             source_asset_id: sourceAssetId});
         currentJobId = queued.job_id;
         watch(currentJobId);
     } catch (error) {

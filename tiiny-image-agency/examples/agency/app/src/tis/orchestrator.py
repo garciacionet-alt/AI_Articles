@@ -110,7 +110,14 @@ class Orchestrator:
 
     def generate(self, requirements: RequirementVector,
                  scene: SceneDescription,
-                 preferred: str | None = None) -> GenerationResult:
+                 preferred: str | None = None,
+                 source: bytes | None = None) -> GenerationResult:
+        """Make the picture, optionally from a source image.
+
+        ``source`` is the image being edited. It goes to the appliance
+        with the request, base64 in the ``image`` field, which is where
+        the appliance was MEASURED to read one.
+        """
         resolution = self.resolver.resolve(requirements, preferred=preferred)
         chosen = resolution.chosen
 
@@ -147,7 +154,7 @@ class Orchestrator:
             with self.residency.swap_to(current, self.critic.model_id):
                 attempts = attempt
                 models_used.append(current)
-                image = self.device.generate(current, prompt, size)
+                image = self.device.generate(current, prompt, size, source)
 
                 if self.critic.model_id not in self.device.resident():
                     skipped = (

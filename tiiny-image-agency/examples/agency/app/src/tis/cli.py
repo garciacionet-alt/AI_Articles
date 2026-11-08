@@ -175,6 +175,11 @@ def generate(args: argparse.Namespace, target: Target) -> int:
         # requirements are used, so the same job comes out the same way
         # twice.
         body["reference_id"] = args.reference
+    if getattr(args, "source", None):
+        # The picture being EDITED. Its bytes go to the appliance with
+        # the request, which is what makes it an edit rather than a
+        # new picture.
+        body["source_asset_id"] = args.source
     try:
         data = _post(target, "/v1/generate", body)
     except httpx.RequestError:
@@ -600,6 +605,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="a saved reference to come out like. Its model and its "
              "requirements are used, so the same job comes out the same "
              "way twice. Run 'tis reference list' to see them.")
+    generate_parser.add_argument(
+        "--source", default=None,
+        help="the asset to EDIT. Its bytes go to the appliance with the "
+             "request, so the operation happens to that picture rather "
+             "than beside it.")
 
     iterate_parser = subparsers.add_parser(
         "iterate", parents=[common], help="Revise an existing image")

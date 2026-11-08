@@ -170,12 +170,18 @@ class _ObservedDevice:
                               "vision": True})
         return answer
 
-    def generate(self, model: str, prompt: str, size: str) -> bytes:
+    def generate(self, model: str, prompt: str, size: str,
+                 image: bytes | None = None) -> bytes:
         session = self._session()
         self._events.publish("generate.started", session,
-                             {"model": model, "prompt": prompt, "size": size})
+                             {"model": model, "prompt": prompt, "size": size,
+                              # Whether this generation had a source image
+                              # is part of what happened, and a client
+                              # watching the stream should be able to see
+                              # that an edit is an edit.
+                              "source_image": image is not None})
         try:
-            return self._device.generate(model, prompt, size)
+            return self._device.generate(model, prompt, size, image)
         finally:
             # Published even when the generation failed: the attempt
             # finished either way, and a client waiting on the stream
@@ -261,6 +267,10 @@ class _Work:
     #: pins the requirements and the model, so a repeated job comes out
     #: the same way twice.
     reference_id: str = ""
+    #: The asset being EDITED, if any. An edit is the image: the
+    #: adapter does the operation ON this picture, so its bytes go to
+    #: the appliance with the request.
+    source_asset_id: str = ""
 
 
 class Agency:
@@ -800,7 +810,7 @@ class Agency:
     def generate(self, request: str, session_id: str = "default",
                  width: int = 1024, height: int = 1024,
                  model_id: str = "", output_path: str = "",
-                 reference_id: str = "") -> str:
+                 reference_id: str = "", source_asset_id: str = "") -> str:
         """Accept a generation and return its job id, immediately.
 
         The appliance needs a minute and sometimes three. A caller that
@@ -813,6 +823,10 @@ class Agency:
         its own choosing. ``reference_id`` is a saved result the new
         picture should come out like: its requirements and its model are
         pinned, so a repeated job is a repeated job.
+
+        ``source_asset_id`` is the picture being EDITED. An edit is the
+        image: the adapter does the operation ON that picture, so its
+        bytes go to the appliance with the request.
         """
         job = self.jobs.create(session_id, "generate", request)
         self.events.publish("job.queued", session_id,
@@ -821,7 +835,8 @@ class Agency:
                             kind="generate", request=request,
                             width=width, height=height, model_id=model_id,
                             output_path=output_path,
-                            reference_id=reference_id))
+                            reference_id=reference_id,
+                            source_asset_id=source_asset_id))
         return job.id
 
     def iterate(self, asset_id: str, feedback: str,
@@ -1125,7 +1140,19 @@ class Agency:
         the requirements and the model from the reference, so the new
         picture comes out like the old one. The planner's reading of the
         request is exactly what a reference is meant to overrule.
+
+        A job with a SOURCE ASSET is an EDIT: the picture being edited
+        goes to the appliance with the request, because an edit IS the
+        image.
         """
+        source_image = b""
+        if work.source_asset_id:
+            source = self.assets.get(work.source_asset_id)
+            if source is None:
+                raise UnknownAssetError(
+                    f"there is no asset {work.source_asset_id!r} to edit")
+            source_image = source.image
+
         if work.reference_id:
             reference = self.references.get(work.reference_id)
             if reference is None:
@@ -1144,9 +1171,11 @@ class Agency:
         self._resolve(work, requirements, source)
         scene = SceneDescription(subject=work.request)
         result = self.orchestrator.generate(requirements, scene,
-                                             preferred=preferred)
+                                             preferred=preferred,
+                                             source=source_image or None)
         self._deliver(work, result, requirements, source,
-                      work.request, scene.modifiers)
+                      work.request, scene.modifiers,
+                      source_asset_id=work.source_asset_id)
 
     def _iterate(self, work: _Work) -> None:
         """Take the old image's requirements, add the feedback, generate.
@@ -1300,13 +1329,17 @@ class Agency:
 
     def _deliver(self, work: _Work, result: GenerationResult,
                  requirements: RequirementVector, source: str,
-                 request: str, modifiers: tuple[str, ...] = ()) -> None:
+                 request: str, modifiers: tuple[str, ...] = (),
+                 source_asset_id: str = "") -> None:
         """Write the asset, record the job, and tell the session.
 
         The modifiers are kept in the lineage so that a second iteration
         can add to them. The prompt is NOT the base for the next
         iteration - it is the dialect applied once, and applying it twice
         would compound.
+
+        The source asset is kept too, because "where did this picture
+        come from" is the first question anyone asks about an edit.
         """
         lineage = {
             "requirements": requirements.model_dump(mode="json"),
@@ -1324,6 +1357,8 @@ class Agency:
             "job_id": work.job_id,
             "created_at": time.time(),
         }
+        if source_asset_id:
+            lineage["source_asset_id"] = source_asset_id
         asset = self.assets.save(result.image, lineage)
         # The path is part of the answer. An agent that asked for the file
         # at a path of its own gets it there, and everyone can see where

@@ -87,7 +87,8 @@ class Device(Protocol):
 
     def chat(self, model: str, prompt: str, **kw) -> dict: ...
 
-    def generate(self, model: str, prompt: str, size: str) -> bytes: ...
+    def generate(self, model: str, prompt: str, size: str,
+                 image: bytes | None = None) -> bytes: ...
 
     def resident(self) -> list[str]: ...
 
@@ -215,8 +216,19 @@ class TiinyDevice:
             raise self._fail(status, payload, model)
         return payload
 
-    def generate(self, model: str, prompt: str, size: str) -> bytes:
+    def generate(self, model: str, prompt: str, size: str,
+                 image: bytes | None = None) -> bytes:
+        """Make a picture, optionally from a source image.
+
+        The source goes out as base64 in the appliance's ``image``
+        field, which is the field the appliance was MEASURED taking.
+        The bytes are not re-encoded on the way — a JPEG that has been
+        through a codec once cannot go through it twice without losing
+        more, and the appliance decodes it to pixels itself either way.
+        """
         body = {"model": model, "prompt": prompt, "size": size, "n": 1}
+        if image:
+            body["image"] = base64.b64encode(image).decode("ascii")
         status, payload = self._request("POST", "/images/generations", body=body)
         if status >= 400:
             raise self._fail(status, payload, model)

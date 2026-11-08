@@ -407,7 +407,8 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
             height=request.height,
             model_id=request.model_id,
             output_path=request.output_path,
-            reference_id=request.reference_id
+            reference_id=request.reference_id,
+            source_asset_id=request.source_asset_id
         )
 
         # Return the job info immediately without waiting
@@ -605,6 +606,9 @@ class GenerateRequest(BaseModel):
     #: requirements and its model are pinned, so a repeated job comes
     #: out the same way twice.
     reference_id: str = ""
+    #: The asset being EDITED. Its bytes go to the appliance with the
+    #: request, because an edit is the image.
+    source_asset_id: str = ""
 
 
 class IterateRequest(BaseModel):

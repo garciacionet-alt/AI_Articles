@@ -125,9 +125,10 @@ class _BlockingDevice(FakeDevice):
         super().__init__(registry, **kwargs)
         self.gate = threading.Event()
 
-    def generate(self, model: str, prompt: str, size: str) -> bytes:
+    def generate(self, model: str, prompt: str, size: str,
+                 image: bytes | None = None) -> bytes:
         self.gate.wait(timeout=10.0)
-        return super().generate(model, prompt, size)
+        return super().generate(model, prompt, size, image)
 
 
 class _FlakyDevice(FakeDevice):
@@ -137,14 +138,15 @@ class _FlakyDevice(FakeDevice):
         super().__init__(registry, **kwargs)
         self.failures = failures
 
-    def generate(self, model: str, prompt: str, size: str) -> bytes:
+    def generate(self, model: str, prompt: str, size: str,
+                 image: bytes | None = None) -> bytes:
         if self.failures > 0:
             self.failures -= 1
             self.calls.append(("generate", model, size))
             raise DeviceError(
                 "The operation failed to complete.",
                 retryable=True, status=500, code=150004)
-        return super().generate(model, prompt, size)
+        return super().generate(model, prompt, size, image)
 
 
 class _DeadDevice(FakeDevice):

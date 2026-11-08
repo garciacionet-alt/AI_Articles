@@ -182,6 +182,18 @@ class Resolver:
         if (requirements.edit_op.value != "none"
                 and requirements.edit_op.value not in model.edit_ops):
             return False
+        if (requirements.edit_op.value != "none"
+                and model.image_input == "no"):
+            # AN EDIT IS THE IMAGE. An adapter that does the operation
+            # but IGNORES a source image would make a new picture and
+            # call it an edit — which is exactly the gap the adapter
+            # cards used to describe.
+            #
+            # "no" is the refusal. "unknown" is not: it is a verdict
+            # the judge could not make consistently, and an unknown
+            # model that does the operation is still worth trying —
+            # the judge will say whether it worked.
+            return False
         return True
 
     def _passes_style(self, requirements: RequirementVector,
@@ -221,6 +233,27 @@ class Resolver:
                     "no downloaded model can do this; "
                     + ", ".join(m.id for m in missing)
                     + " can, but must be downloaded first")
+            if requirements.edit_op.value != "none":
+                # AN EDIT IS THE IMAGE. Say which models do the
+                # operation, say that they ignore the image, and say
+                # which models take one — so the refusal is a road
+                # rather than a wall.
+                doers = [m.id for m in generators
+                         if requirements.edit_op.value in m.edit_ops]
+                takers = [m.id for m in generators if m.image_input == "yes"]
+                raise ResolverError(
+                    "no downloaded model can %s an image: %s %s the "
+                    "operation, but %s ignore%s the image %s given. "
+                    "Only %s take one, and none of them does this "
+                    "operation, so downloading one would not help"
+                    % (requirements.edit_op.value.replace("_", " "),
+                       ", ".join(doers) if doers else "no model",
+                       "does" if len(doers) == 1 else "do",
+                       "it" if len(doers) == 1 else "they",
+                       "s" if len(doers) == 1 else "",
+                       "it" if len(doers) == 1 else "they",
+                       ", ".join(takers) if takers
+                       else "no model on the appliance"))
             raise ResolverError(
                 "no downloaded model satisfies this request")
 
