@@ -2,18 +2,18 @@
 # frozen_string_literal: true
 
 cask "tiiny-image-agency" do
-  version "0.1.0"
-  sha256 "e3b91937617598f659d0a1a0ed4c7de8dd27de34ccc68debe3c06f29a07c7f05"
+  version "0.1.1"
+  sha256 "e0971f278e2842eead2756934e2bacea9bae61f8bdc2370946c8c26f5d361295"
 
-  # The package is installed as a Python package; the registry is put
-  # beside the virtualenv, where tis.config looks for it when the
-  # package is not in a source checkout.
+  # The package is installed as a Python package — its pyproject.toml
+  # is at the root of the tarball, which is what pip and Homebrew both
+  # look for. The registry is put beside the virtualenv, where
+  # tis.config looks for it when the package is not in a checkout.
   language "python", virtualenv_install_with_resources: {
-    "app"      => [],
     "registry" => "share/tiiny-image-agency/registry",
   }
 
-  url "https://github.com/garciacionet-alt/AI_Articles/releases/download/v0.1.0/tiiny-image-agency-0.1.0.tar.gz",
+  url "https://github.com/garciacionet-alt/AI_Articles/releases/download/v0.1.1/tiiny-image-agency-0.1.1.tar.gz",
       verified: "github.com/garciacionet-alt/AI_Articles"
   name "Tiiny Image Agency"
   desc "Plan, generate and iterate images on a local Tiiny appliance"

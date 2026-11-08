@@ -96,7 +96,11 @@ picture come out like it. That is how a repeated job stays a repeated
 job.
 
 If `tis` is not found, it is installed at `~/.hermes/venvs/tis311/bin/tis`
-and linked into `~/.local/bin`.
+and linked into `~/.local/bin`. It is also published as a Homebrew cask
+(`tiiny-image-agency/Casks/tiiny-image-agency.rb`) with a v0.1.0 release
+behind it, so `brew install --cask` puts `tis` on the path and puts the
+model registry beside the virtualenv, where the app looks for it when
+the package is not in a checkout.
 
 `tis plan` costs nothing but a planner call and tells you the model, the
 NPU cost, whether a swap is required, and the resolver's justification.
@@ -600,6 +604,17 @@ cannot provide.
 
 The findings, the checks that establish them, and the recipe are in
 [references/portability.md](references/portability.md).
+
+### A script in the vault may need a scratch copy to run
+
+The project lives in a cloud-synced vault, and the gateway's lifecycle
+guard refuses to scan a script it cannot read — and a path under a
+cloud-synced folder often is one it cannot read. When a script is
+refused for that reason, copy it to the profile's scratch directory and
+run it from there, passing the paths it needs as arguments rather than
+letting it resolve them from its own location. The guard's objection is
+to the location, not to the script, and the same script runs unchanged
+from a path it can scan.
 
 ## Related
 

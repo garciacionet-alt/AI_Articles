@@ -72,8 +72,23 @@ def find_published() -> Path | None:
             return candidate
     return None
 
-#: The pieces of the published tree that go into the tarball.
-PAYLOAD = ("examples/agency/app", "examples/agency/registry")
+#: The pieces of the published tree that go into the tarball, and
+#: where each one lands in it.
+#:
+#: THE ROOT OF THE TARBALL IS THE PYTHON PROJECT. That matters more
+#: than it looks: pip installs a source distribution by looking for
+#: ``pyproject.toml`` at its root, and Homebrew's Python support does
+#: the same thing in the unpacked directory. A tarball whose project
+#: is one directory down is a tarball that nothing can install.
+#:
+#: So the package's ``pyproject.toml`` and ``src`` go to the root, and
+#: the registry — which is data, not code, and is installed beside the
+#: virtualenv — goes in a directory of its own.
+PAYLOAD = (
+    ("examples/agency/app/pyproject.toml", "pyproject.toml"),
+    ("examples/agency/app/src", "src"),
+    ("examples/agency/registry", "registry"),
+)
 
 #: Where the cask lives in the published tree.
 CASK_DIR = "Casks"
@@ -82,9 +97,23 @@ CASK_NAME = "tiiny-image-agency.rb"
 #: The repository the release lives in.
 REPO = "garciacionet-alt/AI_Articles"
 
-#: The version. It is read from the package, so the cask, the tarball
-#: and the tag cannot disagree about it.
-VERSION = "0.1.0"
+#: The version, when it is not read from the package. The package's own
+#: version is the truth, and it is read from the pyproject.toml, so the
+#: cask, the tarball and the tag cannot disagree about it.
+VERSION = "0.1.1"
+
+
+def package_version(published: Path) -> str:
+    """The version, read from the package's own pyproject.toml."""
+    pyproject = published / "examples" / "agency" / "app" / "pyproject.toml"
+    try:
+        for line in pyproject.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("version"):
+                return stripped.split("=", 1)[1].strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return VERSION
 
 
 def sha256_of(path: Path) -> str:
@@ -107,16 +136,19 @@ def build_tarball(out_dir: Path, version: str, published: Path) -> Path:
     name = f"tiiny-image-agency-{version}"
     tarball = out_dir / f"{name}.tar.gz"
     staging = Path(tempfile.mkdtemp()) / name
+    staging.mkdir(parents=True, exist_ok=True)
     try:
-        for piece in PAYLOAD:
+        for piece, target_name in PAYLOAD:
             source = published / piece
             if not source.exists():
                 raise SystemExit(f"missing from the published tree: {piece}")
-            # The pieces go in under their short names: `app` and
-            # `registry`, not `examples/agency/app`.
-            shutil.copytree(source, staging / Path(piece).name,
-                            ignore=shutil.ignore_patterns(
-                                "__pycache__", "*.pyc", ".pytest_cache"))
+            target = staging / target_name
+            if source.is_dir():
+                shutil.copytree(source, target,
+                                ignore=shutil.ignore_patterns(
+                                    "__pycache__", "*.pyc", ".pytest_cache"))
+            else:
+                shutil.copy2(source, target)
         with tarfile.open(tarball, "w:gz", format=tarfile.GNU_FORMAT) as tar:
             for path in sorted(staging.rglob("*")):
                 info = tar.gettarinfo(str(path), arcname=str(
@@ -151,11 +183,11 @@ cask "tiiny-image-agency" do
   version "{version}"
   sha256 "{digest}"
 
-  # The package is installed as a Python package; the registry is put
-  # beside the virtualenv, where tis.config looks for it when the
-  # package is not in a source checkout.
+  # The package is installed as a Python package — its pyproject.toml
+  # is at the root of the tarball, which is what pip and Homebrew both
+  # look for. The registry is put beside the virtualenv, where
+  # tis.config looks for it when the package is not in a checkout.
   language "python", virtualenv_install_with_resources: {{
-    "app"      => [],
     "registry" => "share/tiiny-image-agency/registry",
   }}
 
@@ -184,7 +216,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default="/tmp/tiiny-release",
                         help="where to write the tarball")
-    parser.add_argument("--version", default=VERSION)
+    parser.add_argument("--version", default="",
+                        help="the version (read from the package by "
+                             "default)")
     parser.add_argument("--published", default="",
                         help="the published tree to build from (found by "
                              "default)")
@@ -202,12 +236,13 @@ def main() -> int:
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    tarball = build_tarball(out_dir, args.version, published)
+    version = args.version or package_version(published)
+    tarball = build_tarball(out_dir, version, published)
     digest = sha256_of(tarball)
 
     cask_path = (Path(args.cask) if args.cask
                  else published / CASK_DIR / CASK_NAME)
-    write_cask(cask_path, args.version, digest)
+    write_cask(cask_path, version, digest)
 
     print(f"tarball : {tarball}")
     print(f"  bytes : {tarball.stat().st_size}")
