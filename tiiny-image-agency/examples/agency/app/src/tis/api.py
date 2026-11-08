@@ -242,6 +242,10 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
             "researched": measured is not None,
             "downloaded": spec.downloaded if spec is not None else False,
             "npu_usage": spec.npu_usage if spec is not None else 0,
+            # MEASURED: whether the model takes an image into generation.
+            # The device advertises this for several models; the
+            # measurement is what actually happens.
+            "image_input": spec.image_input if spec is not None else "unknown",
         }
 
     @app.get("/v1/roles")

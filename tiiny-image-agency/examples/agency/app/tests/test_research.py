@@ -199,6 +199,10 @@ def test_the_api_serves_the_card(registry: Registry, tmp_path: Path):
         assert body["measured"]["summary"] == "it is a fox"
         assert body["model_id"] == "some-model"
         assert body["researched"] is True
+        # The single-card route carries the MEASURED image capability
+        # too, or the card browser would show it for one model and not
+        # for the next.
+        assert body["image_input"] in ("yes", "no", "unknown")
 
         missing = client.get("/v1/models/card",
                              params={"model_id": "not-researched"})
