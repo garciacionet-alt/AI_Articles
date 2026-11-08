@@ -37,11 +37,12 @@
             </div>
         </div>
 
-        <!-- THE TABS. Three kinds of work, three places. Making an
+        <!-- THE TABS. Four kinds of work, four places. Making an
              image is one thing; LEARNING what the models are is
-             another; and keeping the good ones is a third. Cramming
-             them onto one long page means the thing you came back
-             for is somewhere below the fold. -->
+             another; keeping the good ones is a third; and BUILDING
+             against the API is a fourth. Cramming them onto one long
+             page means the thing you came back for is somewhere below
+             the fold. -->
         <div class="tabs" role="tablist" aria-label="Sections">
             <button type="button" class="tab active" data-tab="make"
                     role="tab" aria-selected="true"
@@ -52,6 +53,9 @@
             <button type="button" class="tab" data-tab="references"
                     role="tab" aria-selected="false"
                     aria-controls="panel-references">References</button>
+            <button type="button" class="tab" data-tab="api"
+                    role="tab" aria-selected="false"
+                    aria-controls="panel-api">API</button>
         </div>
 
         <!-- THE MAKE PANEL: everything that was here before, unchanged.
@@ -241,6 +245,53 @@ here.</pre>
                     job.
                 </p>
                 <div class="reference-grid" id="reference-grid"></div>
+            </div>
+        </div>
+
+        <!-- THE API PANEL. For somebody building against this.
+             It reads the LIVE schema the running server publishes,
+             because a copy of the API would go stale the moment a
+             route changed — and a developer tab that lies is worse
+             than no developer tab. -->
+        <div class="panel hidden" id="panel-api" role="tabpanel">
+            <div class="api-browser">
+                <div class="api-head">
+                    <h2>API</h2>
+                    <p class="api-intro">
+                        This is the live schema this server publishes at
+                        <code>/openapi.json</code>, so it cannot be out of
+                        date. The full Swagger UI is at
+                        <a href="/docs" target="_blank" rel="noopener">/docs</a>.
+                    </p>
+                    <p class="api-note">
+                        The appliance's bearer never appears in the page and
+                        never leaves the agency — the browser already talks
+                        to it, so the credential stays where it is.
+                    </p>
+                </div>
+                <div class="api-columns">
+                    <div class="api-list-pane">
+                        <input type="search" id="api-search"
+                               placeholder="Filter the endpoints…"
+                               autocomplete="off">
+                        <div class="api-endpoints" id="api-endpoints"></div>
+                    </div>
+                    <div class="api-detail-pane">
+                        <div class="api-detail" id="api-detail">
+                            <p class="api-empty">Pick an endpoint.</p>
+                        </div>
+                        <div class="api-console" id="api-console">
+                            <div class="api-console-head">
+                                <span class="api-method" id="api-method"></span>
+                                <span class="api-path" id="api-path"></span>
+                                <button type="button" id="api-send">Send</button>
+                            </div>
+                            <textarea id="api-body" spellcheck="false"
+                                      placeholder='{"request": "a lighthouse"}'></textarea>
+                            <pre class="api-response" id="api-response">The response appears here.</pre>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

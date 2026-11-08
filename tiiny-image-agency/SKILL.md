@@ -438,6 +438,12 @@ and the appliance URL in the CLI and in the surface: neither may have one.
   JPEG is stored with a `.jpg` name and served as `image/jpeg`. A JPEG
   carries no alpha channel, so its lineage says so; that loss happened
   before the agency ever saw the file.
+- **It has a developer tab.** The API tab renders the LIVE schema this
+  server publishes, so it cannot be out of date — a copy of the API
+  would go stale the moment a route changed, and a developer tab that
+  lies is worse than no developer tab. Every route with its fields and
+  its status codes, and a console that sends a request from the page
+  and shows what came back. The credential never appears in it.
 - **It can put your images in a document.** `tis pdf ast_1 ast_2 --out
   news.pdf` writes a PDF with one page per image. The images go into the
   PDF without being decoded and re-encoded: a JPEG is embedded as

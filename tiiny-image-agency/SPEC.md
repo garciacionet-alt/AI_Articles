@@ -802,9 +802,41 @@ Skill rules, in order of priority:
 5. **Report the model.** Say which model produced the asset and why. The model
    choice is the interesting part.
 
-## 7. Work Surface
+## 5.9 The developer tab reads the live schema
 
-**The surface has three tabs: Make, Models, References.**
+The surface has an **API tab**, for somebody building against the
+agency. It renders the schema the running server publishes at
+`/openapi.json` — the live one, not a copy.
+
+**Why the live one.** A copy of the API in a page is a copy that goes
+stale the moment a route changes, and a developer tab that lies is
+worse than no developer tab. The running server publishes its own
+schema, so the tab cannot be out of date: it *is* the server.
+
+**What it shows.** Every route with its method and what it is for; the
+fields each request body takes, with the required ones marked; the
+status codes each route answers with. The fields come from the schema's
+own component definitions, so they are the schema's names and types
+rather than a prose description of them.
+
+**And a console.** Reading a schema tells you what a request looks
+like; trying one tells you what it does. The console sends a request
+from the page and shows what came back, so an integrator's first call
+is on their own screen rather than in a terminal they had to hand-roll.
+The body is prefilled from the schema, so the first thing they do is
+edit a working example rather than write one from scratch.
+
+**The credential never appears.** The browser is already talking to the
+agency, and the agency's bearer stays where it is — the page says so,
+because "where does the key go" is the first question an integrator
+asks and it should not have to be asked in a terminal.
+
+FastAPI's own Swagger UI is at `/docs` and the tab points at it, rather
+than pretending to be the only way in.
+
+## 6. Work Surface
+
+**The surface has four tabs: Make, Models, References, API.**
 
 **Make** is the generation flow: the conversation, the canvas, the drop
 zone, the iteration strip, the roles, the resolver's alternatives, the

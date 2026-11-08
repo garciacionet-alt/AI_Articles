@@ -631,6 +631,249 @@ button:hover { filter: brightness(1.08); }
     min-width: 0;
 }
 
+/* THE API TAB. A developer tab has to be readable by somebody who is
+   looking at code, so the type is small and the verbs are coloured —
+   a method you can tell at a glance is worth more than a rounded
+   corner. */
+.api-browser {
+    overflow-y: auto;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+}
+
+.api-browser h2 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 650;
+}
+
+.api-intro,
+.api-note {
+    margin: 0 0 8px;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--muted);
+}
+
+.api-note {
+    color: var(--accent);
+}
+
+.api-intro code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--page);
+}
+
+.api-columns {
+    display: grid;
+    grid-template-columns: minmax(220px, 320px) 1fr;
+    gap: 12px;
+    align-items: start;
+}
+
+.api-list-pane,
+.api-detail-pane {
+    min-width: 0;
+}
+
+#api-search {
+    width: 100%;
+    font: inherit;
+    font-size: 12px;
+    padding: 7px 9px;
+    margin-bottom: 8px;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+}
+
+.api-endpoints {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 460px;
+    overflow-y: auto;
+}
+
+.api-endpoint {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    grid-template-areas: "verb route" "verb what";
+    gap: 0 8px;
+    align-items: baseline;
+    text-align: left;
+    font: inherit;
+    padding: 6px 8px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.api-endpoint:hover {
+    background: var(--page);
+}
+
+.api-verb {
+    grid-area: verb;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+}
+
+.api-verb.get { color: #0a63d8; }
+.api-verb.post { color: #15803d; }
+.api-verb.delete { color: #b91c1c; }
+
+.api-route {
+    grid-area: route;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+
+.api-what {
+    grid-area: what;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.api-empty {
+    margin: 8px 4px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.api-detail {
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+}
+
+.api-detail-title {
+    margin: 0 0 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.api-detail-summary {
+    margin: 0 0 4px;
+    font-size: 12px;
+    color: var(--ink);
+}
+
+.api-detail-description {
+    margin: 0 0 8px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
+.api-fields {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 12px;
+    margin: 8px 0 0;
+    font-size: 11px;
+}
+
+.api-fields dt {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--ink);
+}
+
+.api-fields dd {
+    margin: 0;
+    color: var(--muted);
+}
+
+.api-responses {
+    margin: 8px 0 0;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.api-console {
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    overflow: hidden;
+}
+
+.api-console-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    background: var(--page);
+    border-bottom: 1px solid var(--line);
+}
+
+.api-method {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+.api-path {
+    flex: 1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+
+#api-send {
+    font: inherit;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+}
+
+#api-body {
+    display: block;
+    width: 100%;
+    min-height: 110px;
+    resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    padding: 9px 10px;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    background: #fff;
+}
+
+.api-response {
+    margin: 0;
+    padding: 9px 10px;
+    max-height: 260px;
+    overflow: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--ink);
+    background: #fff;
+}
+
 /* THE GRID. A tile says what a model costs and what it can do, at a
    glance. The reading is in the pane beside it. */
 .card-grid {

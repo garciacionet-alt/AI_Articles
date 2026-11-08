@@ -73,6 +73,14 @@ const els = {
     saveReference: $('save-reference'),
     referenceName: $('reference-name'),
     saveReferenceButton: $('save-reference-button'),
+    apiSearch: $('api-search'),
+    apiEndpoints: $('api-endpoints'),
+    apiDetail: $('api-detail'),
+    apiMethod: $('api-method'),
+    apiPath: $('api-path'),
+    apiBody: $('api-body'),
+    apiSend: $('api-send'),
+    apiResponse: $('api-response'),
     dialogBackdrop: $('dialog-backdrop'),
     dialogModel: $('dialog-model'),
     dialogWhy: $('dialog-why'),
@@ -323,11 +331,229 @@ function clearSource() {
     els.sourcePreview.removeAttribute('src');
 }
 
+// -- the developer tab ----------------------------------------------------
+
+// The live schema. Not a copy of it: a copy would go stale the moment
+// a route changed, and a developer tab that lies is worse than no
+// developer tab. The running server publishes this, so it cannot drift.
+let openApiSchema = null;
+
+// The endpoint the console is aimed at.
+let apiMethod = '';
+let apiPath = '';
+
+function apiGet(path) {
+    return fetch(API + path, {headers: {'Accept': 'application/json'}});
+}
+
+async function loadOpenApi() {
+    const response = await fetch(API + '/openapi.json');
+    if (!response.ok) {
+        els.apiEndpoints.textContent = 'The schema could not be read: HTTP '
+            + response.status;
+        return;
+    }
+    openApiSchema = await response.json();
+    renderEndpoints();
+}
+
+// Every route, one row each: the method, the path, and what it is for.
+function apiRoutes() {
+    if (!openApiSchema) {
+        return [];
+    }
+    const rows = [];
+    for (const [path, methods] of Object.entries(openApiSchema.paths || {})) {
+        for (const [method, operation] of Object.entries(methods)) {
+            rows.push({path, method: method.toUpperCase(), operation});
+        }
+    }
+    rows.sort((a, b) => (a.path === b.path
+        ? a.method.localeCompare(b.method)
+        : a.path.localeCompare(b.path)));
+    return rows;
+}
+
+function renderEndpoints() {
+    const term = (els.apiSearch.value || '').trim().toLowerCase();
+    els.apiEndpoints.innerHTML = '';
+    const rows = apiRoutes().filter((row) => {
+        if (!term) {
+            return true;
+        }
+        return (row.path + ' ' + row.method + ' '
+            + (row.operation.summary || '')).toLowerCase().includes(term);
+    });
+    if (!rows.length) {
+        const empty = document.createElement('p');
+        empty.className = 'api-empty';
+        empty.textContent = 'No endpoint matches that.';
+        els.apiEndpoints.appendChild(empty);
+        return;
+    }
+    for (const row of rows) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'api-endpoint';
+        button.dataset.method = row.method;
+        button.dataset.path = row.path;
+        const verb = document.createElement('span');
+        verb.className = 'api-verb ' + row.method.toLowerCase();
+        verb.textContent = row.method;
+        const route = document.createElement('span');
+        route.className = 'api-route';
+        route.textContent = row.path;
+        const what = document.createElement('span');
+        what.className = 'api-what';
+        what.textContent = row.operation.summary || '';
+        button.appendChild(verb);
+        button.appendChild(route);
+        button.appendChild(what);
+        button.addEventListener('click', () => showEndpoint(row));
+        els.apiEndpoints.appendChild(button);
+    }
+}
+
+// What one endpoint looks like: what it is for, what it takes, and what
+// it gives back. The parameters come from the schema, so they are the
+// schema's names and types rather than a prose description of them.
+function showEndpoint(row) {
+    const operation = row.operation;
+    els.apiDetail.innerHTML = '';
+
+    const heading = document.createElement('h3');
+    heading.className = 'api-detail-title';
+    heading.textContent = row.method + '  ' + row.path;
+    els.apiDetail.appendChild(heading);
+
+    if (operation.summary) {
+        const summary = document.createElement('p');
+        summary.className = 'api-detail-summary';
+        summary.textContent = operation.summary;
+        els.apiDetail.appendChild(summary);
+    }
+    if (operation.description) {
+        const description = document.createElement('p');
+        description.className = 'api-detail-description';
+        description.textContent = operation.description;
+        els.apiDetail.appendChild(description);
+    }
+
+    // The request body: the fields, their types, and which are
+    // required. The schema knows; this only reads it.
+    const schemaName = operation.requestBody?.content
+        ?.['application/json']?.schema?.['$ref'];
+    if (schemaName) {
+        const name = schemaName.split('/').pop();
+        const schema = openApiSchema.components?.schemas?.[name];
+        if (schema) {
+            const fields = document.createElement('dl');
+            fields.className = 'api-fields';
+            for (const [field, spec] of Object.entries(schema.properties || {})) {
+                const required = (schema.required || []).includes(field);
+                const term = document.createElement('dt');
+                term.textContent = field + (required ? ' *' : '');
+                const value = document.createElement('dd');
+                value.textContent = spec.type
+                    || (spec.anyOf ? spec.anyOf.map((s) => s.type).join(' or ') : '')
+                    || 'any';
+                fields.appendChild(term);
+                fields.appendChild(value);
+            }
+            els.apiDetail.appendChild(fields);
+        }
+    }
+
+    // The responses: the codes, and what each one means.
+    const codes = Object.keys(operation.responses || {});
+    if (codes.length) {
+        const responses = document.createElement('p');
+        responses.className = 'api-responses';
+        responses.textContent = 'Responds: ' + codes.join(', ');
+        els.apiDetail.appendChild(responses);
+    }
+
+    // Aim the console at this endpoint, and prefill the body with the
+    // fields it takes, so the first thing an integrator does is edit a
+    // working example rather than write one from scratch.
+    apiMethod = row.method;
+    apiPath = row.path;
+    els.apiMethod.textContent = row.method;
+    els.apiMethod.className = 'api-method ' + row.method.toLowerCase();
+    els.apiPath.textContent = row.path;
+    els.apiBody.value = exampleBody(row);
+}
+
+function exampleBody(row) {
+    const schemaName = row.operation.requestBody?.content
+        ?.['application/json']?.schema?.['$ref'];
+    if (!schemaName) {
+        return '';
+    }
+    const name = schemaName.split('/').pop();
+    const schema = openApiSchema.components?.schemas?.[name];
+    if (!schema) {
+        return '';
+    }
+    const example = {};
+    for (const [field, spec] of Object.entries(schema.properties || {})) {
+        if (spec.default !== undefined) {
+            example[field] = spec.default;
+        } else if (spec.type === 'string') {
+            example[field] = '';
+        } else if (spec.type === 'integer' || spec.type === 'number') {
+            example[field] = 0;
+        } else if (spec.type === 'boolean') {
+            example[field] = false;
+        } else if (spec.type === 'array') {
+            example[field] = [];
+        } else if (spec.type === 'object') {
+            example[field] = {};
+        }
+    }
+    return Object.keys(example).length
+        ? JSON.stringify(example, null, 2)
+        : '';
+}
+
+// Send it, and show what came back. The status first: an integrator's
+// first question is "did it work", and the answer should be on the
+// screen rather than in a terminal they had to hand-roll.
+async function sendApiRequest() {
+    if (!apiMethod || !apiPath) {
+        els.apiResponse.textContent = 'Pick an endpoint first.';
+        return;
+    }
+    els.apiResponse.textContent = 'Sending…';
+    const options = {method: apiMethod, headers: {}};
+    const body = (els.apiBody.value || '').trim();
+    if (body) {
+        options.headers['Content-Type'] = 'application/json';
+        options.body = body;
+    }
+    try {
+        const response = await fetch(API + apiPath, options);
+        const text = await response.text();
+        let shown = text;
+        try {
+            shown = JSON.stringify(JSON.parse(text), null, 2);
+        } catch (error) {
+            // Not JSON. The raw text is the answer.
+        }
+        els.apiResponse.textContent = 'HTTP ' + response.status
+            + (response.ok ? '' : '  (failed)') + '\n\n' + shown;
+    } catch (error) {
+        els.apiResponse.textContent = 'The request failed: ' + error.message;
+    }
+}
+
 // -- the tabs -------------------------------------------------------------
 
 // Three kinds of work, three places. The Models tab is where a person
 // goes to LEARN what the models are, so it is a tab of its own and not
-// something buried under the generator.
+// something buried under the generator. The API tab is where somebody
+// BUILDING against the agency goes, and it reads the live schema so
+// it cannot be out of date.
 const TAB_LOADERS = {};
 
 function showTab(name) {
@@ -1233,6 +1459,13 @@ wireTabs();
 wireCardFilters();
 TAB_LOADERS.models = {run: loadAllCards};
 TAB_LOADERS.references = {run: loadReferences};
+
+// THE API TAB. It reads the live schema the first time it is opened,
+// and the filter re-renders the list from what it already has — the
+// same rule as the card grid: a keystroke is not a request.
+TAB_LOADERS.api = {run: loadOpenApi};
+els.apiSearch.addEventListener('input', renderEndpoints);
+els.apiSend.addEventListener('click', sendApiRequest);
 
 // THE REFERENCES. Saving the picture you liked, and using one to make
 // the next one come out the same way.
