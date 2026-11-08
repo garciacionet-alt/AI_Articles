@@ -47,6 +47,7 @@ const els = {
     modelMeasured: $('model-measured'),
     image: $('generated-image'),
     placeholder: $('image-placeholder'),
+    imageContainer: document.querySelector('.image-container'),
     thumbs: $('thumbs'),
     lineage: $('lineage-body'),
     roleConversation: $('role-conversation'),
@@ -1572,6 +1573,22 @@ els.feedbackForm.addEventListener('submit', revise);
 els.roleConversation.addEventListener('change', () => setRole('conversation'));
 els.roleCritic.addEventListener('change', () => setRole('critic'));
 
+// A STRAY DROP MUST NEVER LEAVE THE APP. This was a real bug: the
+// dropzone's own handler only fires when the drop lands exactly on
+// that small labelled box, and the canvas below it - where the
+// picture a person actually wants to replace is sitting - had no
+// listener at all. A drop that misses every real target fell through
+// to the browser's own default action, which is to navigate the tab
+// to the dropped file. This guard runs on the WHOLE WINDOW and only
+// prevents that default; it does not stop the event, so the real
+// drop targets below still see it and still act on it.
+window.addEventListener('dragover', (event) => {
+    event.preventDefault();
+});
+window.addEventListener('drop', (event) => {
+    event.preventDefault();
+});
+
 // THE DROP ZONE. A drag anywhere on it, or a click to choose a file.
 els.dropzone.addEventListener('dragover', (event) => {
     event.preventDefault();
@@ -1583,6 +1600,25 @@ els.dropzone.addEventListener('dragleave', () => {
 els.dropzone.addEventListener('drop', (event) => {
     event.preventDefault();
     els.dropzone.classList.remove('dragging');
+    const files = event.dataTransfer && event.dataTransfer.files;
+    if (files && files.length) {
+        uploadSource(files[0]);
+    }
+});
+
+// THE CANVAS. Dropping the picture onto the picture itself is at
+// least as natural as finding the small box above it, and it is the
+// SAME upload - there is one path, not two that can drift apart.
+els.imageContainer.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    els.imageContainer.classList.add('dragging');
+});
+els.imageContainer.addEventListener('dragleave', () => {
+    els.imageContainer.classList.remove('dragging');
+});
+els.imageContainer.addEventListener('drop', (event) => {
+    event.preventDefault();
+    els.imageContainer.classList.remove('dragging');
     const files = event.dataTransfer && event.dataTransfer.files;
     if (files && files.length) {
         uploadSource(files[0]);

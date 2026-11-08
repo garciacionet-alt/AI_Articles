@@ -438,6 +438,11 @@ and the appliance URL in the CLI and in the surface: neither may have one.
   JPEG is stored with a `.jpg` name and served as `image/jpeg`. A JPEG
   carries no alpha channel, so its lineage says so; that loss happened
   before the agency ever saw the file.
+- **Dropping onto the picture works too, not just the labelled box
+  above it.** And a drop that misses every real target cannot
+  navigate the tab away — a page-wide guard prevents the browser's
+  own default action without stopping the event, so the real drop
+  zones still see it and still act on it.
 - **"Using it" and "API" share one tab.** The text is rendered from
   the single file the agency serves at `/v1/using-it` — not typed
   into the page a second time. The file ships with the package

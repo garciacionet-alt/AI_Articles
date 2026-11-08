@@ -900,6 +900,15 @@ somebody glances at to decide whether the appliance can take a job
 right now. A wrong answer there sends them to the wrong conclusion,
 so the meter says what it knows and admits what it does not.
 
+## 5.13 A drop that misses every target cannot leave the app
+
+Dropping an image onto the **picture itself** works, not only onto
+the small labelled box above it — the canvas is a second drop target
+with the same upload. And any drop that misses every real target
+still cannot navigate the tab away to the dropped file: a page-wide
+guard prevents the browser's own default action without stopping the
+event, so the real drop zones still see it and still act on it.
+
 ## 6. Work Surface
 
 **The surface has four tabs: Make, Models, References, API.**

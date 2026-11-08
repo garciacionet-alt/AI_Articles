@@ -350,6 +350,7 @@ button:hover { filter: brightness(1.08); }
     justify-content: center;
     align-items: center;
     overflow: hidden;
+    transition: border-color 120ms ease, background 120ms ease;
     /* The checkerboard is the alpha, shown honestly: what you see is
        what the PNG actually carries. */
     background-color: var(--checker-a);
@@ -555,6 +556,13 @@ button:hover { filter: brightness(1.08); }
 
 .dropzone:hover,
 .dropzone.dragging {
+    border-color: var(--accent);
+    background: var(--tint);
+}
+
+/* A drop onto the picture itself is as valid as a drop onto the
+   labelled box above it - the same highlight says so. */
+.image-container.dragging {
     border-color: var(--accent);
     background: var(--tint);
 }
