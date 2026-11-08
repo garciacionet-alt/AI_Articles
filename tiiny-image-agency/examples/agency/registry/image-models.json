@@ -49,7 +49,7 @@
         ],
         "context_window": null,
         "image_size": "2048x2048 (recommended)",
-        "status": "running",
+        "status": "downloaded",
         "version_label": "20261029",
         "load_time": 0
       },
@@ -60,7 +60,8 @@
           "sticker",
           "cutout",
           "illustration",
-          "photo"
+          "photo",
+          "comic"
         ],
         "alpha": true,
         "alpha_kind": "native-rgba",
@@ -97,8 +98,8 @@
         "combined_npu_pct": 55,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Community uncensored quant build of Qwen-Image-2.1 with its own packaged runtime. Reports 0% NPU, so it coexists with a resident planner. Treat as a research build: the quantization is community-run, not vendor-supported.",
-      "provenance": "d"
+      "notes": "Community uncensored quant build of Qwen-Image-2.1 with its own packaged runtime. Reports 0% NPU, so it coexists with a resident planner. Treat as a research build: the quantization is community-run, not vendor-supported.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, comic, illustration; handled flat and realistic style; rendered 25.52% transparent pixels; got text right.",
+      "provenance": "d,m"
     },
     {
       "id": "black-forest-labs/FLUX.2-klein-4B",
@@ -124,7 +125,10 @@
         "artifact": [
           "illustration",
           "photo",
-          "texture"
+          "texture",
+          "logo",
+          "comic",
+          "infographic"
         ],
         "alpha": false,
         "alpha_kind": null,
@@ -156,8 +160,8 @@
         "combined_npu_pct": 74,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Fastest generating model in the catalogue \u2014 sub-second on the device's own terms. Apache 2.0. The only non-Z-Image generator with multi-reference support.",
-      "provenance": "d"
+      "notes": "Fastest generating model in the catalogue \u2014 sub-second on the device's own terms. Apache 2.0. The only non-Z-Image generator with multi-reference support.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, illustration, comic, infographic; handled flat and realistic style; rendered an opaque background; got text right.",
+      "provenance": "d,m"
     },
     {
       "id": "fal/FLUX.2-klein-4B-Background-Remove",
@@ -183,9 +187,15 @@
       },
       "specialty": {
         "artifact": [
-          "cutout"
+          "cutout",
+          "icon",
+          "logo",
+          "photo",
+          "illustration",
+          "comic",
+          "infographic"
         ],
-        "alpha": true,
+        "alpha": false,
         "alpha_kind": null,
         "text_rendering": "n/a",
         "style": [
@@ -216,7 +226,7 @@
         "combined_npu_pct": 74,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Cuts the main subject out of a photo. Product photography and compositing without manual masking.",
+      "notes": "Cuts the main subject out of a photo. Product photography and compositing without manual masking.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration, comic, infographic; handled flat and realistic style; rendered an opaque background; got text right.",
       "provenance": "d,m"
     },
     {
@@ -243,7 +253,13 @@
       },
       "specialty": {
         "artifact": [
-          "edit"
+          "edit",
+          "icon",
+          "logo",
+          "photo",
+          "poster",
+          "comic",
+          "illustration"
         ],
         "alpha": false,
         "alpha_kind": null,
@@ -277,8 +293,8 @@
         "combined_npu_pct": 74,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Removes marked objects and fills the area contextually.",
-      "provenance": "d"
+      "notes": "Removes marked objects and fills the area contextually.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "provenance": "d,m"
     },
     {
       "id": "fal/FLUX.2-klein-4B-Outpaint",
@@ -304,7 +320,12 @@
       },
       "specialty": {
         "artifact": [
-          "edit"
+          "edit",
+          "logo",
+          "photo",
+          "poster",
+          "comic",
+          "illustration"
         ],
         "alpha": false,
         "alpha_kind": null,
@@ -337,8 +358,8 @@
         "combined_npu_pct": 75,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Extends past the original borders, matching the scene.",
-      "provenance": "d"
+      "notes": "Extends past the original borders, matching the scene.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "provenance": "d,m"
     },
     {
       "id": "fal/FLUX.2-klein-4B-Zoom",
@@ -364,7 +385,12 @@
       },
       "specialty": {
         "artifact": [
-          "edit"
+          "edit",
+          "logo",
+          "photo",
+          "poster",
+          "comic",
+          "illustration"
         ],
         "alpha": false,
         "alpha_kind": null,
@@ -397,8 +423,8 @@
         "combined_npu_pct": 75,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Regenerates a marked region enlarged WITH added detail. Not an upscaler \u2014 it re-imagines the region.",
-      "provenance": "d"
+      "notes": "Regenerates a marked region enlarged WITH added detail. Not an upscaler \u2014 it re-imagines the region.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "provenance": "d,m"
     },
     {
       "id": "TaoBaiBai2025/Z-Image-Turbo-Creating-Realistic",
@@ -423,7 +449,10 @@
       "specialty": {
         "artifact": [
           "photo",
-          "illustration"
+          "illustration",
+          "icon",
+          "logo",
+          "comic"
         ],
         "alpha": false,
         "alpha_kind": null,
@@ -455,7 +484,7 @@
         "combined_npu_pct": 78,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Same adapter family and NPU cost as the base. The device's own description for this model is wrong (it carries the CharacterDesignSheet text) \u2014 trust the name, not `desc`.",
+      "notes": "Same adapter family and NPU cost as the base. The device's own description for this model is wrong (it carries the CharacterDesignSheet text) \u2014 trust the name, not `desc`.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration, comic; handled flat and realistic style; rendered an opaque background; got text right.",
       "provenance": "d,m"
     },
     {
@@ -484,7 +513,9 @@
           "photo",
           "logo",
           "poster",
-          "texture"
+          "texture",
+          "icon",
+          "comic"
         ],
         "alpha": false,
         "alpha_kind": null,
@@ -520,7 +551,7 @@
         "combined_npu_pct": 78,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "8 steps, guidance 0.0. ~9s at 512px, ~55s at 1024px. The default for good reason \u2014 cheapest iteration loop in the catalogue.",
+      "notes": "8 steps, guidance 0.0. ~9s at 512px, ~55s at 1024px. The default for good reason \u2014 cheapest iteration loop in the catalogue.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
       "provenance": "d,m"
     },
     {
@@ -578,8 +609,8 @@
         "combined_npu_pct": 78,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "A LoRA that drops into any existing prompt unmodified.",
-      "provenance": "d"
+      "notes": "A LoRA that drops into any existing prompt unmodified.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at illustration; handled flat style; rendered an opaque background; got text right.",
+      "provenance": "d,m"
     },
     {
       "id": "YeiYeiArt/Z-Image-Turbo-CharacterDesignSheet",
@@ -603,7 +634,13 @@
       },
       "specialty": {
         "artifact": [
-          "character_sheet"
+          "character_sheet",
+          "icon",
+          "logo",
+          "photo",
+          "poster",
+          "comic",
+          "illustration"
         ],
         "alpha": false,
         "alpha_kind": null,
@@ -634,8 +671,8 @@
         "combined_npu_pct": 78,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "For concept artists and game character designers.",
-      "provenance": "d"
+      "notes": "For concept artists and game character designers.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "provenance": "d,m"
     },
     {
       "id": "baidu/ERNIE-Image-Turbo",
@@ -662,7 +699,9 @@
           "poster",
           "infographic",
           "comic",
-          "logo"
+          "logo",
+          "photo",
+          "illustration"
         ],
         "alpha": false,
         "alpha_kind": null,
@@ -694,8 +733,8 @@
         "combined_npu_pct": 82,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "The typography specialist. 8 steps, guidance 0.0.",
-      "provenance": "d"
+      "notes": "The typography specialist. 8 steps, guidance 0.0.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "provenance": "d,m"
     },
     {
       "id": "HiDream-ai/HiDream-O1-Image-Dev",
@@ -720,7 +759,9 @@
       "specialty": {
         "artifact": [
           "photo",
-          "illustration"
+          "illustration",
+          "icon",
+          "logo"
         ],
         "alpha": false,
         "alpha_kind": null,
@@ -735,7 +776,7 @@
         ],
         "max_refs": null,
         "quality": "highest",
-        "speed": "slow"
+        "speed": "fast"
       },
       "prompting": {
         "dialect": "Dense and specific. Name materials, textures, the light source, and the lens. 28 steps \u2014 it rewards a fuller prompt than the 8-step models do.",
@@ -752,7 +793,7 @@
         "combined_npu_pct": 85,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "The fidelity ceiling in the catalogue \u2014 fur, foliage, reflections. ~34s at 1024x1024. Earns its keep only when detail IS the subject.",
+      "notes": "The fidelity ceiling in the catalogue \u2014 fur, foliage, reflections. ~34s at 1024x1024. Earns its keep only when detail IS the subject.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
       "provenance": "d,m"
     },
     {
@@ -778,7 +819,11 @@
       "specialty": {
         "artifact": [
           "photo",
-          "illustration"
+          "illustration",
+          "icon",
+          "logo",
+          "poster",
+          "comic"
         ],
         "alpha": false,
         "alpha_kind": null,
@@ -790,7 +835,7 @@
         "edit_ops": [],
         "max_refs": null,
         "quality": "unknown",
-        "speed": "unknown"
+        "speed": "fast"
       },
       "prompting": {
         "dialect": "Provisionally the DESCRIPTIVE dialect: SUBJECT FIRST, then the\nmodifiers. That is the safest guess for a photoreal generator and\nit is only a guess - NOT YET CHARACTERISED. The appliance offers\nthis model, it was downloaded on 7 Nov, and a model nobody has run\nis a model nobody can route to. The research loop measures it and\nreplaces this entry with what it found. Until then the resolver\nwill not pick it for a request it has not been shown to satisfy.",
@@ -804,8 +849,8 @@
         "combined_npu_pct": 91,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "The device's description claims photoreal rendering from a 12B\nrectified-flow transformer at 36% NPU. NONE of that is measured\nhere yet \u2014 the research run is what will say whether it is true.\nKept out of the acceptance table until it has a card.",
-      "provenance": "d"
+      "notes": "The device's description claims photoreal rendering from a 12B\nrectified-flow transformer at 36% NPU. NONE of that is measured\nhere yet \u2014 the research run is what will say whether it is true.\nKept out of the acceptance table until it has a card.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster, comic, illustration; handled flat and realistic style; rendered an opaque background; got text right.",
+      "provenance": "d,m"
     },
     {
       "id": "SenseTime/SenseNova-U1.5-8B-MoT",
@@ -831,7 +876,8 @@
         "artifact": [
           "poster",
           "illustration",
-          "photo"
+          "photo",
+          "logo"
         ],
         "alpha": false,
         "alpha_kind": null,
@@ -862,8 +908,8 @@
         "combined_npu_pct": 103,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "Generates in pixel space, no separate VAE decoder. 48% NPU \u2014 needs a swap alongside a 55% planner.",
-      "provenance": "d"
+      "notes": "Generates in pixel space, no separate VAE decoder. 48% NPU \u2014 needs a swap alongside a 55% planner.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at illustration, logo, poster; handled flat and realistic style; rendered an opaque background; got text right.",
+      "provenance": "d,m"
     },
     {
       "id": "Qwen/Qwen-Image-2.1",
@@ -894,7 +940,8 @@
           "sticker",
           "cutout",
           "illustration",
-          "photo"
+          "photo",
+          "comic"
         ],
         "alpha": true,
         "alpha_kind": "native-rgba",
@@ -931,8 +978,8 @@
         "combined_npu_pct": 117,
         "note": "Derived from the device's reported npu_usage field. Approximate \u2014 validate against observed NPU MB."
       },
-      "notes": "THE transparency model. Native RGBA output \u2014 stickers, logos and cutouts come out ready to place, no background-removal step. 40 steps, 62% NPU: the most expensive image model here, and it cannot coexist with a 55% planner. Planning consequence, not a reason to avoid it.",
-      "provenance": "d"
+      "notes": "THE transparency model. Native RGBA output \u2014 stickers, logos and cutouts come out ready to place, no background-removal step. 40 steps, 62% NPU: the most expensive image model here, and it cannot coexist with a 55% planner. Planning consequence, not a reason to avoid it.\n\nMEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration, comic; handled flat and realistic style; rendered 16.07% transparent pixels; got text right.",
+      "provenance": "d,m"
     },
     {
       "id": "Qwen/Qwen-Image-2.1-PE-T2I",

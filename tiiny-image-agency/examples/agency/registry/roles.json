@@ -140,7 +140,7 @@
         "context_window": 262144,
         "input": "Text,Image",
         "type": "Image-Text-to-Text",
-        "status": "downloaded",
+        "status": "running",
         "size_bytes": 17422442601,
         "load_time": 13,
         "thinking": {

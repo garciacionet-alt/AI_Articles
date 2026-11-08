@@ -7,6 +7,8 @@ models:
     - logo
     - poster
     - texture
+    - icon
+    - comic
     alpha: false
     text_rendering: strong
     style:
@@ -15,8 +17,11 @@ models:
     edit_ops: []
     quality: high
     speed: fast
-    dialect: |
-      Plain descriptive English. Subject first, then modifiers, then lighting and mood. No prompt-engineering keywords, no quality booster tokens, no comma salad.
+    dialect: 'Plain descriptive English. Subject first, then modifiers, then lighting
+      and mood. No prompt-engineering keywords, no quality booster tokens, no comma
+      salad.
+
+      '
     sizes_verified:
     - 512x512
     - 1024x1024
@@ -28,14 +33,22 @@ models:
     - 1024x1536
     - 1792x1024
     rejected_reason: exceeds max transformer tokens 5760 / max_width 1536
-    notes: |
-      8 steps, guidance 0.0. ~9s at 512px, ~55s at 1024px. The default for good reason — cheapest iteration loop in the catalogue.
+    notes: '8 steps, guidance 0.0. ~9s at 512px, ~55s at 1024px. The default for good
+      reason — cheapest iteration loop in the catalogue.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, photo, poster,
+      comic, illustration; handled flat and realistic style; rendered an opaque background;
+      got text right.'
     provenance: d,m
   TaoBaiBai2025/Z-Image-Turbo-Creating-Realistic:
     role: specialist
     artifact:
     - photo
     - illustration
+    - icon
+    - logo
+    - comic
     alpha: false
     text_rendering: weak
     style:
@@ -44,16 +57,24 @@ models:
     edit_ops: []
     quality: high
     speed: fast
-    dialect: |
-      Name the person concretely — age range, hair, skin, fabric, expression. Describing the person as an object produces a mannequin.
+    dialect: 'Name the person concretely — age range, hair, skin, fabric, expression.
+      Describing the person as an object produces a mannequin.
+
+      '
     sizes_verified:
     - 512x512
     - 1024x1024
     - 1280x768
     - 1152x768
     - 1024x768
-    notes: |
-      Same adapter family and NPU cost as the base. The device's own description for this model is wrong (it carries the CharacterDesignSheet text) — trust the name, not `desc`.
+    notes: 'Same adapter family and NPU cost as the base. The device''s own description
+      for this model is wrong (it carries the CharacterDesignSheet text) — trust the
+      name, not `desc`.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration,
+      comic; handled flat and realistic style; rendered an opaque background; got
+      text right.'
     provenance: d,m
   Tongyi-MAI/Z-Image-Turbo-Children-Drawing:
     role: style
@@ -68,21 +89,32 @@ models:
     edit_ops: []
     quality: medium
     speed: fast
-    dialect: |
-      None needed. The style applies automatically regardless of prompt content — the only model in the catalogue where style is guaranteed to apply.
+    dialect: 'None needed. The style applies automatically regardless of prompt content
+      — the only model in the catalogue where style is guaranteed to apply.
+
+      '
     sizes_verified:
     - 512x512
     - 1024x1024
     - 1280x768
     - 1152x768
     - 1024x768
-    notes: |
-      A LoRA that drops into any existing prompt unmodified.
-    provenance: d
+    notes: 'A LoRA that drops into any existing prompt unmodified.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at illustration; handled
+      flat style; rendered an opaque background; got text right.'
+    provenance: d,m
   YeiYeiArt/Z-Image-Turbo-CharacterDesignSheet:
     role: specialist
     artifact:
     - character_sheet
+    - icon
+    - logo
+    - photo
+    - poster
+    - comic
+    - illustration
     alpha: false
     text_rendering: weak
     style:
@@ -90,17 +122,23 @@ models:
     edit_ops: []
     quality: high
     speed: fast
-    dialect: |
-      Ask for the sheet explicitly: multiple views, expression variants, a palette swatch. One character, consistent across panels.
+    dialect: 'Ask for the sheet explicitly: multiple views, expression variants, a
+      palette swatch. One character, consistent across panels.
+
+      '
     sizes_verified:
     - 512x512
     - 1024x1024
     - 1280x768
     - 1152x768
     - 1024x768
-    notes: |
-      For concept artists and game character designers.
-    provenance: d
+    notes: 'For concept artists and game character designers.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster,
+      comic, illustration; handled flat and realistic style; rendered an opaque background;
+      got text right.'
+    provenance: d,m
   baidu/ERNIE-Image-Turbo:
     role: specialist
     artifact:
@@ -108,6 +146,8 @@ models:
     - infographic
     - comic
     - logo
+    - photo
+    - illustration
     alpha: false
     text_rendering: best
     style:
@@ -116,23 +156,33 @@ models:
     edit_ops: []
     quality: high
     speed: fast
-    dialect: |
-      Give the exact text verbatim, and say where it goes: 'title reads X, top banner reads Y'. Layout instructions matter more than visual adjectives for this model.
+    dialect: 'Give the exact text verbatim, and say where it goes: ''title reads X,
+      top banner reads Y''. Layout instructions matter more than visual adjectives
+      for this model.
+
+      '
     sizes_verified:
     - 512x512
     - 1024x1024
     - 1280x768
     - 1152x768
     - 1024x768
-    notes: |
-      The typography specialist. 8 steps, guidance 0.0.
-    provenance: d
+    notes: 'The typography specialist. 8 steps, guidance 0.0.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster,
+      illustration; handled flat and realistic style; rendered an opaque background;
+      got text right.'
+    provenance: d,m
   black-forest-labs/FLUX.2-klein-4B:
     role: fast-base
     artifact:
     - illustration
     - photo
     - texture
+    - logo
+    - comic
+    - infographic
     alpha: false
     text_rendering: weak
     style:
@@ -141,22 +191,35 @@ models:
     edit_ops: []
     quality: medium
     speed: fastest
-    dialect: |
-      Short and literal. 4 diffusion steps, rectified flow — it rewards brevity over elaboration.
+    dialect: 'Short and literal. 4 diffusion steps, rectified flow — it rewards brevity
+      over elaboration.
+
+      '
     sizes_verified:
     - 512x512
     - 1024x1024
     - 1280x768
     - 1152x768
     - 1024x768
-    notes: |
-      Fastest generating model in the catalogue — sub-second on the device's own terms. Apache 2.0. The only non-Z-Image generator with multi-reference support.
-    provenance: d
+    notes: 'Fastest generating model in the catalogue — sub-second on the device''s
+      own terms. Apache 2.0. The only non-Z-Image generator with multi-reference support.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, illustration,
+      comic, infographic; handled flat and realistic style; rendered an opaque background;
+      got text right.'
+    provenance: d,m
   fal/FLUX.2-klein-4B-Background-Remove:
     role: edit-adapter
     artifact:
     - cutout
-    alpha: true
+    - icon
+    - logo
+    - photo
+    - illustration
+    - comic
+    - infographic
+    alpha: false
     text_rendering: n/a
     style:
     - n/a
@@ -164,21 +227,33 @@ models:
     - background_remove
     quality: n/a
     speed: fastest
-    dialect: |
-      Not a generator. Operates on an input image.
+    dialect: 'Not a generator. Operates on an input image.
+
+      '
     sizes_verified:
     - 512x512
     - 1024x1024
     - 1280x768
     - 1152x768
     - 1024x768
-    notes: |
-      Cuts the main subject out of a photo. Product photography and compositing without manual masking.
+    notes: 'Cuts the main subject out of a photo. Product photography and compositing
+      without manual masking.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration,
+      comic, infographic; handled flat and realistic style; rendered an opaque background;
+      got text right.'
     provenance: d,m
   fal/FLUX.2-klein-4B-Object-Remove:
     role: edit-adapter
     artifact:
     - edit
+    - icon
+    - logo
+    - photo
+    - poster
+    - comic
+    - illustration
     alpha: false
     text_rendering: n/a
     style:
@@ -188,21 +263,31 @@ models:
     - inpaint
     quality: n/a
     speed: fastest
-    dialect: |
-      Not a generator. Operates on an input image.
+    dialect: 'Not a generator. Operates on an input image.
+
+      '
     sizes_verified:
     - 512x512
     - 1024x1024
     - 1280x768
     - 1152x768
     - 1024x768
-    notes: |
-      Removes marked objects and fills the area contextually.
-    provenance: d
+    notes: 'Removes marked objects and fills the area contextually.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster,
+      comic, illustration; handled flat and realistic style; rendered an opaque background;
+      got text right.'
+    provenance: d,m
   fal/FLUX.2-klein-4B-Outpaint:
     role: edit-adapter
     artifact:
     - edit
+    - logo
+    - photo
+    - poster
+    - comic
+    - illustration
     alpha: false
     text_rendering: n/a
     style:
@@ -211,21 +296,31 @@ models:
     - outpaint
     quality: n/a
     speed: fastest
-    dialect: |
-      Not a generator. Operates on an input image.
+    dialect: 'Not a generator. Operates on an input image.
+
+      '
     sizes_verified:
     - 512x512
     - 1024x1024
     - 1280x768
     - 1152x768
     - 1024x768
-    notes: |
-      Extends past the original borders, matching the scene.
-    provenance: d
+    notes: 'Extends past the original borders, matching the scene.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster,
+      comic, illustration; handled flat and realistic style; rendered an opaque background;
+      got text right.'
+    provenance: d,m
   fal/FLUX.2-klein-4B-Zoom:
     role: edit-adapter
     artifact:
     - edit
+    - logo
+    - photo
+    - poster
+    - comic
+    - illustration
     alpha: false
     text_rendering: n/a
     style:
@@ -234,22 +329,30 @@ models:
     - detail_regen
     quality: n/a
     speed: fastest
-    dialect: |
-      Not a generator. Operates on an input image.
+    dialect: 'Not a generator. Operates on an input image.
+
+      '
     sizes_verified:
     - 512x512
     - 1024x1024
     - 1280x768
     - 1152x768
     - 1024x768
-    notes: |
-      Regenerates a marked region enlarged WITH added detail. Not an upscaler — it re-imagines the region.
-    provenance: d
+    notes: 'Regenerates a marked region enlarged WITH added detail. Not an upscaler
+      — it re-imagines the region.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, poster,
+      comic, illustration; handled flat and realistic style; rendered an opaque background;
+      got text right.'
+    provenance: d,m
   HiDream-ai/HiDream-O1-Image-Dev:
     role: quality-leader
     artifact:
     - photo
     - illustration
+    - icon
+    - logo
     alpha: false
     text_rendering: weak
     style:
@@ -259,15 +362,21 @@ models:
     - instruction_edit
     - subject_personalization
     quality: highest
-    speed: slow
-    dialect: |
-      Dense and specific. Name materials, textures, the light source, and the lens. 28 steps — it rewards a fuller prompt than the 8-step models do.
+    speed: fast
+    dialect: 'Dense and specific. Name materials, textures, the light source, and
+      the lens. 28 steps — it rewards a fuller prompt than the 8-step models do.
+
+      '
     sizes_verified:
     - 1024x1024
     - 2048x2048
     size_rule: multiples of 32; (w/32)*(h/32) <= 4096
-    notes: |
-      The fidelity ceiling in the catalogue — fur, foliage, reflections. ~34s at 1024x1024. Earns its keep only when detail IS the subject.
+    notes: 'The fidelity ceiling in the catalogue — fur, foliage, reflections. ~34s
+      at 1024x1024. Earns its keep only when detail IS the subject.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration;
+      handled flat and realistic style; rendered an opaque background; got text right.'
     provenance: d,m
   SenseTime/SenseNova-U1.5-8B-MoT:
     role: unified
@@ -275,6 +384,7 @@ models:
     - poster
     - illustration
     - photo
+    - logo
     alpha: false
     text_rendering: strong
     style:
@@ -284,20 +394,29 @@ models:
     - instruction_edit
     quality: high
     speed: slow
-    dialect: |
-      Instruction-shaped: what to put, where, and how it should read.
+    dialect: 'Instruction-shaped: what to put, where, and how it should read.
+
+      '
     sizes_verified:
     - 1024x1024
     - 2048x2048
     size_rule: multiples of 32; (w/32)*(h/32) <= 4096
-    notes: |
-      Generates in pixel space, no separate VAE decoder. 48% NPU — needs a swap alongside a 55% planner.
-    provenance: d
+    notes: 'Generates in pixel space, no separate VAE decoder. 48% NPU — needs a swap
+      alongside a 55% planner.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at illustration, logo, poster;
+      handled flat and realistic style; rendered an opaque background; got text right.'
+    provenance: d,m
   krea/Krea-2-Turbo:
     role: general
     artifact:
     - photo
     - illustration
+    - icon
+    - logo
+    - poster
+    - comic
     alpha: false
     text_rendering: unknown
     style:
@@ -305,21 +424,35 @@ models:
     - photoreal
     edit_ops: []
     quality: unknown
-    speed: unknown
-    dialect: |
-      Provisionally the DESCRIPTIVE dialect: SUBJECT FIRST, then the
+    speed: fast
+    dialect: 'Provisionally the DESCRIPTIVE dialect: SUBJECT FIRST, then the
+
       modifiers. That is the safest guess for a photoreal generator and
+
       it is only a guess - NOT YET CHARACTERISED. The appliance offers
+
       this model, it was downloaded on 7 Nov, and a model nobody has run
+
       is a model nobody can route to. The research loop measures it and
+
       replaces this entry with what it found. Until then the resolver
+
       will not pick it for a request it has not been shown to satisfy.
-    notes: |
-      The device's description claims photoreal rendering from a 12B
+
+      '
+    notes: 'The device''s description claims photoreal rendering from a 12B
+
       rectified-flow transformer at 36% NPU. NONE of that is measured
+
       here yet — the research run is what will say whether it is true.
+
       Kept out of the acceptance table until it has a card.
-    provenance: d
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, poster,
+      comic, illustration; handled flat and realistic style; rendered an opaque background;
+      got text right.'
+    provenance: d,m
   Qwen/Qwen-Image-2.1:
     role: flagship
     artifact:
@@ -329,6 +462,7 @@ models:
     - cutout
     - illustration
     - photo
+    - comic
     alpha: true
     alpha_kind: native-rgba
     text_rendering: strong
@@ -343,17 +477,27 @@ models:
     max_refs: 10
     quality: highest
     speed: slow
-    dialect: |
-      Conversational and specific. 'A flat vector icon of a fox head, front-facing, single solid fill, transparent background.' Negative space and shape language beat adjectives.
+    dialect: 'Conversational and specific. ''A flat vector icon of a fox head, front-facing,
+      single solid fill, transparent background.'' Negative space and shape language
+      beat adjectives.
+
+      '
     sizes_verified:
     - 512x512
     - 1024x1024
     - 2048x2048
     - 2400x1792
     - 1536x960
-    notes: |
-      THE transparency model. Native RGBA output — stickers, logos and cutouts come out ready to place, no background-removal step. 40 steps, 62% NPU: the most expensive image model here, and it cannot coexist with a 55% planner. Planning consequence, not a reason to avoid it.
-    provenance: d
+    notes: 'THE transparency model. Native RGBA output — stickers, logos and cutouts
+      come out ready to place, no background-removal step. 40 steps, 62% NPU: the
+      most expensive image model here, and it cannot coexist with a 55% planner. Planning
+      consequence, not a reason to avoid it.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at icon, logo, photo, illustration,
+      comic; handled flat and realistic style; rendered 16.07% transparent pixels;
+      got text right.'
+    provenance: d,m
   abenzerps/Qwen-Image-2.1-Uncensored-Quantized:
     role: flagship-co-resident
     artifact:
@@ -363,6 +507,7 @@ models:
     - cutout
     - illustration
     - photo
+    - comic
     alpha: true
     alpha_kind: native-rgba
     text_rendering: strong
@@ -377,8 +522,9 @@ models:
     max_refs: 10
     quality: highest
     speed: slow
-    dialect: |
-      Same family as Qwen-Image-2.1. Same dialect guidance applies.
+    dialect: 'Same family as Qwen-Image-2.1. Same dialect guidance applies.
+
+      '
     sizes_verified:
     - 512x512
     - 1024x1024
@@ -386,9 +532,15 @@ models:
     - 2560x1600
     - 2752x1536
     size_rule: width % 16 == 0; area <= 16896 px
-    notes: |
-      Community uncensored quant build of Qwen-Image-2.1 with its own packaged runtime. Reports 0% NPU, so it coexists with a resident planner. Treat as a research build: the quantization is community-run, not vendor-supported.
-    provenance: d
+    notes: 'Community uncensored quant build of Qwen-Image-2.1 with its own packaged
+      runtime. Reports 0% NPU, so it coexists with a resident planner. Treat as a
+      research build: the quantization is community-run, not vendor-supported.
+
+
+      MEASURED ON THE APPLIANCE 2026-11-07: measured good at logo, photo, comic, illustration;
+      handled flat and realistic style; rendered 25.52% transparent pixels; got text
+      right.'
+    provenance: d,m
   Qwen/Qwen-Image-2.1-PE-T2I:
     role: prompt-enhancer
     kind: prompt_enhancer
@@ -401,11 +553,17 @@ models:
     edit_ops: []
     quality: n/a
     speed: fast
-    dialect: |
-      Takes a short image request and returns a full English scene description of roughly 20 sentences, plus a recommended aspect ratio. The output is designed to be passed straight to Qwen-Image-2.1 — it IS the dialect.
+    dialect: 'Takes a short image request and returns a full English scene description
+      of roughly 20 sentences, plus a recommended aspect ratio. The output is designed
+      to be passed straight to Qwen-Image-2.1 — it IS the dialect.
+
+      '
     sizes_verified: []
-    notes: |
-      7B, 262144 ctx, 23% NPU. Coexists with Qwen-Image-2.1 (62%) at 85%. This is the device's own answer to prompt translation — use it instead of hand-writing a dialect.
+    notes: '7B, 262144 ctx, 23% NPU. Coexists with Qwen-Image-2.1 (62%) at 85%. This
+      is the device''s own answer to prompt translation — use it instead of hand-writing
+      a dialect.
+
+      '
     provenance: d
   Qwen/Qwen-Image-2.1-PE-I2I:
     role: prompt-enhancer
@@ -419,9 +577,14 @@ models:
     edit_ops: []
     quality: n/a
     speed: fast
-    dialect: |
-      Takes one or more images plus a vague editing instruction and returns a precise rewrite that spells out what to change, what to leave untouched, and the aspect ratio.
+    dialect: 'Takes one or more images plus a vague editing instruction and returns
+      a precise rewrite that spells out what to change, what to leave untouched, and
+      the aspect ratio.
+
+      '
     sizes_verified: []
-    notes: |
-      7B, 262144 ctx, 24% NPU. The image-to-image counterpart of PE-T2I. NOT downloaded on this device as of 2026-11-05.
+    notes: '7B, 262144 ctx, 24% NPU. The image-to-image counterpart of PE-T2I. NOT
+      downloaded on this device as of 2026-11-05.
+
+      '
     provenance: d

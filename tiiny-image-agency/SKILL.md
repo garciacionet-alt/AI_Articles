@@ -235,6 +235,17 @@ make it fit.
 Those percentages are this appliance's, measured. Run `tis roles` for the
 numbers as they are now.
 
+**A model the device prices at 0% NPU is not necessarily free.** The
+device's `npu_usage` is a number about its own accounting, and it can be
+wrong in the direction that hurts: the community quant build reports 0%
+and is 14.5 GiB of weights — thirty percent of the pool. Believing the
+0% means the eviction planner never evicts it, and while it sits
+resident every load fails to allocate its NPU buffer and every
+generation answers HTTP 500. Cost a model by its weight when the device
+says it is free and the weight is not small. The mechanism and the
+evidence are in
+[references/appliance-sharing.md](references/appliance-sharing.md).
+
 **A suggestion from the critique may repeat something the generator already
 knows.** The judge sees the size in the requirements, so it may suggest
 "add 1024x1024 to the prompt" — and the image model will render that text

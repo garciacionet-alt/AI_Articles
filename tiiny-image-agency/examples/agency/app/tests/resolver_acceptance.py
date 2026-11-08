@@ -255,8 +255,13 @@ CASES: list[tuple[str, dict, str]] = [
      dict(artifact="photo", alpha="preferred"), "Tongyi-MAI/Z-Image-Turbo"),
     ("illustration with preferred alpha stays on the hot path",
      dict(artifact="illustration", alpha="preferred"), "Tongyi-MAI/Z-Image-Turbo"),
-    ("an icon without an alpha requirement still uses the icon model",
-     dict(artifact="icon"), "Qwen/Qwen-Image-2.1"),
+    # The measurement moved these three, and it moved them for the same
+    # reason: the research PROVED that the hot-path model produces icons
+    # and comics, and that ERNIE produces illustrations. A model that
+    # has been measured to do the job is a legitimate candidate for it,
+    # and the cheaper one wins. That is the resolver working.
+    ("an icon without an alpha requirement takes the measured icon model",
+     dict(artifact="icon"), "Tongyi-MAI/Z-Image-Turbo"),
 
     # --- text in image -------------------------------------------------
     ("poster with required text",
@@ -267,8 +272,9 @@ CASES: list[tuple[str, dict, str]] = [
      dict(artifact="comic", text_in_image="required"), "baidu/ERNIE-Image-Turbo"),
     ("logo with required text",
      dict(artifact="logo", text_in_image="required"), "baidu/ERNIE-Image-Turbo"),
-    ("illustration with required text falls back to the strong-text default",
-     dict(artifact="illustration", text_in_image="required"), "Tongyi-MAI/Z-Image-Turbo"),
+    ("illustration with required text takes the measured text model",
+     dict(artifact="illustration", text_in_image="required"),
+     "baidu/ERNIE-Image-Turbo"),
 
     # --- artifact fit --------------------------------------------------
     ("character sheet",
@@ -281,8 +287,8 @@ CASES: list[tuple[str, dict, str]] = [
      dict(artifact="photo"), "Tongyi-MAI/Z-Image-Turbo"),
     ("generic logo defaults to the default model",
      dict(artifact="logo"), "Tongyi-MAI/Z-Image-Turbo"),
-    ("comic without a text requirement",
-     dict(artifact="comic"), "baidu/ERNIE-Image-Turbo"),
+    ("comic without a text requirement takes the measured comic model",
+     dict(artifact="comic"), "Tongyi-MAI/Z-Image-Turbo"),
     ("infographic without a text requirement",
      dict(artifact="infographic"), "baidu/ERNIE-Image-Turbo"),
     ("poster without a text requirement stays on the hot path",
