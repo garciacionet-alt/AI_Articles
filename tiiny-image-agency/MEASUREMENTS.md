@@ -842,6 +842,38 @@ the code never used them. `m`
 
 ---
 
+## M15 — the source image arrives, and the edit is real (2026-11-07)
+
+**THE EDIT WAS RUN ON THE APPLIANCE ✓ ✓.** A picture the agency had
+made — an orange fox head on a white background with a faint diagonal
+hatch — was given to `POST /v1/generate` as `source_asset_id`, with the
+request *"remove the object"*.
+
+**WHAT CAME BACK ✓ ✓** — in 163 s, from `fal/FLUX.2-klein-4B-Object-Remove`
+✓ ✓:
+
+- **the fox head is GONE ✓ ✓**
+- **the diagonal hatch pattern is PRESERVED ✓ ✓**
+
+**That is the proof ✓ ✓.** A regeneration could not have kept the
+source's particular background hatching ✓ ✓ — it would have drawn a
+new picture with a new background ✓ ✓. The operation happened **TO
+that picture** ✓ ✓.
+
+**AND THE PROMPT THE APPLIANCE SENT TALLED ✓ ✓:**
+
+> Edit the input image: remove the object, Ensure the fox head
+> illustration is completely removed from the center of the image.,
+> Ensure the background remains with its existing diagonal line pattern
+
+Something read the image ✓ ✓ — the appliance's own editor named the
+fox head and the diagonal line pattern ✓ ✓, neither of which was in
+the request ✓ ✓.
+
+**THE LINEAGE RECORDS THE SOURCE ✓ ✓** — `source_asset_id:
+ast_011a69af30394a0b` ✓ ✓, so "where did this picture come from" has
+an answer ✓ ✓.
+
 ## M14 — a JPEG is a real source, and what it costs (2026-11-07)
 
 **THE APPLIANCE TAKES A JPEG.** The `image` field was measured with a
