@@ -204,6 +204,42 @@ def iterate(args: argparse.Namespace, target: Target) -> int:
     return _follow(target, session_id, job_id, args.out)
 
 
+def pdf(args: argparse.Namespace, target: Target) -> int:
+    """Make a PDF of some assets, one page each.
+
+    The newsletter case: the images the agency made, in one file to
+    send. The images go into the PDF as they are — a JPEG as JPEG, an
+    RGB PNG's compressed scanlines as they are, and an RGBA PNG's alpha
+    as its own transparency channel — because a PDF page is opaque and
+    an image that arrives flattened has lost something the agency
+    promised to keep.
+
+        tis pdf ast_0123456789abcdef ast_fedcba9876543210 --out news.pdf
+    """
+    body = {
+        "asset_ids": list(args.asset_ids),
+        "output_path": args.out or "",
+    }
+    if args.title:
+        body["title"] = args.title
+    try:
+        data = _post(target, "/v1/documents", body)
+    except httpx.HTTPStatusError as exc:
+        detail = ""
+        try:
+            detail = exc.response.json().get("detail", "")
+        except ValueError:
+            detail = exc.response.text[:200]
+        print(f"Error: {detail or 'the document was refused'}", file=sys.stderr)
+        return 1
+    except httpx.HTTPError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    print(f"{data.get('path')}")
+    print(f"  {data.get('pages')} page(s), {data.get('bytes')} bytes")
+    return 0
+
+
 def reference(args: argparse.Namespace, target: Target) -> int:
     """Save a result as a reference, list them, or forget one.
 
@@ -572,6 +608,20 @@ def build_parser() -> argparse.ArgumentParser:
     iterate_parser.add_argument("--out", default=None,
                                 help="Where to write the PNG")
 
+    pdf_parser = subparsers.add_parser(
+        "pdf", parents=[common],
+        help="Make a PDF of some assets, one page each")
+    pdf_parser.add_argument(
+        "asset_ids", nargs="+",
+        help="The assets, in the order they should appear")
+    pdf_parser.add_argument("--out", default=None,
+                             help="Where to write the PDF")
+    pdf_parser.add_argument(
+        "--title", default="",
+        help="A title for the document's metadata. It is not drawn on "
+             "the page — a PDF title needs a font, and a font is a "
+             "dependency.")
+
     reference_parser = subparsers.add_parser(
         "reference", parents=[common],
         help="Save, list or forget a reference")
@@ -615,6 +665,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             return generate(args, target)
         if args.command == "iterate":
             return iterate(args, target)
+        if args.command == "pdf":
+            return pdf(args, target)
         if args.command == "reference":
             return reference(args, target)
         raise ValueError(f"unknown command: {args.command}")

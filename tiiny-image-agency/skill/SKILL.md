@@ -86,6 +86,7 @@ tis reference list  # the saved references: results kept so the next one matches
 tis npu             # what is resident right now, and the NPU used
 tis health          # is the app alive, is the appliance reachable
 tis alpha file.png  # how much of this PNG is actually transparent
+tis pdf ast_1 ast_2 --out news.pdf  # a PDF of some assets, one page each
 ```
 
 `tis reference save <asset_id> --name "newsletter"` keeps a result with
@@ -419,6 +420,12 @@ and the appliance URL in the CLI and in the surface: neither may have one.
   with a `.jpg` name and served as `image/jpeg`. A JPEG carries no
   alpha channel, so its lineage says so; that loss happened before the
   agency ever saw the file.
+- **It can put your images in a document.** `tis pdf ast_1 ast_2 --out
+  news.pdf` writes a PDF with one page per image. The images go into the
+  PDF without being decoded and re-encoded: a JPEG is embedded as
+  JPEG, an RGB PNG's compressed scanlines go in as they are, and an
+  RGBA PNG's alpha travels as its own transparency channel — so a
+  transparent logo stays transparent on the page.
 - **It tells you where the file is.** The path is under the image, in the
   lineage, and in the `asset.ready` event.
 - **It has a card for every model.** `GET /v1/models/cards` returns them

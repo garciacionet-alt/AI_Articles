@@ -61,6 +61,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, cast
 
 from .assets import Asset, AssetStore
+from .pdf import PdfError, write_pdf
 from .config import Settings
 from .critic import Critic
 from .device import Device, DeviceError, TiinyDevice
@@ -854,6 +855,29 @@ class Agency:
     def get_asset(self, asset_id: str) -> Asset | None:
         """The asset with this id, or None if there is no such asset."""
         return self.assets.get(asset_id)
+
+    def build_document(self, asset_ids: list[str], output_path: str = "",
+                       title: str = "") -> str:
+        """A PDF of these assets, one page each, and where it went.
+
+        The newsletter case: some images the agency made, one file to
+        send. The images go into the PDF as they are — a JPEG as JPEG,
+        an RGB PNG's compressed scanlines as they are, and an RGBA PNG's
+        alpha as its own transparency channel — because a PDF page is
+        opaque and an image that arrives flattened has lost something
+        the agency promised to keep.
+        """
+        if not asset_ids:
+            raise PdfError("a document needs at least one image")
+        images: list[bytes] = []
+        for asset_id in asset_ids:
+            image = self.assets.get_image(asset_id)
+            if image is None:
+                raise PdfError(f"there is no asset {asset_id}")
+            images.append(image)
+        target = output_path or "document.pdf"
+        return str(write_pdf(target, images, asset_ids=list(asset_ids),
+                             title=title))
 
     # -- the references: saved results, and how to make more like them ---
 

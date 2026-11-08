@@ -22,6 +22,7 @@ from starlette.types import Scope
 
 from .service import Agency, UnknownAssetError
 from .assets import FORMATS, image_format
+from .pdf import PdfError, page_count
 from .models import ModelChoice
 from .registry import ModelSpec
 from .planner import PlannerError
@@ -361,6 +362,32 @@ def create_app(agency: Agency | None = None, settings = None) -> FastAPI:
             "format": kind,
         }
 
+    @app.post("/v1/documents")
+    async def make_document(request: DocumentRequest):
+        """Make a PDF of some assets, one page each.
+
+        The newsletter case: the images the agency made, in one file to
+        send. The images go into the PDF as they are — a JPEG as JPEG,
+        an RGB PNG's compressed scanlines as they are, and an RGBA PNG's
+        alpha as its own transparency channel — because a PDF page is
+        opaque, and an image that arrives flattened has lost something
+        the agency promised to keep.
+        """
+        try:
+            path = agency.build_document(
+                list(request.asset_ids),
+                output_path=request.output_path,
+                title=request.title)
+        except PdfError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from None
+        written = Path(path)
+        return {
+            "path": str(written),
+            "pages": page_count(written.read_bytes()),
+            "bytes": written.stat().st_size,
+            "asset_ids": list(request.asset_ids),
+        }
+
     @app.post("/v1/generate", status_code=status.HTTP_202_ACCEPTED)
     async def generate(request: GenerateRequest):
         """Generate an image from a request.
@@ -547,6 +574,19 @@ class RoleRequest(BaseModel):
     """
     conversation: str | None = None
     critic: str | None = None
+
+
+class DocumentRequest(BaseModel):
+    """Request body for the /v1/documents endpoint.
+
+    The assets, in the order they should appear. One page each.
+    """
+    asset_ids: list[str]
+    #: Where to write the PDF. Defaults to ./document.pdf.
+    output_path: str = ""
+    #: A title for the document's metadata. It is not drawn on the
+    #: page — a PDF title needs a font, and a font is a dependency.
+    title: str = ""
 
 
 class GenerateRequest(BaseModel):
