@@ -1,7 +1,7 @@
 ---
 name: tiiny-image-agency
 description: "Generate images on the local Tiiny Pocket Lab through the Tiiny Image Agency. Plans the request, resolves the model, generates on the appliance, reads the critique, and reports which model made the image and why."
-version: 1.1.0
+version: 1.2.0
 author: Gary Garcia (garciacionet-alt), Hermes Agent
 license: MIT
 platforms: [linux, macos]
@@ -145,12 +145,23 @@ while the judge and the generator have the pool to themselves.
 
 ## Timing — and Why You Must Not Interrupt It
 
-The appliance takes **54 to 200 seconds** for one image:
+The appliance takes **16 to 200 seconds** for one image. The measured
+figures across the catalogue:
 
 | model | NPU | time |
 |---|---|---|
+| FLUX.2-klein-4B and its four adapters | 19–20% | **~16 s** |
+| HiDream-O1-Image-Dev | 30% | ~34 s |
 | Z-Image-Turbo (the default) | 23% | ~55 s |
+| TaoBaiBai realistic, Children-Drawing, CharacterDesignSheet | 23% | ~54 s |
+| ERNIE-Image-Turbo | 27% | ~71 s |
+| Krea-2-Turbo | 36% | ~80 s |
+| SenseNova-U1.5-8B-MoT | 48% | ~130 s |
+| community quant build | 0% as reported | ~188 s |
 | Qwen-Image-2.1 (the flagship, native alpha) | 62% | ~200 s |
+
+The spread is thirty-fold across models that are all "installed", so the
+model choice is as much a latency decision as a quality one.
 
 `tis generate` prints each progress event as it arrives. **Let it run.** A
 generation that is interrupted leaves the appliance in a state somebody
@@ -171,8 +182,16 @@ nothing and sees a hanging terminal is not.
 ## Things Worth Knowing
 
 **Transparency is the expensive thing — and it has to be asked for
-plainly.** Only the flagship `Qwen-Image-2.1` renders a genuine alpha
-cut-out; everything else is opaque whatever the prompt says.
+plainly.** Only the flagship `Qwen/Qwen-Image-2.1` is a VENDOR model that
+renders a genuine alpha cut-out, and it costs 62% of the pool and roughly
+200 seconds. The other vendor models are opaque whatever the prompt says.
+
+Measured across the whole catalogue, **thirteen of fifteen models render an
+opaque background**, and the two exceptions are the flagship and the
+community quant build — which renders the MOST transparency of the lot
+(25.52% of pixels) and takes 188 seconds per image to do it. So "the model
+that does alpha" and "the model worth using" are different questions, and
+the community build is the proof that they are.
 
 But the flagship's alpha is **prompt-dependent**, and a measurement of
 one image is not a property of the model. Measured on the appliance,
@@ -245,6 +264,29 @@ generation answers HTTP 500. Cost a model by its weight when the device
 says it is free and the weight is not small. The mechanism and the
 evidence are in
 [references/appliance-sharing.md](references/appliance-sharing.md).
+
+**A model card reports three separate claims.** `GET /v1/models/card?model_id=`
+keeps them apart: what the device **advertises** it does, what we
+**measured**, and what we have **noticed** that the device does not say. The
+third part is the point. A card exists for every model — "not measured yet"
+is a fact the card reports, not a 404.
+
+The whole catalogue is measured now, and the measurements are in the
+routing. Two findings worth carrying:
+
+- **Children-Drawing is a crayon-drawing model.** Its realistic-style probe
+  answered "Neither" and it produced an illustration. It is NOT the answer
+  for a photorealistic or anime child, and the card says so in measured
+  words. This is the kind of correction a catalogue exists to make: the
+  name and the vendor's description both point the other way.
+- **Every model rendered legible text**, so the text comparison between them
+  stays a curated judgement — one prompt cannot rank fifteen models — and
+  the measurement lives in the notes instead.
+
+A model that has been MEASURED to do the job is a legitimate candidate for
+it, and the cheaper one wins. Three routing answers moved when the
+catalogue was measured, and all three moved because more models became
+known to be capable.
 
 **A suggestion from the critique may repeat something the generator already
 knows.** The judge sees the size in the requirements, so it may suggest
@@ -322,6 +364,51 @@ An agent can also say where the finished PNG should land:
 `POST /v1/generate` and `POST /v1/iterate` take `output_path`, and the
 finished file is written there too, byte for byte. The agency's own copy
 is written either way.
+
+### The surface must offer exactly what the service will accept
+
+A picker that offers a choice the service then refuses is a broken promise
+the user discovers by being told no. The judge dropdown once listed every
+conversational model — 26 of them — while only 16 can see an image, so
+ten of the entries were picks that could only end in a refusal.
+
+**Build every constrained picker from the same filtered set the service
+enforces.** The roles route already sends the seeing subset separately, as
+`vision_models`; the picker has to use that subset rather than the whole
+catalogue. A text-only judge is refused by the service with a reason, and
+that reason has to arrive before the user picks, not after.
+
+The test for this is a dropdown whose options can all be exercised, not
+just a dropdown that exists. Assert that every option the judge picker
+offers is marked as seeing.
+
+### The server holds the registry it started with
+
+The agency loads the catalogue ONCE, at startup. Rebuild the registry and
+the API keeps answering from the old one — while reporting
+`registry_loaded: true` and looking perfectly healthy. The tell is a
+routing answer that disagrees with the test suite.
+
+**After `tools/build_registry.py`, restart the server.** No restart means
+the API is serving a catalogue that no longer exists on disk.
+
+When the port is already bound, the OLD server is the one holding it, and
+it is the one serving stale data. Find it with
+`process_manage(action='list')` rather than `lsof` alone: several agency
+servers have run over a session, and the port lookup cannot tell you which
+one is live or which code it loaded.
+
+### The browser will cache the old script
+
+When you change `app/web/app.js` and reload, the browser may keep serving
+the cached copy and the fix will appear not to have worked. The `dogfood`
+skill carries the cache-disabling recipe — use it before verifying a change
+to the surface.
+
+The part specific to this app: confirm the SERVED asset matches the file on
+disk before concluding anything from the page's behaviour. Compare
+checksums, or grep the served text for the change. A server that is running
+old code will happily serve a file that looks right on disk.
 
 ## The Appliance Is Shared — Read the Board Before You Take It
 

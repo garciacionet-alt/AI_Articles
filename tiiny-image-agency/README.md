@@ -211,6 +211,38 @@ thinking and returned nothing — which looks exactly like a model that
 cannot see. The judge now asks for no thinking at all, because a judge
 needs a verdict, not a deliberation.
 
+## The appliance could edit all along
+
+The catalogue advertises `input: Text,Image` and `supported: ['Image
+Editing']` for several models, and the curated overlay carried
+`max_refs: 10` and `identity_preservation` for exactly the ones that
+take an image. The Agency was not sending any.
+
+`POST /v1/images/generations` accepts a source image in a field called
+`image` — a base64 string — or `images`, an array of them. Finding it
+takes a trick: the appliance reports a type error *without naming the
+field*, so the field has to be identified by the status code (400
+"type must be string" for `image`, 400 "type must be array" for
+`images`, 200 for everything else, which means ignored).
+
+**But a field that is accepted is not a field that is honoured,** and
+that distinction is worth a control. The test sent a rectangle half red
+and half blue, asked for "reproduce this image as a pencil sketch", and
+ran the same prompt with **no image at all**:
+
+| | time | what came back |
+|---|---|---|
+| **control (no image)** | **16.3 s** | **a random bald man's face** |
+| **with the image** | **~34 s** | **the rectangle, split vertically** |
+
+The control drew a different *subject*. The image-bearing request drew
+the input's *structure*. And the timings split cleanly — eighteen extra
+seconds of the model reading the picture.
+
+So every "edit" in this project until now was a text-only regeneration
+wearing an edit's name. The appliance was always capable; the client
+was simply not asking. `PLAN-THREE-FEATURES.md` has the work.
+
 ## Running it on Linux and Windows — a contribution wanted
 
 **This project was built and tested on macOS, and it will not run on Linux
