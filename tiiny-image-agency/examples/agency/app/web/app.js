@@ -786,14 +786,18 @@ async function loadRoles() {
     if (!data) {
         return;
     }
-    fillRoleSelect(els.roleConversation, data, data.conversation);
-    fillRoleSelect(els.roleCritic, data, data.critic);
+    fillRoleSelect(els.roleConversation, data.models || [], data.conversation);
+    // The critic MUST be a model that can see the image. The API
+    // already sends the vision-capable subset separately, so the
+    // dropdown is built from that and nothing else - offering a
+    // text-only judge here would be offering a judge that cannot
+    // judge.
+    fillRoleSelect(els.roleCritic, data.vision_models || [], data.critic);
     renderRoleNote(data);
 }
 
-function fillRoleSelect(select, data, current) {
+function fillRoleSelect(select, models, current) {
     select.innerHTML = '';
-    const models = data.models || [];
     for (const model of models) {
         const option = document.createElement('option');
         option.value = model.id;

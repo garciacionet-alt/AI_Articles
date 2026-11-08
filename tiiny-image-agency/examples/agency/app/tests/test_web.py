@@ -343,6 +343,26 @@ def test_the_surface_reads_the_guides_own_catalogue(app_js: str):
     )
 
 
+def test_the_judge_picker_only_offers_models_that_can_see(app_js: str):
+    """The judge dropdown is built from the vision subset, not from all.
+
+    The service refuses a text-only critic, so a dropdown that offered
+    one would be offering a choice that cannot be honoured - the user
+    would pick a judge and then be told, after the fact, that it was
+    blind. The API sends the seeing subset separately; the picker has
+    to use it.
+    """
+    assert "data.vision_models" in app_js or "vision_models" in app_js, (
+        "the judge picker is not built from the vision-capable subset"
+    )
+    critic_call = app_js.split("fillRoleSelect(els.roleCritic")[1]
+    critic_call = critic_call.split(")")[0]
+    assert "vision_models" in critic_call, (
+        "the judge picker is handed every conversational model, so it "
+        "offers judges that cannot see the image they are judging"
+    )
+
+
 def test_the_surface_can_change_a_role(app_js: str):
     assert "'/v1/roles'" in app_js, "the surface cannot set a role"
     assert "setRole" in app_js, "the surface has no way to set a role"
