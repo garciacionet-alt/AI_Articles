@@ -3,7 +3,7 @@
 
 cask "tiiny-image-agency" do
   version "0.1.0"
-  sha256 "ab04a136fcab01265d097c1eada8d6fdd239567463ad5ef416ca758796e85c06"
+  sha256 "e3b91937617598f659d0a1a0ed4c7de8dd27de34ccc68debe3c06f29a07c7f05"
 
   # The package is installed as a Python package; the registry is put
   # beside the virtualenv, where tis.config looks for it when the
