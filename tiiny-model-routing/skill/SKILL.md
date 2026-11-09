@@ -1,13 +1,13 @@
 ---
 name: tiiny-model-routing
 description: "Run delegated sub-agents on the Tiiny device. Chooses the model that fits each subtask, loads it, locks the device against other agents, supervises the child, verifies its work, and releases the device."
-version: 2.0.0
+version: 2.1.0
 author: Gary Garcia (garciacionet-alt), Hermes Agent
 license: MIT
 platforms: [linux, macos]
 metadata:
   hermes:
-    tags: [tiiny, delegation, model-routing, local-inference, agents, locking, lifecycle]
+    tags: [tiiny, delegation, model-routing, local-inference, agents, locking, lifecycle, thinking]
 ---
 
 # Tiiny Model Routing
@@ -55,7 +55,7 @@ mechanism is provider-agnostic, but the tier table is Tiiny-specific).
 
 | | What it is | What it owns |
 |---|---|---|
-| **The router** (`plugin/`) | A delegation backend. Hermes calls it once per subtask. | Choosing the model for each subtask. |
+| **The router** (`plugin/`) | A delegation backend. Hermes calls it once per subtask. | Choosing the model for each subtask, and its reasoning mode. |
 | **The controller** (`scripts/tiiny_ctl.py`) | A command-line tool the manager agent drives. | The plan, the lock, the load, the restore, the catalogue refresh. |
 
 The split is not tidiness. The delegation plugin has exactly one hook —
@@ -92,17 +92,23 @@ like success.
 
 ### The tiers
 
-| Tier | Model | NPU | Context | On the device? |
-|---|---|---|---|---|
-| `research` | `InternScience/Sage-A1.5-Turbo` | 48% | 262144 | downloaded |
-| `research` (alt) | `endless-frontier/BigBang-v1-Turbo` | 54% | 131072 | downloaded |
-| `index` | `openai/gpt-oss-20b` | 27% | 131072 | **resident** |
-| `code` | `deepreinforce-ai/Ornith-1.0-35B` | 50% | 131072 | downloaded |
-| `code` (alt) | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 | **resident** |
-| `code` (heavy) | `Qwen/Qwen3-Coder-Next` | 94% | 131072 | not downloaded |
-| `browser` | `Qwen/Qwen3.8-27B` | 52% | 262144 | downloaded |
-| `draft` | `Qwen/Qwen3.5-9B` | 29% | 131072 | downloaded |
-| `general` | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 | **resident** |
+| Tier | Model | NPU | Context | Reasoning | On the device? |
+|---|---|---|---|---|---|
+| `research` | `InternScience/Sage-A1.5-Turbo` | 48% | 262144 | switch | downloaded |
+| `research` (alt) | `endless-frontier/BigBang-v1-Turbo` | 54% | 131072 | switch | downloaded |
+| `index` | `openai/gpt-oss-20b` | 27% | 131072 | **levels only** | **resident** |
+| `code` | `Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo` | 55% | 65536 | none | downloaded |
+| `code` (alt) | `deepreinforce-ai/Ornith-1.0-35B` | 50% | 131072 | switch | downloaded |
+| `code` (alt) | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 | switch | **resident** |
+| `code` (heavy) | `Qwen/Qwen3-Coder-Next` | 94% | 131072 | none | not downloaded |
+| `browser` | `Qwen/Qwen3.8-27B` | 52% | 262144 | switch | downloaded |
+| `draft` | `Qwen/Qwen3.5-9B` | 29% | 131072 | switch | downloaded |
+| `general` | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 | switch | **resident** |
+
+The Reasoning column is a snapshot of what the device reported on 2026-11-09.
+**The device is the authority** — the router reads the capability at route
+time, so this table can go stale without breaking anything. See
+[Thinking mode](#thinking-mode).
 
 ### The commands
 
@@ -116,6 +122,7 @@ like success.
 | `tiiny_ctl.py catalog --refresh` | Diff the live Model Store against the last snapshot |
 | `tiiny_ctl.py image "a job"` | Pick the right image model for a job |
 | `route_check.py "a goal"` | Read-only: which model would this goal route to, and why |
+| `route_check.py --thinking off "a goal"` | The same, plus the reasoning state it would achieve |
 
 ## Procedure
 
@@ -257,6 +264,95 @@ at a shape the tiers do not cover — not because they are new.
 *Done when:* the diff is empty, or the differences are reflected in the tier
 table and the catalogue.
 
+## Thinking mode
+
+A reasoning model answers in two parts: the trace, and the answer. The trace
+is not free, and on mechanical work it is not wanted. Indexing a folder does
+not need a chain of thought; it needs the folder.
+
+So each task carries a `thinking` parameter:
+
+| Value | What happens |
+|---|---|
+| `auto` (default) | Nothing is applied. The model keeps its native behaviour. |
+| `off` | Reasoning is turned off where the model can be turned off, and down to the model's cheapest reasoning level where it cannot. |
+| `on` | Reasoning is turned on where the model can be turned on, and up to its most expensive level where it cannot. |
+
+```bash
+python3 scripts/route_check.py --thinking off "index every file under the vault"
+```
+
+### The device knows more than a table does
+
+Models differ in *how* reasoning is controlled, and the differences are not
+guessable:
+
+- Some models have a **switch** — `enable_thinking: false` stops the trace
+  dead.
+- Some models have only **levels** — `low`, `medium`, `high` — and their
+  switch is ignored outright.
+- Some models **do not reason at all**, and a request to turn reasoning on is
+  not a thing that can happen.
+- One model is flagged by the device as having no switch and honours it
+  perfectly well. **The flag is a hint, not ground truth.**
+
+So the router does not keep a table of this. It reads the device's own
+capability for the model it picked, at route time, and applies the control
+that model actually honours:
+
+```json
+{"thinking": {"supported": true, "toggleable": false, "levels": ["low", "medium", "high"]}}
+```
+
+That comes from `GET /v1/models` for a resident model and
+`GET /api/v1/models/online_models` for the whole store. The Model Store
+changes with every TiinyOS update, and a hand-maintained capability table
+goes stale quietly — which is worse than having none, because it is
+believed.
+
+### "Off" means the cheapest available state
+
+For a model with no working switch, `thinking: "off"` is **not a refusal and
+not a pretence**. It means the cheapest state the model offers: the lowest
+reasoning level it declares. The model still reasons — it just reasons less —
+and the label says so rather than claiming a switch that does not exist.
+
+### The label reports what happened, not what was asked
+
+Every route carries a label. The thinking state is part of it:
+
+| Label | Meaning |
+|---|---|
+| `[think:off]` | The switch worked. |
+| `[think:off→low]` | The switch was ignored; the model is at its cheapest level. |
+| `[think:on]` | The switch worked. |
+| `[think:on→high]` | The switch was ignored; the model is at its most expensive level. |
+| `[think:unsupported]` | The model does not reason at all. |
+| `[think:unknown]` | The device would not say, so nothing was applied. |
+| `[think:auto]` | Nothing was applied; native behaviour. |
+
+A route that asked for `off` and got `off→low` did not turn reasoning off.
+Saying otherwise is how a token bill becomes a surprise.
+
+### Thinking on needs a token floor
+
+A reasoning model spends its budget on the trace first. With a small
+`max_tokens`, the trace eats the budget and the request comes back **HTTP 200
+with an empty answer** — a silent failure that looks like the model produced
+nothing.
+
+So the router applies an output floor (4096, the budget children already run
+with) whenever a model's reasoning is in play. If you raise your own budget
+above that, raise the floor with it, or a reasoning child is quietly clamped
+back down:
+
+```yaml
+delegation:
+  backends:
+    tiiny-router:
+      thinking_max_tokens: 8192
+```
+
 ## The image benefit
 
 The same device runs the image models, and picking the right one is the
@@ -318,10 +414,22 @@ silicon. The lock makes that visible instead of silent.
 - **Context window is a ceiling, not a suggestion.** A child that silently
   truncates its context is usually routed to a model whose window is too
   small for the task, not to a broken task.
-- **Thinking mode costs tokens without adding value on mechanical work.**
-  The route disables it per request (`enable_thinking: false`). A small
-  `max_tokens` budget against a thinking model can return an empty response
-  with the budget spent in reasoning.
+- **A level inside `chat_template_kwargs` is not the same knob as a level at
+  the top level of the request.** The chat-template one is read by some model
+  families and silently ignored by others — a model whose chat template has
+  no boolean switch reads the level only at the top level of the request.
+  Putting it in the wrong place looks configured and changes nothing.
+- **`enable_thinking: false` is mandatory on every Tiiny route.** It is the
+  provider's `extra_body` and it survives the route's own overrides only
+  where the route does not set its own thinking state. Without it, every
+  child reasons by default, on every task, including the mechanical ones.
+- **A reasoning model with a small `max_tokens` returns an empty response**
+  with the budget spent in the trace, and the status code is 200. The router
+  applies an output floor for this reason; if you set `max_tokens` yourself,
+  keep it above the floor.
+- **The device's `toggleable` flag has been wrong.** A model flagged as
+  having no on/off switch honours it anyway. Send the boolean whenever it can
+  be sent, and let the label report what actually took effect.
 - **A stale hold is worse than no hold.** It silently stops the watchdog from
   ever restoring the device. `release` clears it and verifies.
 - **This skill never downloads a model.** It chooses and loads from what is
@@ -333,6 +441,7 @@ silicon. The lock makes that visible instead of silent.
 python3 scripts/tiiny_ctl.py status                  # device, residency, lock, hold, plan
 python3 scripts/tiiny_ctl.py plan --goal "your goal" # tier, model, NPU fit, waves
 python3 scripts/route_check.py --all                 # every tier and its budget
+python3 scripts/route_check.py --thinking off "goal" # tier, model, and the reasoning state
 python3 scripts/tiiny_ctl.py catalog --refresh       # what moved in the Model Store
 ```
 

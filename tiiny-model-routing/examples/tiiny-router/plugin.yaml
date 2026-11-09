@@ -1,5 +1,5 @@
 name: tiiny-router
-version: 2.0.0
-description: "Delegation backend that routes each subtask to the Tiiny model matching its shape: research, index, code, browser, draft, general. Reads the device's resident set and the batch plan written by the lifecycle controller, so a specialist that was just loaded is the specialist the child gets. Never routes to a model that is not loaded, and never loads one itself."
+version: 2.1.0
+description: "Delegation backend that routes each subtask to the Tiiny model matching its shape: research, index, code, browser, draft, general. Reads the device's resident set and the batch plan written by the lifecycle controller, so a specialist that was just loaded is the specialist the child gets. Never routes to a model that is not loaded, and never loads one itself. Also sets the reasoning mode per task - auto, on or off - from the device's own capability for the model it picked, and reports the state the model actually reached."
 author: Gary Garcia (garciacionet-alt), Hermes Agent
 kind: backend

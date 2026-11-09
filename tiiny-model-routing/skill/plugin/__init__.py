@@ -30,6 +30,32 @@ generalist, which is the right default: it is the model that is good at
 everything in the catalogue and mediocre at each, and being wrong about a
 specialist is more expensive than being mediocre at a general task.
 
+Thinking mode is a per-task parameter
+--------------------------------------
+The ``thinking`` parameter (``"auto" | "on" | "off"``) controls whether the
+model reasons before it answers. Default is ``"auto"`` — the model's native
+behaviour, untouched.
+
+``"off"`` is for mechanical work: indexing, formatting, classification. A
+reasoning model spends its budget on a trace before the answer, and on a small
+budget that trace can eat the whole budget and return an empty response.
+
+``"on"`` is for genuinely novel reasoning, where the model's work is worth
+seeing.
+
+What the request asks for and what the model does are not the same thing, and
+the route reports the difference. Some models have a working on/off switch;
+some have no switch and can only be moved between named reasoning levels;
+some do not reason at all. So the router reads the device's own capability
+for the model it picked, applies the control that model actually honours, and
+puts the **achieved** state in the route label — ``off`` when the switch
+worked, ``off→low`` when the model could only be turned down to its cheapest
+level, ``unsupported`` when the model does not reason, ``unknown`` when the
+device would not say.
+
+See ``thinking.py`` for how the capability is read and which control each
+kind of model honours.
+
 The router chooses; the lifecycle loads
 ---------------------------------------
 **This plugin never loads, unloads, or otherwise mutates the device.** That is
@@ -91,6 +117,15 @@ if _spec is None or _spec.loader is None:  # pragma: no cover - packaging error
 tiers = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(tiers)
 
+#: The reasoning-mode control. Also loaded by path, and deliberately free of
+#: Hermes imports so the standalone checker can use it too.
+_THINKING_PATH = Path(__file__).resolve().parent / "thinking.py"
+_thinking_spec = importlib.util.spec_from_file_location("tiiny_router_thinking", _THINKING_PATH)
+if _thinking_spec is None or _thinking_spec.loader is None:  # pragma: no cover
+    raise ImportError(f"could not load the thinking control from {_THINKING_PATH}")
+thinking = importlib.util.module_from_spec(_thinking_spec)
+_thinking_spec.loader.exec_module(thinking)
+
 TIER_CHOICES = tiers.TIER_CHOICES
 TIER_MODEL = tiers.TIER_MODEL
 VALID_TIERS = tiers.VALID_TIERS
@@ -103,6 +138,12 @@ TIINY_BASE_URL = tiers.TIINY_BASE_URL
 
 #: Provider name as configured in ``providers:`` in config.yaml.
 TIINY_PROVIDER = tiers.TIINY_PROVIDER
+
+#: The thinking modes a task may ask for.
+THINKING_MODES = ("auto", "on", "off")
+
+#: The default output floor for a task that asks a model to reason.
+THINKING_MAX_TOKENS = thinking.THINKING_MAX_TOKENS
 
 #: How long a residency lookup is reused, in seconds. The device's resident
 #: set changes on a swap, not on a heartbeat, so a short cache is enough and
@@ -260,6 +301,47 @@ def choose_model(tier: str, goal: str = "") -> tuple[str, str]:
     return default_model, tier
 
 
+def merge_request_overrides(
+    base: Mapping[str, Any] | None,
+    additions: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Merge new request overrides over the ones the route already carries.
+
+    ``extra_body`` is merged one level deep, the way Hermes merges the
+    delegation section's own overrides over the provider's. Everything else is
+    replaced wholesale, because ``reasoning_effort`` and ``max_tokens`` are
+    single values and a half-applied one is worse than either.
+
+    The base matters: the delegation section may already carry an
+    ``extra_body`` of its own, and dropping it would silently change the
+    request for every other key in it.
+    """
+    merged: dict[str, Any] = dict(base or {})
+    base_extra = merged.get("extra_body")
+    base_extra = dict(base_extra) if isinstance(base_extra, Mapping) else {}
+
+    extra = additions.get("extra_body")
+    extra = dict(extra) if isinstance(extra, Mapping) else {}
+
+    if base_extra and extra:
+        for key, value in extra.items():
+            if isinstance(value, Mapping) and isinstance(base_extra.get(key), Mapping):
+                nested = dict(base_extra[key])
+                nested.update(value)
+                base_extra[key] = nested
+            else:
+                base_extra[key] = value
+        extra = base_extra
+    elif base_extra:
+        extra = base_extra
+
+    for key, value in additions.items():
+        if key != "extra_body":
+            merged[key] = value
+    merged["extra_body"] = extra
+    return merged
+
+
 class TiinyRouterDelegationProvider(DelegationProvider):
     """Route each subtask to the Tiiny model that fits its shape."""
 
@@ -287,18 +369,41 @@ class TiinyRouterDelegationProvider(DelegationProvider):
                     "but means 'summarise what went wrong' is a 'draft' task, not a 'general' one."
                 ),
             },
+            "thinking": {
+                "type": "string",
+                "enum": list(THINKING_MODES),
+                "description": (
+                    "Reasoning mode for this task. 'auto' (default) leaves the model's native "
+                    "behaviour alone. 'off' turns reasoning off for mechanical work - indexing, "
+                    "formatting, classification - so the token budget is spent on the answer "
+                    "rather than on a trace nobody asked for. 'on' turns reasoning on for novel "
+                    "problems where the model's work is worth seeing. Where a model has no "
+                    "on/off switch, 'off' means its cheapest reasoning level rather than a "
+                    "refusal, and the route label reports what was actually achieved."
+                ),
+            },
         }
 
     def description(self, config: Mapping[str, Any]) -> str:
         return (
             "Set 'tier' on a task to force a model: " + ", ".join(VALID_TIERS) + ". "
             "When tier is omitted the model is inferred from the task's shape, so name the "
-            "work honestly ('index every file under X') and the cheap specialist gets it."
+            "work honestly ('index every file under X') and the cheap specialist gets it. "
+            "Set 'thinking' to 'off', 'on', or 'auto' (default) to control reasoning per task: "
+            "'off' for mechanical work, 'on' for novel reasoning. The route label reports the "
+            "state the model actually reached, which is not always the one that was asked for."
         )
 
     def route_task(self, task: Mapping[str, Any], config: Mapping[str, Any]) -> dict[str, Any]:
         goal = str(task.get("goal") or "")
         forced = task.get("tier")
+        requested_thinking = str(task.get("thinking") or "auto").strip().lower()
+
+        if requested_thinking not in THINKING_MODES:
+            raise DelegationRouteError(
+                f"Unknown thinking mode {requested_thinking!r}. "
+                f"Valid modes are: {', '.join(THINKING_MODES)}."
+            )
 
         if forced:
             tier = str(forced)
@@ -331,7 +436,55 @@ class TiinyRouterDelegationProvider(DelegationProvider):
         route = {k: v for k, v in config.items() if k != "service_tier"}
         route["model"] = model
         route["label"] = label
+
+        # Reasoning mode. The capability is read from the device at route
+        # time, so a model that gained or lost reasoning support since the
+        # tier table was written is still handled correctly.
+        try:
+            overrides, achieved = thinking.resolve_thinking(
+                model, requested_thinking, max_tokens_floor=self._thinking_floor(config)
+            )
+        except Exception:
+            # A capability read must never take a routing decision down with
+            # it. Fall back to the model's native behaviour.
+            overrides, achieved = None, "unknown"
+
+        if overrides:
+            route["request_overrides"] = merge_request_overrides(
+                route.get("request_overrides"), overrides
+            )
+
+        # The label carries the achieved state, not the requested one. A route
+        # that asked for 'off' and got 'off→low' did not turn reasoning off,
+        # and saying otherwise is how a token bill becomes a surprise.
+        route["label"] = f"{label} [think:{achieved}]"
+
         return route
+
+    def _thinking_floor(self, config: Mapping[str, Any]) -> int:
+        """Return the output floor for a task that asks a model to reason.
+
+        A reasoning model spends its budget on the trace first. With a small
+        budget the request comes back HTTP 200 with an empty answer and the
+        budget gone — a silent failure that looks like the model produced
+        nothing. So the floor is applied whenever a model's reasoning is in
+        play.
+
+        The floor defaults to the budget children already run with. An
+        operator who raises their own budget should raise this with it, or a
+        reasoning child is quietly clamped back down. That is what
+        ``delegation.backends.tiiny-router.thinking_max_tokens`` is for.
+        """
+        floor = THINKING_MAX_TOKENS
+        try:
+            settings = self.settings(config)
+        except Exception:
+            settings = {}
+        if isinstance(settings, Mapping):
+            configured = settings.get("thinking_max_tokens")
+            if isinstance(configured, int) and not isinstance(configured, bool) and configured > 0:
+                floor = configured
+        return floor
 
 
 def register(ctx) -> None:

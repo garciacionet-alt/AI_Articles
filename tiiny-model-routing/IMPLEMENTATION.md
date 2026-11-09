@@ -44,14 +44,15 @@ A delegation backend is a plugin of `kind: backend`:
 tiiny-router/
 ├── plugin.yaml
 ├── __init__.py
-└── tiers.py
+├── tiers.py
+└── thinking.py
 ```
 
 `plugin.yaml`:
 
 ```yaml
 name: tiiny-router
-version: 2.0.0
+version: 2.1.0
 description: "Delegation backend that routes each subtask to the Tiiny model matching its shape."
 author: Your Name (your-handle), Hermes Agent
 kind: backend
@@ -64,7 +65,10 @@ calls `ctx.register_delegation_provider(...)`.
 table — as **pure data and pure functions**, with no Hermes imports, no
 network calls and no device state.
 
-**Keep it in its own file.** The plugin and the standalone scripts (the
+`thinking.py` holds the reasoning-mode control. It does read the device, but
+it does not import Hermes — so the standalone checker can use it too.
+
+**Keep them in their own files.** The plugin and the standalone scripts (the
 controller, the checker) all need the same table, and a table copied into
 three places is a table that will disagree with itself. It is loaded **by
 path**, not by package name, for a specific reason: the Hermes plugin loader
@@ -73,6 +77,10 @@ which does not establish package semantics, so a relative
 `from .tiers import ...` fails there — and the scripts run outside Hermes
 entirely, where `from agent...` is not importable at all. Loading the file
 by path works in both places.
+
+Copy the whole directory. A tree with `__init__.py` but no `tiers.py` raises
+`ImportError` at load, and the backend then reads as "never installed" rather
+than "installed wrong".
 
 ### The tier table
 
@@ -90,6 +98,7 @@ TIER_CHOICES = {
         ("openai/gpt-oss-20b", 27, 131072),
     ),
     "code": (
+        ("Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo", 55, 65536),
         ("deepreinforce-ai/Ornith-1.0-35B", 50, 131072),
         ("Qwen/Qwen3.6-35B-A3B", 47, 262144),
         ("Qwen/Qwen3-Coder-Next", 94, 131072),
@@ -220,31 +229,132 @@ def route_task(self, task, config):
         tier = detect_tier(str(task.get("goal") or ""))
 
     model, label = choose_model(tier)
-    return {
-        "model": model,
-        "provider": "custom:tiiny",
-        "base_url": "http://openai.api.tiiny/v1",
-        "request_overrides": {
-            "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
-        },
-        "label": label,
-    }
+    overrides, achieved = thinking.resolve_thinking(
+        model, str(task.get("thinking") or "auto")
+    )
+    route = dict(config)
+    route["model"] = model
+    route["label"] = f"{label} [think:{achieved}]"
+    if overrides:
+        route["request_overrides"] = merge_request_overrides(
+            route.get("request_overrides"), overrides
+        )
+    return route
 ```
 
-Three details are decisions rather than defaults:
-
-**`enable_thinking: false`** — several models in the catalogue run in
-thinking mode by default. On a small `max_tokens` budget the response can
-come back empty with the budget spent in the reasoning trace. Disabling it
-per request is what makes mechanical work predictable.
+Four details are decisions rather than defaults:
 
 **`raise DelegationRouteError`** — an unknown tier is refused, not mapped to
 the fallback. The message becomes the `delegate_task` tool error the model
-reads, so it should read as an instruction.
+reads, so it should read as an instruction. An unknown thinking mode is
+refused the same way.
+
+**`merge_request_overrides`** — the delegation section may already carry an
+`extra_body` of its own, and dropping it would silently change the request
+for every other key in it. `extra_body` is merged one level deep; the single
+values (`reasoning_effort`, `max_tokens`) are replaced wholesale, because a
+half-applied one is worse than either.
 
 **`label`** — a short string carried on the child's result, so the route can
 be read back after the fact. Without it, "which model actually ran this?" is
-unanswerable. When the router substituted a model, the label says so.
+unanswerable. When the router substituted a model, the label says so — and
+when it asked for a reasoning mode, the label says the state the model
+**reached**, which is not always the one that was asked for.
+
+### Reasoning mode
+
+`thinking.py` is the part of the plugin that most needs to be read before it
+is written, because the obvious implementation is wrong.
+
+The device publishes what each model can do with reasoning, and it publishes
+it in two places: `GET /v1/models` for the resident models, and
+`GET /api/v1/models/online_models` for the whole store. The block looks like
+this:
+
+```json
+"thinking": {
+  "supported": true,
+  "toggleable": false,
+  "levels": ["low", "medium", "high"],
+  "enabled_by_default": true,
+  "default_level": "medium"
+}
+```
+
+There are two controls, and **they are not interchangeable**:
+
+| Control | Where it goes | Who honours it |
+|---|---|---|
+| `enable_thinking` | `extra_body.chat_template_kwargs` | Models whose chat template has the switch |
+| `reasoning_effort` | Top level of the request | The inference server, for models whose chat template has no switch |
+
+The same level name inside `chat_template_kwargs` is a **different** knob that
+only some chat templates read. Put the level in the wrong place and it is
+silently discarded: the route looks configured, and the model does not
+change.
+
+So the resolution is:
+
+```python
+if requested == "auto":
+    return None, "auto"
+
+capability = thinking_capability(model)
+if capability is None:
+    return None, "unknown"           # the device would not say; guess nothing
+if not capability["supported"]:
+    return None, "unsupported"       # the model does not reason at all
+
+overrides = {"extra_body": {"chat_template_kwargs": {"enable_thinking": requested == "on"}}}
+if capability["levels"] and not capability["toggleable"]:
+    # The switch will not move this model. The level is the control that
+    # works, and the server reads it at the top level of the request.
+    level = cheapest_or_highest(capability["levels"], requested)
+    overrides["reasoning_effort"] = level
+    achieved = f"{requested}→{level}"
+else:
+    achieved = requested
+```
+
+Two decisions in that are worth stating plainly.
+
+**"Off" on a model with no switch means its cheapest level, not a refusal.**
+The model still reasons; it just reasons less. The alternative — refusing the
+task, or claiming reasoning stopped when it did not — is worse than doing the
+work at the cheapest setting.
+
+**The device's `toggleable` flag is a hint, not ground truth.** A model
+flagged as having no switch may honour it anyway. The boolean is therefore
+sent whenever it can be sent, and the label reports what the effective
+control was.
+
+The capability is read at route time rather than kept in `tiers.py`, because
+the Model Store changes with every TiinyOS update and a stale capability
+table is believed rather than checked.
+
+### The empty response that looks like success
+
+A reasoning model spends its budget on the trace first. With a small
+`max_tokens`, the trace eats the whole budget and the request comes back
+**HTTP 200 with an empty answer** — the same status code as a successful
+call, with nothing in it.
+
+So the route applies an output floor whenever a model's reasoning is in play,
+including in the "off" state, where a model whose switch does not work still
+produces a trace:
+
+```python
+overrides["max_tokens"] = max_tokens_floor   # 4096 by default
+```
+
+If you run with a larger budget, raise the floor with it:
+
+```yaml
+delegation:
+  backends:
+    tiiny-router:
+      thinking_max_tokens: 8192
+```
 
 ### The provider and the config
 
@@ -529,17 +639,34 @@ written by hand.
 ## 3. The routing checker
 
 `scripts/route_check.py` applies the same tier table and the same shape
-detection, then prints the tier, the model, and the budget — so a routing
-decision can be checked without spawning a child.
+detection, then prints the tier, the model, the budget and what the model
+can do with reasoning — so a routing decision can be checked without
+spawning a child.
 
 ```bash
 python3 scripts/route_check.py "index every file under the vault and classify each"
+python3 scripts/route_check.py --thinking off "index every file under the vault"
 python3 scripts/route_check.py --all
 python3 scripts/route_check.py --tier code --alternatives "anything"
 ```
 
-It makes no network calls and changes nothing on the device. The residency
-line comes from `tiiny top`.
+```
+goal:   index every file under the vault and classify each
+tier:   index  (inferred)
+model:  openai/gpt-oss-20b
+budget: 27% NPU, 131072 context
+reasoning: levels only (low, medium, high) — the on/off switch is ignored
+thinking: off -> off→low
+sent:    enable_thinking=false, reasoning_effort=low, max_tokens=4096
+residency: loaded
+```
+
+The checker makes read-only calls — the device's resident model list, and the
+device's catalogue when a reasoning mode is asked for — and changes nothing
+on the device. The residency line comes from `tiiny top`.
+
+It finds the plugin's shared modules by path, in either layout the files
+ship in, so the checker cannot drift from the backend it is checking.
 
 ---
 
@@ -549,6 +676,7 @@ line comes from `tiiny top`.
 - [ ] The `tiiny` CLI is on `PATH`, and `tiiny top` answers.
 - [ ] The `tiiny` provider is in `config.yaml`, with `key_env: TIINY_API_KEY`.
 - [ ] The backend plugin is installed and `delegation.backend` selects it.
+- [ ] The whole plugin directory was copied, not just `__init__.py`.
 - [ ] The tier table's NPU shares and context windows were read from the
       device, not copied from an earlier read.
 - [ ] Every model in the tier table is in the store.
@@ -558,6 +686,10 @@ line comes from `tiiny top`.
 - [ ] The swap script is in place, and the watchdog honours the hold.
 - [ ] The hold check runs before the cold-check in the watchdog.
 - [ ] `route_check.py` returns the expected tier for a known goal.
+- [ ] `route_check.py --thinking off` reports the state the model would
+      reach, and it is the state the route label then reports.
+- [ ] A reasoning task is not run on a small output budget: the floor is set,
+      and raised together with the budget it belongs to.
 - [ ] A batch with mixed subtasks shows more than one model in its results.
 - [ ] After a deliberate swap, the required models are resident again.
 - [ ] **A plugin change is loaded, not just written.** Editing the plugin

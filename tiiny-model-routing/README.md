@@ -51,7 +51,7 @@ This is the number to check before anything else, and it is why "which model
 is best" is the wrong first question. The right first question is **"what
 else needs to be loaded?"**
 
-Real combinations, measured on a device with 82 models in its store:
+Real combinations, measured on a device with 92 models in its store:
 
 | Combination | NPU | Verdict |
 |---|---|---|
@@ -59,10 +59,15 @@ Real combinations, measured on a device with 82 models in its store:
 | `Qwen/Qwen3.6-35B-A3B` (47%) + `openai/gpt-oss-20b` (27%) | 74% | Fits |
 | `Qwen/Qwen3.6-35B-A3B` (47%) + `InternScience/Sage-A1.5-Turbo` (48%) | 95% | Fits, tight |
 | `Qwen/Qwen3.6-35B-A3B` (47%) + `endless-frontier/BigBang-v1-Turbo` (54%) | 101% | **Impossible** |
-| `Qwen/Qwen3.8-27B` (51%) + `endless-frontier/BigBang-v1-Turbo` (54%) | 105% | **Impossible** |
+| `Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo` (55%) + `Qwen/Qwen3.6-35B-A3B` (47%) | 102% | **Impossible** |
+| `Qwen/Qwen3.8-27B` (52%) + `endless-frontier/BigBang-v1-Turbo` (54%) | 105% | **Impossible** |
 
 Two specialists that are each individually reasonable can be jointly
 impossible. The router has to know that before it picks.
+
+That last pair is the one to notice: the two coding models in the table below
+cannot be resident at the same time. A batch that wants both is two waves, not
+one.
 
 ## Routing by task shape
 
@@ -81,7 +86,7 @@ publisher's own description of each model.
 | Bulk indexing, classification | `openai/gpt-oss-20b` | A mixture-of-experts model with only 3.6B parameters active per token out of 21B total, which keeps it fast and resource-light on-device | 27% | 131072 |
 | Terminal coding, repo navigation | `deepreinforce-ai/Ornith-1.0-35B` | Post-trained on Qwen 3.5 MoE for terminal-based agentic coding: multi-file editing, repository navigation, shell command execution | 50% | 131072 |
 | Repository-scale coding | `Qwen/Qwen3.6-35B-A3B` | A multimodal agentic coding model for repository-level reasoning, tool calling, and multi-step code execution; a sparse MoE activating only 3B of 35B parameters per token | 47% | 262144 |
-| Computer use, browser automation | `Qwen/Qwen3.8-27B` | Its agentic tool use is strong enough to drive computer-use, browser automation, and mobile interaction across multi-step workflows | 51% | 262144 |
+| Computer use, browser automation | `Qwen/Qwen3.8-27B` | Its agentic tool use is strong enough to drive computer-use, browser automation, and mobile interaction across multi-step workflows | 52% | 262144 |
 | Drafting, summarising | `Qwen/Qwen3.5-9B` | A 9B multimodal model covering chat, analysis, and vision-language tasks in one model | 29% | 131072 |
 | Hard refactoring, recovery from failed runs | `Qwen/Qwen3-Coder-Next` | Built specifically for agentic coding tasks: multi-file edits, long-horizon debugging, tool use, and recovery from execution failures | 94% | 131072 |
 
@@ -89,6 +94,11 @@ Note the shape of the table. The specialist for the hardest coding job costs
 **94%** of the pool. The specialist for bulk indexing costs **27%**. Routing
 the mechanical work to the wrong end of that range is what makes a local
 appliance feel slow.
+
+A tier can also list a second and third choice, tried in order when the first
+is not resident. The coding tier's own first choice is
+`Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo` at 55% — and at 55% it cannot share
+the pool with the 47% model, which is exactly why the fallback list exists.
 
 ## Implementing the router
 
@@ -102,7 +112,8 @@ TIER_CHOICES = {
     "research": (("InternScience/Sage-A1.5-Turbo", 48, 262144),
                  ("endless-frontier/BigBang-v1-Turbo", 54, 131072)),
     "index":    (("openai/gpt-oss-20b", 27, 131072),),
-    "code":     (("deepreinforce-ai/Ornith-1.0-35B", 50, 131072),
+    "code":     (("Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo", 55, 65536),
+                 ("deepreinforce-ai/Ornith-1.0-35B", 50, 131072),
                  ("Qwen/Qwen3.6-35B-A3B", 47, 262144),
                  ("Qwen/Qwen3-Coder-Next", 94, 131072)),
     "browser":  (("Qwen/Qwen3.8-27B", 52, 262144),),
@@ -139,12 +150,6 @@ decision rather than a default.
 recognised goes to `Qwen/Qwen3.6-35B-A3B` — the model that is good at
 everything in the catalogue and mediocre at each. Being wrong about a
 specialist costs more than being mediocre at a general task.
-
-**Thinking is disabled per request.** Several models in the catalogue run in
-thinking mode by default. On mechanical work that spends the token budget
-producing a reasoning trace before an answer nobody asked for — and on a
-small `max_tokens` budget it can return an empty response with the budget
-spent. The `chat_template_kwargs` override turns it off per request.
 
 **The router chooses; a separate controller loads.** The backend picks the
 model for a subtask and never touches the device. A load is a swap that
@@ -192,6 +197,82 @@ The case where this matters: a task that reads "read these logs and tell me
 what went wrong" is shaped like reading, but is actually a drafting task.
 The goal understates the work. A forced `tier` fixes it; an inferred one
 cannot.
+
+## Reasoning mode is a routing decision too
+
+A reasoning model answers in two parts: the trace, and the answer. The trace
+is not free, and on mechanical work it is not wanted — indexing a folder does
+not need a chain of thought, it needs the folder.
+
+So the backend takes a second per-task parameter, `thinking`, with three
+values. `auto` (the default) changes nothing and leaves the model's native
+behaviour alone. `off` turns reasoning off where the model can be turned off.
+`on` turns it on where the model can be turned on.
+
+The obvious implementation is a boolean. It is also the wrong one, because
+the models in a catalogue do not agree on how reasoning is controlled:
+
+- Some models have a **switch** — `enable_thinking: false` in the chat
+  template's keyword arguments stops the trace dead.
+- Some models have only **levels** — `low`, `medium`, `high` — and their
+  switch is ignored outright. The level is read at the **top level of the
+  request**, not inside the chat template; put it in the wrong place and it
+  is silently discarded.
+- Some models **do not reason at all**, and a request to turn reasoning on is
+  not a thing that can happen.
+- One model on the device is flagged as having no switch and honours it
+  perfectly well. **The device's own flag is a hint, not ground truth.**
+
+A boolean-only implementation therefore does one of two wrong things: it
+claims to have turned reasoning off on a model it cannot, or it refuses a
+task because the model happens not to have a switch. Both are worse than
+doing the work at the model's cheapest setting.
+
+So the router reads the device's own capability for the model it picked, at
+route time:
+
+```json
+{"thinking": {"supported": true, "toggleable": false, "levels": ["low", "medium", "high"]}}
+```
+
+It comes from `GET /v1/models` for a resident model and
+`GET /api/v1/models/online_models` for the whole store. A hand-maintained
+capability table would be simpler and would be wrong within one TiinyOS
+update — the Model Store changes, and a stale row is believed.
+
+### "Off" means the cheapest available state
+
+For a model with no working switch, `thinking: "off"` is **not a refusal and
+not a pretence**. It means the cheapest state the model offers: the lowest
+reasoning level it declares. The model still reasons — it just reasons less.
+The routing table's own indexing model is one of these, so this is the case
+that matters in practice.
+
+### The label reports what happened
+
+The route carries a label, and the label carries the achieved state — never
+the requested one:
+
+| Label | Meaning |
+|---|---|
+| `[think:off]` | The switch worked. |
+| `[think:off→low]` | The switch was ignored; the model is at its cheapest level. |
+| `[think:on]` | The switch worked. |
+| `[think:on→high]` | The switch was ignored; the model is at its most expensive level. |
+| `[think:unsupported]` | The model does not reason at all. |
+| `[think:unknown]` | The device would not say, so nothing was applied. |
+
+A route that asked for `off` and got `off→low` did not turn reasoning off.
+Saying otherwise is how a token bill becomes a surprise.
+
+### The empty response that looks like success
+
+A reasoning model spends its budget on the trace first. With a small
+`max_tokens`, the trace eats the whole budget and the request comes back
+**HTTP 200 with an empty answer** — the same status code as a successful
+call, with nothing in it. The router therefore applies an output floor
+whenever a model's reasoning is in play, including in the "off" state, where
+a model whose switch does not work still produces a trace.
 
 ## Making the load survivable
 
@@ -280,21 +361,40 @@ goal:   index every file under the vault and classify each
 tier:   index  (inferred)
 model:  openai/gpt-oss-20b
 budget: 27% NPU, 131072 context
+reasoning: levels only (low, medium, high) — the on/off switch is ignored
+thinking: auto (the model's native behaviour)
 residency: loaded
 ```
 
+And with a reasoning mode asked for:
+
+```bash
+python3 scripts/route_check.py --thinking off "index every file under the vault"
+```
+
+```
+thinking: off -> off→low
+sent:    enable_thinking=false, reasoning_effort=low, max_tokens=4096
+```
+
 The checker reads the device's resident set — one read-only call to the local
-CLI — and changes nothing on the device. It exists so a routing decision can
-be checked *before* a batch spends tokens on it.
+CLI — and the device's own capability for the model it picked. It changes
+nothing on the device. It exists so a routing decision can be checked
+*before* a batch spends tokens on it.
 
 ## The limits
 
 **The routing table is device-specific.** The tier choices, NPU shares, and
 context windows here were read from one device's catalogue endpoint on
-2026-10-31, when the store held 82 models. The store changes with every
+2026-11-09, when the store held 92 models. The store changes with every
 TiinyOS update, and the NPU shares have already moved once — a model that
 took 55% of the pool took 47% on the read behind this article. **Re-read the
 numbers before trusting them.**
+
+**The reasoning capability is read at route time, so it is never stale in
+the route.** The same is not true of this article's prose: the model's
+capability table moves with the Model Store, and the route reads the
+device's own copy rather than any table shipped with it.
 
 **Reading the catalogue's description fields is not the same as reading the
 model's card.** The device's `desc` is the publisher's own summary and is

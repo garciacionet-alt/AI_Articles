@@ -221,7 +221,7 @@ separate document nobody reads at decision time.
 | Generalist fallback | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 |
 | Hard refactoring, recovery from failed runs | `Qwen/Qwen3-Coder-Next` | 94% | 131072 |
 
-Read on 2026-10-31, when the store held 82 models. The shares have already
+Read on 2026-11-09, when the store held 92 models. The shares have already
 moved once — a model that took 55% of the pool took 47% on this read — so
 re-read them before trusting this table.
 
@@ -230,9 +230,41 @@ Combinations that cannot be resident together, from the same read:
 | Combination | NPU | Verdict |
 |---|---|---|
 | `Qwen/Qwen3.6-35B-A3B` + `endless-frontier/BigBang-v1-Turbo` | 101% | Impossible |
+| `Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo` + `Qwen/Qwen3.6-35B-A3B` | 102% | Impossible |
 | `Qwen/Qwen3.8-27B` + `endless-frontier/BigBang-v1-Turbo` | 105% | Impossible |
 | `Qwen/Qwen3.6-35B-A3B` + `openai/gpt-oss-20b` | 74% | Fits |
 | `openai/gpt-oss-20b` + `Qwen/Qwen3.5-9B` | 56% | Fits comfortably |
+
+---
+
+## Reasoning mode is part of the route
+
+Which model gets the task is only half the decision. The other half is
+whether that model reasons before it answers — and the answer is not the same
+for every model in the table, which is why it cannot be a boolean in the
+config.
+
+Three things make it a routing decision rather than a setting:
+
+**The control differs per model.** Some models have a switch that stops the
+trace dead; some have only named reasoning levels, and their switch is
+ignored; some do not reason at all. A single boolean is right for one family
+and silently wrong for the next.
+
+**The switch is not always a switch.** A device that flags a model as having
+no on/off control may be wrong about that, and a level that works for one
+model family is discarded by the next because it is read from a different
+place in the request.
+
+**"Off" cannot always mean "off".** For a model with no working switch, the
+honest answer is the cheapest state it offers, not a refusal and not a claim
+that reasoning stopped.
+
+The pattern that follows: read the capability from the provider at route
+time, apply the control that model honours, and **report the achieved state,
+not the requested one**. A route that asked for `off` and landed on the
+cheapest level did not turn reasoning off, and a label that says otherwise
+is a lie the operator pays for.
 
 ---
 
@@ -253,11 +285,18 @@ Before trusting a routing setup:
 - [ ] The device is locked for the duration, and the lock expires.
 - [ ] An unrecognised tier is refused, not silently mapped to the fallback.
 - [ ] The generalist fallback is a deliberate choice, not an accident.
-- [ ] Thinking mode is disabled per request for mechanical tiers.
+- [ ] Reasoning mode is a per-task parameter — 'off' for mechanical work,
+      'on' for novel reasoning, 'auto' for the model's native behaviour.
+- [ ] The control that is applied matches what the model honours, and the
+      route reports the state the model actually reached.
+- [ ] A model with no working switch gets its cheapest reasoning level
+      rather than a refusal or a false claim.
+- [ ] An output floor is set whenever reasoning is in play: a small budget
+      spends itself on the trace and returns an empty answer with a 200.
 - [ ] Residency is checked with `tiiny top`, not `tiiny ls`.
 - [ ] A hold file prevents the watchdog from evicting a deliberate swap.
 - [ ] The hold check runs before the cold-check.
 - [ ] The required model set is restored after a deliberate swap.
-- [ ] A routing checker can show the tier, model, and budget for a goal
-      before a batch spends tokens on it.
+- [ ] A routing checker can show the tier, model, budget and reasoning state
+      for a goal before a batch spends tokens on it.
 - [ ] Every task's route can be read back from the child's result.
