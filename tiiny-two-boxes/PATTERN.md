@@ -65,9 +65,17 @@ follow, and both are design decisions rather than workarounds:
 And note what the control session is for. **Serving and loading are
 different paths.** A model that is already running answers requests
 immediately — no control session, no login, nothing. The session is
-required only to load, unload or download, and the device's own HTTP API
-does not expose a load route at all. Logging in to serve traffic is a
-sign that something else is wrong.
+needed by the CLI, and the CLI is not the only way to move a model: the
+device's own HTTP API does download, load and unload, authorised with the
+box's bearer. **A box that is not the signed-in one can still be
+managed** — which is what makes two boxes workable at all. Logging in to
+serve traffic is a sign that something else is wrong.
+
+The catch is that those HTTP routes are **absent from the device's
+published OpenAPI document** — 36 paths, none of them model lifecycle. The
+spec says they do not exist; they do. A community control panel found
+them first, which is a reasonable way to learn that a vendor's own
+documentation can be incomplete about its own device.
 
 ### 4. The shared state is per box
 

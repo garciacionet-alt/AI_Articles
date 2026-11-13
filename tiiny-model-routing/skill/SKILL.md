@@ -56,9 +56,11 @@ case where the models are not yet known, or the batch spans several.
   it there, in the environment, or in the vault's credentials file).
 - The `tiiny` CLI at `~/.local/tiiny/bin/tiiny` for the load and unload
   commands.
-- **A logged-in CLI session.** Model loading is CLI-only — the device's HTTP
-  API publishes a route map at `GET /openapi.json` and it has **no**
-  load/unload route — so without the session nothing can be made resident.
+- **A logged-in CLI session.** The CLI is one path to the model lifecycle; the device's HTTP API is another.
+  The device publishes a route map at `GET /openapi.json`, and it does **not**
+  list the model lifecycle routes — but the routes work. `POST
+  /api/v1/models/<id>/download` and `/start` and `/stop` are all
+  live on the device, authorised with the box's bearer, and they need **no session**.
   `tiiny login` is interactive (email + code) and is a human step.
 - The routing backend plugin installed (see [references/backend.md](references/backend.md)), and
   `delegation.backend: tiiny-router` set in the active profile's config.
@@ -519,14 +521,15 @@ now make impossible.
   `openai.api.tiiny` resolves to the desktop app's forwarder and serves ONE
   device at a time — a second box has to be addressed by its own IP.
 
-- **Downloading a model is a separate path from loading one, and it is
-  CLI-only.** `tiiny download <model_id> --device-address <ip>` pulls from
-  the store onto the device's disk; the device's HTTP API has no download
-  route, and none for load or unload. A download costs no NPU — the model
-  sits on disk until something loads it, which is where the swap budget
-  applies. `tiiny ls -r` is the store catalogue, `tiiny ls -d` is what is
-  on disk, and the difference is the download list. `tiiny import` covers
-  models the store does not carry.
+- **Downloading a model is a separate path from loading one.** `POST
+  /api/v1/models/<id>/download` pulls from the store onto the device's disk,
+  authorised with the box's bearer and needing no CLI session; `tiiny download
+  <model_id> --device-address <ip>` does the same thing through the CLI, where
+  it deadlocks after the transfer and always exits non-zero. A download
+  costs no NPU — the model sits on disk until something loads it, which is
+  where the swap budget applies. `tiiny ls -r` is the store catalogue,
+  `tiiny ls -d` is what is on disk, and the difference is the download list.
+  `tiiny import` covers models the store does not carry.
 
 - **The CLI's exit code, and its output after a transfer, are not the
   truth.** A completed download dies with `fatal error: all goroutines are
@@ -630,9 +633,10 @@ now make impossible.
 
 - **Serving and loading are different paths.** A model that is already
   running answers immediately — no CLI session needed. The CLI session is
-  required only to load or unload, which the device's HTTP API does not
-  expose. So a box with a warm model is usable while the CLI is logged
-  out.
+  needed only by the CLI, and the device's HTTP API does load, unload and
+  download without one. So a box with a warm model is usable while the CLI
+  is logged out, and a box that is *not* the signed-in one can still be
+  loaded, unloaded and stocked.
 
 - **The store entry is the download truth, not a storage endpoint.**
   `GET /api/v1/models/online_models` carries each model's `status`

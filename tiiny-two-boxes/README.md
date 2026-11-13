@@ -63,9 +63,10 @@ without naming the address lands on whichever box the CLI config points
 at.
 
 Note too that **serving and loading are different paths**: a model that is
-already running answers immediately, with no session at all, while the
-session is required only to load, unload or download — and the device's
-HTTP API does not expose a load route at all.
+already running answers immediately, with no session at all. The control
+session is needed by the *CLI*, and the CLI is not the only way to move a
+model — the device's own HTTP API does load, unload and download, so a
+box that is not the signed-in one can still be managed.
 
 **The shared state has to be per box.** One lock for two boxes means two
 agents evict each other's models; one catalogue snapshot means a refresh on
@@ -132,13 +133,39 @@ Three paths, and only the middle one costs anything:
 
 | Path | Command | Costs |
 |---|---|---|
-| Download | `tiiny download <model_id> --device-address <ip>` | disk only — no NPU |
-| Load | `tiiny load <model_id>` | the NPU pool — a load is a swap |
+| Download | `POST /api/v1/models/<id>/download` | disk only — no NPU |
+| Load | `POST /api/v1/models/<id>/start` | the NPU pool — a load is a swap |
 | Serve | the OpenAI-compatible endpoint | nothing; the model is already resident |
 
-Download is control-CLI-only, exactly like load: the device's HTTP API
-exposes neither. `tiiny ls -r` is the store catalogue, `tiiny ls -d` is
-what is on disk, and the difference between the two is the download list.
+**The device's own HTTP API does the lifecycle.** All three are POST/GET on
+the device, authorised with the box's bearer — no CLI, no session, no
+terminal:
+
+```bash
+curl -X POST "http://192.0.2.51/api/v1/models/zai-org/GLM-OCR/download" \
+     -H "Authorization: Bearer $TIINY_API_KEY_2"
+
+curl -X POST "http://192.0.2.51/api/v1/models/zai-org/GLM-OCR/start" \
+     -H "Authorization: Bearer $TIINY_API_KEY_2"
+
+curl -X POST "http://192.0.2.51/api/v1/models/zai-org/GLM-OCR/stop" \
+     -H "Authorization: Bearer $TIINY_API_KEY_2"
+```
+
+Two reasons this matters for a two-box setup. **The lifecycle needs no CLI
+session**, so a box that is not the signed-in one can still be loaded,
+unloaded and stocked. And **the routes are not in the device's published
+OpenAPI document** — 36 paths, none of them model lifecycle — so reading
+the spec says they do not exist, and they do.
+
+The CLI still matters, and it is better at some things: `tiiny ls -r` is
+the store catalogue, `tiiny ls -d` is what is on disk, and the difference
+between the two is the download list. But the CLI is the only path that
+needs the session, and the session is a single slot.
+
+`tiiny download` also dies with a Go deadlock after the transfer completes
+and always exits non-zero, so the device's catalogue entry — `status`,
+`progress` and the byte count — is the only verdict either way.
 
 ## Pitfalls that only appear with two boxes
 
@@ -234,7 +261,10 @@ problem.
 - One appliance per box, each with its own credential and its own address.
 - A local forwarder in the desktop application that serves one box at a
   time — which is why the boxes are addressed directly.
-- Model lifecycle managed by the CLI, because the device's HTTP API does
-  not expose load or unload.
+- Model lifecycle reachable two ways: the device's HTTP API
+  (`POST /api/v1/models/<id>/download|start|stop`, authorised with the
+  box's bearer, no session needed) and the CLI, which needs the session
+  and a terminal. The HTTP routes are absent from the device's published
+  OpenAPI document, so the spec is not the whole truth.
 - The figures above, read on 2026-11-12. Model stores move with every
   firmware update; re-read them rather than trusting this table.
