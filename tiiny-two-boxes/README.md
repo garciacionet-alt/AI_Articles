@@ -28,7 +28,7 @@ changes is the plumbing around them:
 |---|---|---|
 | Endpoint | one address | one address **per box** |
 | Credential | one device-admin bearer | **one per box** — they do not open each other |
-| CLI session | one login | **one login per box** — a session is bound to its address |
+| CLI session | one login | **one slot** — the second box's sign-in signs the first one out |
 | Load/unload | the only way to change residency | still the only way |
 | Lock / hold / plan | one set | **one set per box**, or two agents fight |
 | Catalogue snapshot | one file | **one per box**, or a refresh replaces the other's baseline |
@@ -50,12 +50,22 @@ opens both. What looks like one — the credential a control command prints
 alongside the per-provider base URLs — is still scoped to the device whose
 address you asked for.
 
-**The control session belongs to a box.** Signed in for one address, the
-same session reports itself signed out for another. And note that
-**serving and loading are different paths**: a model that is already running
-answers immediately, with no session at all, while the session is required
-only to load or unload — and the device's HTTP API does not expose a load
-route at all.
+**The control session is one slot, and the second sign-in takes it.** The
+control CLI keeps a single session, and whichever box you signed in to
+last owns it — signing in to the second box signs the first one *out*.
+That is the trap: sign into both boxes in turn and you end up with one
+working box and no error message anywhere. Two consequences follow.
+**Serve from both, manage one at a time** — each box's API credential is
+independent and both serve inference at once; only the control path (load,
+unload, download) is limited to the box holding the session. And **every
+control call must name its device** — a controller that invokes the CLI
+without naming the address lands on whichever box the CLI config points
+at.
+
+Note too that **serving and loading are different paths**: a model that is
+already running answers immediately, with no session at all, while the
+session is required only to load, unload or download — and the device's
+HTTP API does not expose a load route at all.
 
 **The shared state has to be per box.** One lock for two boxes means two
 agents evict each other's models; one catalogue snapshot means a refresh on
@@ -116,6 +126,20 @@ for the named box, so the two boxes never contend for one lock. The
 declarative form of the boxes file, and the provider blocks that go with
 it, are in [IMPLEMENTATION.md](./IMPLEMENTATION.md).
 
+## Getting a model onto a box
+
+Three paths, and only the middle one costs anything:
+
+| Path | Command | Costs |
+|---|---|---|
+| Download | `tiiny download <model_id> --device-address <ip>` | disk only — no NPU |
+| Load | `tiiny load <model_id>` | the NPU pool — a load is a swap |
+| Serve | the OpenAI-compatible endpoint | nothing; the model is already resident |
+
+Download is control-CLI-only, exactly like load: the device's HTTP API
+exposes neither. `tiiny ls -r` is the store catalogue, `tiiny ls -d` is
+what is on disk, and the difference between the two is the download list.
+
 ## Pitfalls that only appear with two boxes
 
 - **A storage endpoint is not a presence measure.** The device reports
@@ -145,6 +169,18 @@ it, are in [IMPLEMENTATION.md](./IMPLEMENTATION.md).
   holds every provider's endpoint and credential name is not one you want
   to lose to a typo, and it is not one you can rebuild from a backup of
   itself.
+- **The control session is one slot, and signing in takes it.** Signing in
+  to the second box signs the first one *out*. The symptom is a box that
+  worked an hour ago now answering "not signed in", with no error anywhere.
+  Serve from both, manage one at a time, and have every control call name
+  its device.
+- **A download lands and the CLI prints a stack trace.** The transfer
+  succeeded and the CLI crashed while reporting it. The device's own
+  catalogue entry — `status`, `progress` — is the truth. The exit code is
+  not: it is also non-zero on a perfectly ordinary "already downloaded".
+- **A load does nothing at all.** The control CLI opens a terminal for its
+  prompts, and from a script it fails on that with nothing becoming
+  resident. Give it a pseudo-terminal.
 - **Verify the catalogue on both boxes before you trust the tier table on
   either.** "Same model" was an assumption until the two stores were
   compared entry by entry. They matched — but they were checked.

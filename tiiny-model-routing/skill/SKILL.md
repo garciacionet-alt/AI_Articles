@@ -519,11 +519,56 @@ now make impossible.
   `openai.api.tiiny` resolves to the desktop app's forwarder and serves ONE
   device at a time — a second box has to be addressed by its own IP.
 
+- **Downloading a model is a separate path from loading one, and it is
+  CLI-only.** `tiiny download <model_id> --device-address <ip>` pulls from
+  the store onto the device's disk; the device's HTTP API has no download
+  route, and none for load or unload. A download costs no NPU — the model
+  sits on disk until something loads it, which is where the swap budget
+  applies. `tiiny ls -r` is the store catalogue, `tiiny ls -d` is what is
+  on disk, and the difference is the download list. `tiiny import` covers
+  models the store does not carry.
+
+- **The CLI's exit code, and its output after a transfer, are not the
+  truth.** A completed download prints a Go panic stack trace *after* the
+  model is already on disk, and the "already downloaded" path exits
+  non-zero with a perfectly normal sentence. Verify every download against
+  the device's own catalogue entry — `status` and `progress` — not against
+  the CLI's exit code. Same rule as the load verdict: the device decides.
+
+- **`tiiny load` and `tiiny unload` need a real terminal.** In a
+  non-interactive shell they fail with "could not open a new TTY" and
+  nothing becomes resident — a silent no-op that looks like a refusal to
+  load. Run them inside a pseudo-terminal (`script -q /dev/null tiiny load
+  ...`) when there is no TTY.
+
+- **The control CLI holds ONE session, bound to ONE device.** Signing in
+  for a second box signs the first one *out* — the stored session is a
+  single opaque token, not a map of devices. The CLI can therefore manage
+  one box at a time, and moving the session between boxes is a human step
+  (a sign-in with a code). Two rules follow: every control call has to
+  name its device — `tiiny_ctl.py` resolves `TIINY_DEVICE_ADDRESS`, then
+  `TIINY_HOST`, then the CLI config, and passes `--device-address` to
+  every load and unload — and a controller aimed at a box that does not
+  hold the session must say so, rather than failing as though the model
+  were the problem. The API credentials are unaffected: each box's bearer
+  is independent, and both boxes serve inference at the same time.
+
 - **A script that edits a credentials file must write atomically.** A
   mistyped `open(path, "w", encoding=...)` truncated the file before it
   raised. Write through a temp file and `os.replace` it into place, and
   prove the change against a copy — the real config is the one file that
   cannot be rebuilt from a backup of itself.
+
+- **The client config is off-limits to the agent; hand the human a script.**
+  `~/.hermes/config.yaml` is guarded by design, and the right response is
+  not to route around the guard: write the change as a script the human
+  runs — a timestamped backup, one line edited, a temp file and `os.replace`
+  into place, a printed revert command, and a proof run against a COPY of
+  the config first. The human restarts the client afterwards anyway, and a
+  provider block is config they need to see. **A provider block is read at
+  startup, so a newly added provider is not live until the client
+  restarts** — say that when the change is handed over, because a provider
+  that appears configured but answers nothing looks like a routing fault.
 
 - **Different form factors mean different NPU figures.** A Pocket and an
   Octo are not the same silicon. The tier table's shares were measured on

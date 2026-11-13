@@ -232,6 +232,86 @@ INFERENCE_BASE = (os.environ.get("TIINY_BASE_URL") or _dotenv_value("TIINY_BASE_
 MANAGEMENT_BASE = (os.environ.get("TIINY_HOST") or _dotenv_value("TIINY_HOST")
                    or "http://tiinyhost.local").rstrip("/")
 
+
+def _address_from(url: str) -> str:
+    """The host part of a base URL as a bare address.
+
+    ``http://192.0.2.51/v1`` -> ``192.0.2.51``. A value with no scheme
+    is returned as its first path segment, so ``tiinyhost.local`` survives
+    intact.
+    """
+    text = url.strip()
+    if "://" in text:
+        text = text.split("://", 1)[1]
+    return text.split("/")[0].split(":")[0]
+
+
+def _cli_config_device() -> str:
+    """The device the control CLI is currently pointed at."""
+    try:
+        import json
+        path = os.path.expanduser("~/.local/tiiny/config.json")
+        with open(path) as fh:
+            return str(json.load(fh).get("deviceAddress") or "")
+    except Exception:
+        return ""
+
+
+def device_address() -> str:
+    """The address every control call has to name.
+
+    The control CLI keeps ONE session, bound to ONE device: signing in for
+    a second box signs the first one out. So a load that does not name its
+    device lands on whichever box the CLI config happens to point at — which
+    in a two-box setup is how the controller quietly manages the wrong
+    appliance. This resolves the address from the environment first, then
+    from the management base URL, and falls back to the CLI config.
+    """
+    explicit = os.environ.get("TIINY_DEVICE_ADDRESS") or _dotenv_value("TIINY_DEVICE_ADDRESS")
+    if explicit:
+        return explicit.strip()
+    host = _address_from(MANAGEMENT_BASE)
+    if host and host != "tiinyhost.local":
+        return host
+    return _cli_config_device()
+
+
+#: Probed once per run: (address, is_signed_in).
+_SESSION_CHECKED: tuple[str, bool] | None = None
+
+
+def cli_session_ok() -> bool:
+    """True when the control CLI is signed in for the device it must manage.
+
+    One session, one device. A load against a box with no session fails
+    with "Not logged in", nothing becomes resident, and the failure looks
+    like a refusal rather than an authentication gap. Checking first turns
+    that into an actionable message instead of a silent no-op.
+    """
+    global _SESSION_CHECKED
+    addr = device_address()
+    if not addr or not TIINY_BIN.exists():
+        return True
+    if _SESSION_CHECKED and _SESSION_CHECKED[0] == addr:
+        return _SESSION_CHECKED[1]
+    try:
+        result = subprocess.run(
+            [str(TIINY_BIN), "ls", "-d", "--device-address", addr],
+            capture_output=True, text=True, timeout=120,
+        )
+    except Exception:
+        # A probe failure is not evidence of a missing session. Do not
+        # block the load on the strength of a failed check.
+        return True
+    out = (result.stdout or "") + (result.stderr or "")
+    signed_in = "Not logged in" not in out
+    _SESSION_CHECKED = (addr, signed_in)
+    if not signed_in:
+        print(f"tiiny_ctl: the control CLI is not signed in for {addr}.", file=sys.stderr)
+        print("  'tiiny login' is a human step, and the CLI holds ONE session", file=sys.stderr)
+        print("  bound to ONE device: signing in here signs the other box out.", file=sys.stderr)
+    return signed_in
+
 #: The models `release` restores. There is no watchdog any more — the cron
 #: poller was retired on 2026-11-10 and `ensure` replaced it — so this list is
 #: now written in exactly ONE place: this file. Every other copy is a symlink
@@ -400,9 +480,15 @@ def cli_load(model: str) -> bool:
     if not TIINY_BIN.exists():
         print(f"tiiny_ctl: the tiiny CLI is missing at {TIINY_BIN}", file=sys.stderr)
         return False
+    addr = device_address()
+    if not cli_session_ok():
+        return False
+    cmd = ["script", "-q", "/dev/null", str(TIINY_BIN), "load", model, "-y"]
+    if addr:
+        cmd += ["--device-address", addr]
     try:
         result = subprocess.run(
-            ["script", "-q", "/dev/null", str(TIINY_BIN), "load", model, "-y"],
+            cmd,
             capture_output=True, text=True, timeout=900,
         )
     except Exception as exc:
@@ -423,9 +509,13 @@ def cli_unload(model: str) -> bool:
     if not TIINY_BIN.exists():
         print(f"tiiny_ctl: the tiiny CLI is missing at {TIINY_BIN}", file=sys.stderr)
         return False
+    addr = device_address()
+    cmd = ["script", "-q", "/dev/null", str(TIINY_BIN), "unload", model, "-y"]
+    if addr:
+        cmd += ["--device-address", addr]
     try:
         result = subprocess.run(
-            ["script", "-q", "/dev/null", str(TIINY_BIN), "unload", model, "-y"],
+            cmd,
             capture_output=True, text=True, timeout=300,
         )
     except Exception as exc:
