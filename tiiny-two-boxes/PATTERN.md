@@ -134,7 +134,7 @@ holding.
 | The control CLI says "not signed in" for a box you just used | One session slot: the second sign-in signed the first box out |
 | A load reports success and the model is still absent | The control session was not authenticated; nothing loaded, and the child silently falls back |
 | A load does nothing at all, with no error | The control CLI opens a terminal for its prompts; from a script it fails on that and nothing becomes resident |
-| A download lands and the CLI prints a stack trace | The transfer worked and the CLI crashed while reporting it. The device's own catalogue status is the truth, not the exit code |
+| A download lands and the CLI dies with a Go deadlock | The transfer worked; the CLI's progress reporter deadlocks afterwards and the command exits non-zero. The device's own catalogue status is the truth |
 | The client works, then a different box's models appear | The client is pointed at the vendor hostname. Address the boxes directly |
 | Two agents evict each other's models | They share one lock file. One lock per pool |
 | A catalogue diff reports models that vanished | One snapshot file for two devices. One snapshot per device |

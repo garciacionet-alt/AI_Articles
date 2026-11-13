@@ -174,10 +174,12 @@ what is on disk, and the difference between the two is the download list.
   worked an hour ago now answering "not signed in", with no error anywhere.
   Serve from both, manage one at a time, and have every control call name
   its device.
-- **A download lands and the CLI prints a stack trace.** The transfer
-  succeeded and the CLI crashed while reporting it. The device's own
-  catalogue entry — `status`, `progress` — is the truth. The exit code is
-  not: it is also non-zero on a perfectly ordinary "already downloaded".
+- **A download lands and the CLI dies with a Go deadlock.** The transfer
+  succeeded, and the CLI's own progress reporter then deadlocks — every
+  goroutine asleep on a channel that never signals — so the command always
+  exits non-zero. The device's own catalogue entry — `status`, `progress`,
+  and the byte count — is the truth. The exit code is not: it is non-zero
+  on a perfectly ordinary "already downloaded" as well.
 - **A load does nothing at all.** The control CLI opens a terminal for its
   prompts, and from a script it fails on that with nothing becoming
   resident. Give it a pseudo-terminal.

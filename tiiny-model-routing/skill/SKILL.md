@@ -529,11 +529,13 @@ now make impossible.
   models the store does not carry.
 
 - **The CLI's exit code, and its output after a transfer, are not the
-  truth.** A completed download prints a Go panic stack trace *after* the
-  model is already on disk, and the "already downloaded" path exits
-  non-zero with a perfectly normal sentence. Verify every download against
-  the device's own catalogue entry — `status` and `progress` — not against
-  the CLI's exit code. Same rule as the load verdict: the device decides.
+  truth.** A completed download dies with `fatal error: all goroutines are
+  asleep - deadlock!` — the command's own progress reporter parks on a
+  channel that never signals, and the process exits non-zero every time.
+  The "already downloaded" path exits non-zero with a perfectly normal
+  sentence. Verify every download against the device's own catalogue entry
+  — `status`, `progress`, and the byte count — not against the CLI's exit
+  code. Same rule as the load verdict: the device decides.
 
 - **`tiiny load` and `tiiny unload` need a real terminal.** In a
   non-interactive shell they fail with "could not open a new TTY" and

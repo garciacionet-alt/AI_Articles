@@ -140,11 +140,12 @@ tiiny ls -d --device-address <box-ip>   # what is on this box
 ```
 
 Two things to know before you run it. It needs the control session, and
-**the control session is one slot** — see the pitfalls. And it does not
-always exit cleanly: a completed transfer can be followed by a stack trace
-from the CLI, and the "already downloaded" case exits non-zero with an
-ordinary sentence. The device's own catalogue entry — `status` and
-`progress` — is the truth, not the exit code.
+**the control session is one slot** — see the pitfalls. And it never exits
+cleanly: a completed transfer is followed by a Go deadlock in the CLI's
+own progress reporter, and the command exits non-zero every time. The
+"already downloaded" case exits non-zero too, with an ordinary sentence.
+The device's own catalogue entry — `status`, `progress`, and the byte
+count — is the truth, not the exit code.
 
 Loading it into NPU is a separate step, and that is the one that spends
 the swap budget.
@@ -181,7 +182,7 @@ problem.
 | "Not logged in" from the CLI | One session slot — the other box's sign-in owns it | Log in again for this box, which signs the other one out |
 | A load reports success but the model is absent | The CLI session was not authenticated | Check the session, then the model's own `status` in the catalogue — not the CLI's exit code |
 | A load does nothing at all, with no error | The CLI opens a terminal for its prompts | Run it inside a pseudo-terminal |
-| A download lands and the CLI prints a stack trace | The transfer worked; the CLI crashed while reporting it | Read the model's `status` and `progress` in the catalogue |
+| A download lands and the CLI dies with a Go deadlock | The transfer worked; the CLI's progress reporter deadlocks and the command exits non-zero | Read the model's `status` and `progress` in the catalogue |
 | The client answers with the wrong box's models | It is pointed at the vendor hostname | Address the boxes directly |
 | Two agents evict each other | One lock file for two pools | One lock per pool; `own_lock = yes` for the second box |
 | A catalogue diff reports vanished models | One snapshot file for two devices | One snapshot per device |
