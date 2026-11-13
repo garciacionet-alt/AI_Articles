@@ -37,7 +37,31 @@ set -uo pipefail
 
 BOXES_CONF="${TIINY_BOXES_CONF:-$HOME/.config/hermes/tiiny-boxes.conf}"
 HERMES_ENV="${HERMES_ENV:-$HOME/.hermes/.env}"
-CTL="${TIINY_CTL:-$HOME/.hermes/scripts/tiiny_ctl.py}"
+
+# The controller itself lives in the sibling article family in this
+# repository (tiiny-model-routing/scripts/tiiny_ctl.py). A clone of the
+# repo has it there; a deployed install has it in ~/.hermes/scripts. Look
+# in both so this script works for a reader who just cloned the repo, and
+# let TIINY_CTL override both.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+resolve_ctl() {
+  if [ -n "${TIINY_CTL:-}" ]; then
+    echo "$TIINY_CTL"
+    return
+  fi
+  for candidate in \
+    "$HOME/.hermes/scripts/tiiny_ctl.py" \
+    "$SCRIPT_DIR/../../tiiny-model-routing/scripts/tiiny_ctl.py" \
+    "$SCRIPT_DIR/../tiiny-model-routing/scripts/tiiny_ctl.py"
+  do
+    if [ -f "$candidate" ]; then
+      echo "$candidate"
+      return
+    fi
+  done
+  echo ""
+}
+CTL="$(resolve_ctl)"
 
 usage() {
   sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
@@ -58,7 +82,11 @@ if [ ! -f "$BOXES_CONF" ]; then
   exit 2
 fi
 if [ ! -f "$CTL" ]; then
-  echo "tiiny_box: the controller is missing at $CTL" >&2
+  echo "tiiny_box: the controller is missing." >&2
+  echo "  looked for: \$TIINY_CTL, ~/.hermes/scripts/tiiny_ctl.py," >&2
+  echo "              and ../tiiny-model-routing/scripts/tiiny_ctl.py" >&2
+  echo "              next to this script (that is where it lives in a clone" >&2
+  echo "              of the article repository)." >&2
   exit 2
 fi
 
