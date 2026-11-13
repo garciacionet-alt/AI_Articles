@@ -342,11 +342,19 @@ def _load_tiers():
     The table lives next to the plugin in the vault's skill directory, and
     beside the installed plugin under the Hermes tree. Both are searched, so
     the controller works from either copy of itself.
+
+    The published article repository lays the family out differently — the
+    plugin sits under ``skill/plugin`` and a copy under ``examples`` — so
+    those paths are searched too. Without them a reader who cloned the
+    repository and ran the published controller got "could not find the tier
+    table" on every command.
     """
     import importlib.util
 
     candidates = [
         SKILL_ROOT / "plugin" / "tiers.py",
+        SKILL_ROOT / "skill" / "plugin" / "tiers.py",
+        SKILL_ROOT / "examples" / "tiiny-router" / "tiers.py",
         HERE / "tiers.py",
         Path(os.path.expanduser(
             "~/.hermes/hermes-agent/plugins/delegation/tiiny-router/tiers.py")),
