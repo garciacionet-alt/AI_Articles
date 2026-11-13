@@ -541,7 +541,11 @@ now make impossible.
   non-interactive shell they fail with "could not open a new TTY" and
   nothing becomes resident — a silent no-op that looks like a refusal to
   load. Run them inside a pseudo-terminal (`script -q /dev/null tiiny load
-  ...`) when there is no TTY.
+  ...`) when there is no TTY. The appliance exposes no SSH shell to borrow
+  one from — ports 22 and 2222 are closed on both boxes, and the device's
+  36-route API has no shell, exec or console route — and `--json` does not
+  skip the prompt. Any controlling terminal works: the `script` wrapper, or
+  a runner that allocates one.
 
 - **The control CLI holds ONE session, bound to ONE device.** Signing in
   for a second box signs the first one *out* — the stored session is a
