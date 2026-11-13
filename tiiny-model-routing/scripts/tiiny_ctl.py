@@ -82,14 +82,13 @@ def _shared_home() -> Path:
 
     - the delegation plugin reads the plan from ``~/.hermes/tiiny-plan.json``
       on purpose — "every profile's manager agent must see the same plan";
-    - the watchdog reads the hold from ``~/.hermes/tiiny-hold``.
+    - every profile writes the hold to ``~/.hermes/tiiny-hold``, so one
+      agent's record of what it loaded is visible to the next.
 
     When HERMES_HOME is a profile directory (``.../hermes/profiles/<name>``)
-    a naive ``HERMES_HOME / "tiiny-hold"`` writes the hold somewhere the
-    watchdog never reads. The hold then does not hold: the watchdog reloads
-    its required set mid-swap and evicts whatever was deliberately loaded.
-    This is the failure the hold file exists to prevent, so the shared
-    files have to be resolved against the base home, not the profile.
+    a naive ``HERMES_HOME / "tiiny-hold"`` writes the hold somewhere the other
+    agents never read, so two agents each believe they hold the device. The
+    shared files have to be resolved against the base home, not the profile.
     """
     home = HERMES_HOME
     if home.name != "profiles" and home.parent.name == "profiles":
@@ -215,25 +214,36 @@ VAULT = _find_vault()
 #: Shared state. These live in the BASE Hermes home, not the profile — see
 #: `_shared_home` for why, and for the failure that follows if they do not.
 SHARED_HOME = _shared_home()
-LOCK_FILE = SHARED_HOME / "tiiny-lock.json"
+#: Per-device overrides for the shared state. The defaults are the
+#: single-device paths and are unchanged, so nothing moves unless a caller
+#: asks for a second box explicitly. Two boxes must not share one lock: the
+#: lock exists to keep two agents off the same NPU pool, and with two pools
+#: it becomes two locks, not one contended one.
+LOCK_FILE = Path(os.environ.get("TIINY_LOCK_FILE", str(SHARED_HOME / "tiiny-lock.json")))
 PLAN_FILE = Path(os.environ.get("TIINY_PLAN_FILE", str(SHARED_HOME / "tiiny-plan.json")))
-HOLD_FILE = SHARED_HOME / "tiiny-hold"
-SNAPSHOT_FILE = SHARED_HOME / "tiiny-catalogue.json"
+HOLD_FILE = Path(os.environ.get("TIINY_HOLD_FILE", str(SHARED_HOME / "tiiny-hold")))
+#: One snapshot per device. The path is overridable so refreshing one
+#: box's catalogue cannot replace another box's baseline.
+SNAPSHOT_FILE = Path(os.environ.get("TIINY_SNAPSHOT_FILE", str(SHARED_HOME / "tiiny-catalogue.json")))
 
 TIINY_BIN = Path(os.environ.get("TIINY_BIN", "~/.local/tiiny/bin/tiiny")).expanduser()
-INFERENCE_BASE = os.environ.get("TIINY_BASE_URL", "http://openai.api.tiiny/v1").rstrip("/")
-MANAGEMENT_BASE = os.environ.get("TIINY_HOST", "http://tiinyhost.local").rstrip("/")
+INFERENCE_BASE = (os.environ.get("TIINY_BASE_URL") or _dotenv_value("TIINY_BASE_URL")
+                  or "http://openai.api.tiiny/v1").rstrip("/")
+MANAGEMENT_BASE = (os.environ.get("TIINY_HOST") or _dotenv_value("TIINY_HOST")
+                   or "http://tiinyhost.local").rstrip("/")
 
-#: The models the watchdog keeps resident. The controller restores exactly
-#: this set on release, so the two lists must stay identical — a list that
-#: drifts is how a device ends up missing a model that the delegation config
-#: expects, which shows up as a 404 and a silent fallback to the paid
-#: provider.
+#: The models `release` restores. There is no watchdog any more — the cron
+#: poller was retired on 2026-11-10 and `ensure` replaced it — so this list is
+#: now written in exactly ONE place: this file. Every other copy is a symlink
+#: into this one, which is what stops the set drifting between scripts.
+#:
+#: Speech is NOT here. ASR and TTS moved to Off Grid AI Desktop (the local
+#: Mac gateway) on 2026-11-10, because the appliance serves one heavy stream
+#: at a time — TTS queued behind the appliance's own LLM turn — and because
+#: OGAD's speech models cost no NPU on the device at all. Keeping them here
+#: meant every release reloaded 12% of a shared pool that nothing used.
 REQUIRED_MODELS = (
     "Qwen/Qwen3.6-35B-A3B",
-    "Qwen/Qwen3-ASR-1.7B",
-    "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
-    "Supertone/supertonic-3",
     "openai/gpt-oss-20b",
 )
 
@@ -465,11 +475,16 @@ def ensure_room(wave: list[str], index: dict[str, dict] | None = None) -> tuple[
 
 
 def hold_write(models: list[str]) -> None:
-    """Hold the device: the watchdog reloads nothing while this file exists.
+    """Record what this agent deliberately loaded.
 
-    The FIRST line is the model the watchdog checks for staleness, so it must
-    be a model that is resident for the whole batch. A multi-wave batch
-    rewrites the hold as each wave starts.
+    This used to be an interlock: a five-minute watchdog read this file and
+    reloaded nothing while it existed. That poller was retired on 2026-11-10
+    and `ensure` replaced it, so the file no longer stops anything from
+    firing. It is kept because it is the only local record of which models a
+    batch asked for, and `status` and `release` still read it.
+
+    The FIRST line names the model that is resident for the whole batch. A
+    multi-wave batch rewrites the hold as each wave starts.
     """
     HOLD_FILE.parent.mkdir(parents=True, exist_ok=True)
     HOLD_FILE.write_text("".join(f"{m}\n" for m in models))
@@ -480,8 +495,8 @@ def hold_clear() -> None:
 
     Truncate first — a write always works, even where deletion is blocked —
     then try to remove the file, then VERIFY. An empty hold file is a released
-    hold, and a script that prints "cleared" without checking is exactly how a
-    stale hold disables the watchdog forever.
+    hold, and a script that prints "cleared" without checking leaves a stale
+    record behind for `status` to report as if it were live.
     """
     try:
         HOLD_FILE.write_text("")
@@ -494,8 +509,8 @@ def hold_clear() -> None:
     try:
         if HOLD_FILE.exists() and HOLD_FILE.stat().st_size > 0:
             raise SystemExit(
-                f"tiiny_ctl: could not release the hold at {HOLD_FILE} — the watchdog "
-                "will keep treating the device as held. Truncate it by hand."
+                f"tiiny_ctl: could not release the hold at {HOLD_FILE} — "
+                "`status` will keep reporting it as held. Truncate it by hand."
             )
     except FileNotFoundError:
         pass
@@ -743,7 +758,7 @@ def cmd_status(args) -> int:
         print(f"\n  LOCK: {state}")
 
     held = hold_state()
-    print(f"  HOLD: {', '.join(held) if held else '(none — the watchdog is live)'}")
+    print(f"  HOLD: {', '.join(held) if held else '(none)'}")
 
     plan = plan_read()
     if plan and plan.get("entries"):
@@ -868,7 +883,7 @@ def cmd_plan(args) -> int:
     print(f"  resident now       : {resident_share}% NPU across {len(resident)} models")
     if displaced:
         print(f"  may be displaced   : {', '.join(displaced)}")
-        print("      (the watchdog restores the required set on release)")
+        print("      (release restores the required set when the batch is done)")
     print("\n  The device serves one generation-heavy stream at a time: run one")
     print("  heavy child per wave, not every wave's children at once.")
     return 0
@@ -933,8 +948,8 @@ def cmd_load(args) -> int:
 
     before = set(resident_ids())
 
-    # Write the hold BEFORE loading. The watchdog can fire at any moment; if
-    # it fires between the load and the hold, it evicts the model just loaded.
+    # Record the batch before loading, so `status` shows what is resident
+    # because of this run rather than as a leftover from an earlier one.
     hold_write(models)
 
     # Make room explicitly. When a load does not fit, the device picks what to
@@ -964,9 +979,15 @@ def cmd_load(args) -> int:
     missing = [m for m in models if m not in after]
     evicted = sorted(before - after)
 
-    print(f"\n  loaded      : {', '.join(models)}")
+    landed = [m for m in models if m not in missing]
+    if landed:
+        print(f"\n  loaded      : {', '.join(landed)}")
     if missing:
-        print(f"  NOT RESIDENT: {', '.join(missing)}")
+        # Never print "loaded: X" next to "NOT RESIDENT: X". The old wording
+        # claimed the load and then denied it in the same breath, which is
+        # exactly the ambiguity that lets a batch fall back to the paid
+        # provider without anybody noticing.
+        print(f"\n  NOT RESIDENT: {', '.join(missing)}")
     if evicted:
         print(f"  displaced   : {', '.join(evicted)}")
     print(f"  hold        : {', '.join(hold_state())}")
@@ -974,8 +995,99 @@ def cmd_load(args) -> int:
     if missing:
         print("\n  A model that did not land cannot answer: the device will return")
         print("  404 \"is not loaded\" and the child will fall back to the paid")
-        print("  provider. Check that it is downloaded, and that its NPU share")
-        print("  leaves room for what else the wave needs.", file=sys.stderr)
+        print("  provider. If the CLI says 'Not logged in', the device session is")
+        print("  logged out and 'tiiny login' is a human step. Check that the")
+        print("  model is downloaded, and that its NPU share leaves room for what")
+        print("  else the wave needs.", file=sys.stderr)
+        return 1
+    return 0
+
+
+def cmd_ensure(args) -> int:
+    """Make models resident on demand — the replacement for the watchdog.
+
+    The appliance unloads its models on reboot, and nothing else puts them
+    back. A five-minute cron poll used to do it by restoring a fixed set,
+    which is what made that set the single most-drifted thing in the skill:
+    three scripts each carried a copy and each could re-assert an old one.
+
+    This is the demand-driven version. An agent that is about to delegate
+    calls `ensure <model>` and gets the model it actually needs, instead of
+    waiting for a poll to restore a set it may not want.
+
+    The contract:
+
+    * **Idempotent.** A model already resident is reported and not reloaded,
+      so calling it before every batch costs one HTTP round trip.
+    * **Guard-aware.** Refuses while another agent holds the lock, for the
+      same reason `load` does: a load is a swap, and swapping under another
+      agent's feet evicts the model its child is running on.
+    * **Evicts only what this caller may evict.** If the model does not fit,
+      the controller names what it will displace and unloads it explicitly.
+      It never leaves the choice to the device, which has no idea what the
+      next child needs.
+    * **Verifies.** A model that did not land is reported as a failure, not a
+      success, because the device answers `404 "is not loaded"` and Hermes
+      then falls back to the paid provider — silently.
+    """
+    owner = args.owner or _caller_owner()
+    holder = _lock_holder()
+    if holder and _held_by_other(owner, holder) and not args.force:
+        expires = float(holder.get("expires") or 0)
+        print(f"tiiny_ctl: the device is held by {holder.get('owner')} "
+              f"({holder.get('task') or 'no task recorded'}) until "
+              f"{time.strftime('%H:%M:%S', time.localtime(expires))} — "
+              f"refusing to ensure. Use --force if that is wrong.",
+              file=sys.stderr)
+        return 1
+
+    wanted = [m for m in (args.model or []) if m]
+    if not wanted:
+        print("tiiny_ctl: ensure needs at least one --model", file=sys.stderr)
+        return 2
+
+    resident = set(resident_ids())
+    missing = [m for m in wanted if m not in resident]
+    if not missing:
+        print(f"  already resident: {', '.join(wanted)}")
+        return 0
+
+    before = set(resident)
+
+    # Record what this call loaded. There is no watchdog to fight any more,
+    # so this is bookkeeping rather than an interlock.
+    hold_write(missing)
+
+    index = {}
+    try:
+        index = catalogue_index()
+    except SystemExit:
+        pass
+
+    evict, kept = ensure_room(missing, index)
+    for model in evict:
+        print(f"  evicting {model} to make room", flush=True)
+        cli_unload(model)
+    if kept:
+        print(f"  staying alongside: {', '.join(kept)}")
+
+    for model in missing:
+        print(f"  loading {model} ...", flush=True)
+        cli_load(model)
+
+    after = set(resident_ids())
+    still_missing = [m for m in wanted if m not in after]
+    displaced = sorted(before - after)
+
+    print(f"\n  ensured     : {', '.join(wanted)}")
+    if displaced:
+        print(f"  displaced   : {', '.join(displaced)}")
+    if still_missing:
+        print(f"  NOT RESIDENT: {', '.join(still_missing)}")
+        print("\n  A model that did not land cannot answer: the device returns"
+              "\n  404 \"is not loaded\" and the child falls back to the paid"
+              "\n  provider. Check that it is downloaded, and that its NPU share"
+              "\n  leaves room for what else must stay.", file=sys.stderr)
         return 1
     return 0
 
@@ -1002,8 +1114,8 @@ def cmd_release(args) -> int:
               file=sys.stderr)
         return 1
 
-    # Restore the required set FIRST is wrong: the hold is what stops the
-    # watchdog from fighting the restore. Clear it, then restore.
+    # Clear the hold before restoring, so `status` reports the restore's own
+    # result rather than the batch's record of what it had loaded.
     hold_clear()
     print("hold cleared")
 
@@ -1170,6 +1282,15 @@ def main() -> int:
     load.add_argument("--force", action="store_true",
                       help="load even if another agent holds the device")
 
+    ensure = sub.add_parser(
+        "ensure", help="make models resident on demand (replaces the watchdog)")
+    ensure.add_argument("--model", action="append", required=True,
+                        help="a model that must be resident; repeat for several")
+    ensure.add_argument("--owner", default=os.environ.get("TIINY_OWNER", ""),
+                        help="who is asking; defaults to the active profile")
+    ensure.add_argument("--force", action="store_true",
+                        help="load even if another agent holds the device")
+
     release = sub.add_parser("release", help="restore the device and clear the lock")
     release.add_argument("--owner", default=os.environ.get("TIINY_OWNER", ""),
                          help="who is releasing; defaults to the active profile")
@@ -1197,6 +1318,8 @@ def main() -> int:
         return cmd_reserve(args)
     if args.command == "load":
         return cmd_load(args)
+    if args.command == "ensure":
+        return cmd_ensure(args)
     if args.command == "release":
         return cmd_release(args)
     if args.command == "catalog":

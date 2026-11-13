@@ -1,12 +1,3 @@
----
-title: Tiiny Image Agency
-type: folder-readme
-status: active
-project: tiiny-image-agency
-created: 2026-11-06
-updated: 2026-11-06
----
-
 # Tiiny Image Agency
 
 **A demonstration of what is possible using the Tiiny Pocket Lab as an engine

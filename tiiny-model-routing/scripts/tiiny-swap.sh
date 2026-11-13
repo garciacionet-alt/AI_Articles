@@ -7,14 +7,20 @@
 # loading a model evicts whatever was resident. Two things then have to be
 # true for the swap to be safe:
 #
-#   1. The watchdog must not fight it. ~/.hermes/scripts/tiiny-watch.sh
-#      reloads its REQUIRED_MODELS list every five minutes, and that reload
-#      would evict the model we just loaded. So this script writes a hold
-#      file first; the watchdog sees the hold and reloads nothing.
+#   1. No other agent is using the device. A load under another agent's feet
+#      evicts the model its child is running on, and that child then gets a
+#      404 and falls back to the paid provider. `tiiny_ctl.py ensure` and
+#      `tiiny_ctl.py load` check the cross-agent lock for exactly this.
 #
 #   2. The model the delegation config expects must come back afterwards.
-#      The required set is restored at the end, in the same order the
-#      watchdog would use, so the next delegated child finds its model.
+#      --restore reloads the required set so the next delegated child finds
+#      its model.
+#
+# NOTE: there is no longer a five-minute watchdog. It was retired on
+# 2026-11-10 because it restored a fixed set — which drifted across three
+# scripts — and because `tiiny_ctl.py ensure` loads what a batch actually
+# needs, on demand. The hold file below is kept as a record of what was
+# deliberately loaded; it no longer stops anything from firing.
 #
 # USAGE
 # -----
@@ -30,9 +36,7 @@
 #   tiiny-swap.sh --restore      # drop the hold and reload the required set
 #
 # The hold file is ~/.hermes/tiiny-hold. It lists the model ids that are
-# deliberately resident. Stale holds are the hazard: one left behind stops
-# the watchdog from ever restoring the device. --restore and --clear exist
-# for that.
+# deliberately resident. --restore and --clear exist to tidy it up.
 
 set -uo pipefail
 
@@ -40,20 +44,16 @@ TIINY_BIN="$HOME/.local/tiiny/bin/tiiny"
 HOLD_FILE="$HOME/.hermes/tiiny-hold"
 REQUIRED_MODELS=(
   "Qwen/Qwen3.6-35B-A3B"
-  "Qwen/Qwen3-ASR-1.7B"
-  "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
-  # Preset-voice TTS. Hermes's text_to_speech tool targets this model, and
-  # tiiny-watch.sh holds it in its own required set. It must be restored here
-  # too, or --restore returns a device that is missing TTS until the next
-  # watchdog tick. Costs 0% NPU, so it rides alongside everything else.
-  "Supertone/supertonic-3"
-  # The router's `index` tier — also in the watchdog's required set. A load
-  # evicts whatever does not fit, and a specialist is the first thing to go,
-  # so if this list is shorter than the watchdog's, --restore leaves the
-  # device without it until the next watchdog tick. The two lists must be
-  # identical.
+  # The router's `index` tier. This list mirrors `REQUIRED_MODELS` in
+  # tiiny_ctl.py, which is the canonical copy — every other copy of this
+  # file is a symlink into it, so the two cannot drift.
   "openai/gpt-oss-20b"
 )
+# Speech is NOT in this list. ASR and TTS moved to Off Grid AI Desktop on
+# 2026-11-10 — the appliance serializes one heavy stream at a time, so TTS
+# queued behind its own LLM turn, and OGAD serves speech without touching
+# the NPU pool. Restoring them here would put 12% of a shared pool back on
+# every --restore for models nothing calls.
 
 die() { printf 'tiiny-swap: %s\n' "$1" >&2; exit 1; }
 
@@ -64,9 +64,8 @@ die() { printf 'tiiny-swap: %s\n' "$1" >&2; exit 1; }
 # deletion is blocked. So: truncate first (a write always works), then try to
 # remove the file, then VERIFY. An empty hold file is a released hold.
 #
-# The verify matters. A stale hold silently disables the watchdog forever — the
-# watchdog treats a held device as intentional and never reloads — and a script
-# that prints "hold cleared" without checking is exactly how that happens.
+# The verify matters, because a script that prints "hold cleared" without
+# checking leaves a stale record that `status` then reports as live.
 clear_hold() {
   : > "$HOLD_FILE" 2>/dev/null || true
   rm -f "$HOLD_FILE" 2>/dev/null || true
@@ -80,7 +79,7 @@ if [ "${1:-}" = "--restore" ]; then
     echo "hold cleared; restoring required models..."
   else
     echo "tiiny-swap: WARNING - could not release the hold at $HOLD_FILE." >&2
-    echo "tiiny-swap: the watchdog will keep treating the device as held. Remove that file by hand." >&2
+    echo "tiiny-swap: status will keep reporting it as held. Remove that file by hand." >&2
   fi
   for m in "${REQUIRED_MODELS[@]}"; do
     if script -q /dev/null "$TIINY_BIN" load "$m" -y >/dev/null 2>&1; then
@@ -108,9 +107,8 @@ MODEL="${1:-}"
 shift || true
 
 # --- write the hold BEFORE loading ------------------------------------------
-# The watchdog can fire at any moment. If it fires between the load and the
-# hold, it evicts the model we just loaded and we are back where we started.
-# Writing the hold first closes that window.
+# Write the record before loading, so `status` shows what is resident because
+# of this swap and not as a leftover from an earlier one.
 printf '%s\n' "$MODEL" > "$HOLD_FILE"
 echo "hold written for $MODEL"
 

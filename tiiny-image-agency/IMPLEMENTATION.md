@@ -1,12 +1,3 @@
----
-title: Tiiny Image Agency — Implementation
-type: folder-readme
-status: active
-project: tiiny-image-agency
-created: 2026-11-06
-updated: 2026-11-06
----
-
 # The Implementation
 
 The concrete build. [PATTERN.md](PATTERN.md) is the design; this is what it

@@ -34,8 +34,20 @@ the Model Store becomes available to every batch.
 - You need an image and want the right image model rather than the default.
 
 Don't use for: a single-model deployment where every subtask is the same kind
-of work (set `delegation.model` and stop), or non-Tiiny providers (the
+of work (set `delegation.model` and stop — but still `ensure` that model is
+resident first, because nothing else will), or non-Tiiny providers (the
 mechanism is provider-agnostic, but the tier table is Tiiny-specific).
+
+**The lightweight path skips most of this skill.** When the batch needs one
+known model and no wave planning, the whole job is:
+
+```bash
+python3 scripts/tiiny_ctl.py ensure --model "Qwen/Qwen3.6-35B-A3B"
+```
+
+then delegate. `ensure` is idempotent and lock-aware, and it is what the
+scheduled scan jobs run as their first step. Steps 2-5 and 9 below are for the
+case where the models are not yet known, or the batch spans several.
 
 ## Prerequisites
 
@@ -44,6 +56,10 @@ mechanism is provider-agnostic, but the tier table is Tiiny-specific).
   it there, in the environment, or in the vault's credentials file).
 - The `tiiny` CLI at `~/.local/tiiny/bin/tiiny` for the load and unload
   commands.
+- **A logged-in CLI session.** Model loading is CLI-only — the device's HTTP
+  API publishes a route map at `GET /openapi.json` and it has **no**
+  load/unload route — so without the session nothing can be made resident.
+  `tiiny login` is interactive (email + code) and is a human step.
 - The routing backend plugin installed (see [references/backend.md](references/backend.md)), and
   `delegation.backend: tiiny-router` set in the active profile's config.
 - **Models already downloaded.** The skill never downloads anything. It
@@ -118,6 +134,7 @@ time, so this table can go stale without breaking anything. See
 | `tiiny_ctl.py plan --goal "..."` | Pick the models, check the NPU fit, write the plan |
 | `tiiny_ctl.py reserve --owner NAME` | Take the cross-agent lock and announce it |
 | `tiiny_ctl.py load [--wave N]` | Load the batch's models, evict what does not fit, verify |
+| `tiiny_ctl.py ensure --model M` | Make a model resident on demand — run this before delegating |
 | `tiiny_ctl.py release` | Restore the required set, clear the lock, the plan and the notice |
 | `tiiny_ctl.py catalog --refresh` | Diff the live Model Store against the last snapshot |
 | `tiiny_ctl.py image "a job"` | Pick the right image model for a job |
@@ -184,8 +201,8 @@ held, the reserve **refuses** and tells you who holds it and until when.
 python3 scripts/tiiny_ctl.py load --wave 1     # then --wave 2, and so on
 ```
 
-The controller writes the hold first (so the watchdog does not evict what it
-just loaded), then decides what to evict, then loads, then **verifies that
+The controller writes the hold first — so `status` reports what the batch is
+about to have — then decides what to evict, then loads, then **verifies that
 every model in the wave is resident**. A model that did not land cannot
 answer — the device returns `404 "is not loaded"` and the child falls back
 to the paid provider, invisibly.
@@ -202,6 +219,22 @@ So: run **one heavy child per wave**, not every wave's children at once. The
 parent's own cloud route is a separate stream, so parent work and one device
 child genuinely run in parallel. If a batch needs a second workstream, give
 it a named non-device provider.
+
+**A single `delegate_task` batch with two tasks is two heavy children.** The
+batch API is the easiest way to break this rule by accident: one call, two
+entries, both generation-heavy, both pointed at the device. The symptom is
+not an error — it is a hang that reads like slow progress. One child sat
+`waiting for model response` for over fifteen minutes while the device
+reported healthy, and its sibling stalled on the same pool. Dispatch the
+second child only after the first has returned.
+
+**A hung child may still have written its output.** The hang is often in the
+handover, not the work: the child can finish writing the artifact and then
+stall trying to report it. When a child has run far past its expected
+duration, **look for its file on disk before concluding it produced nothing**
+— the artifact is the evidence, and the status line is not. Read what it
+wrote, then decide whether to keep it, merge it, or supersede it. Stop the
+child either way, so it is not still holding the device.
 
 *Done when:* no wave runs more than one generation-heavy child at a time.
 
@@ -235,11 +268,13 @@ exits zero.
 python3 scripts/tiiny_ctl.py release
 ```
 
-This restores the required models, clears the hold, clears the plan, releases
-the lock, and removes the notice from `hot.md`. **Restoring is part of the
-run, not a follow-up**: a swap that is not restored breaks every later
-delegated child, and the failure looks like a model problem rather than a
-leftover state.
+This restores the required models from `REQUIRED_MODELS` — the single copy of
+that policy, in `scripts/tiiny_ctl.py` (see "The required set") — clears the
+hold, clears the plan, releases the lock, and removes the notice from
+`hot.md`. **Restoring is
+part of the run, not a follow-up**: a swap that is not restored breaks every
+later delegated child, and the failure looks like a model problem rather
+than a leftover state.
 
 *Done when:* the required models are resident, the hold is gone, the lock is
 free, and `hot.md` no longer carries the notice.
@@ -260,6 +295,8 @@ to match.
 The snapshot records **facts**; the analysis around them is written by hand.
 New models are worth adding to the tier table when they are genuinely better
 at a shape the tiers do not cover — not because they are new.
+
+When you need a publication-ready catalogue with live `desc` + measured overlay, build it reproducibly: `curl -H "Authorization: Bearer $TIINY_API_KEY" http://tiinyhost.local/api/v1/models/online_models` to snapshot all 92, `cp app/data/overlay.yaml /tmp/overlay.yaml` first (the Hermes gateway refuses to open vault/iCloud paths directly — copy to `/tmp` before parsing), then merge `thinking` + `overlay.yaml` measured fields (`image_input`, `alpha`, `text_rendering`) via a script (see `/tmp/build_catalog_doc.py`) and write the MD to `~/SatanDocuments/` and a vault copy via `cp /tmp/*.md` — never hand-edit a drifted NPU/context cell.
 
 *Done when:* the diff is empty, or the differences are reflected in the tier
 table and the catalogue.
@@ -390,6 +427,56 @@ silicon. The lock makes that visible instead of silent.
 
 `status` shows both. `release` clears both.
 
+**The device cannot record who loaded what.** Its management API exposes no
+load or unload route, so there is no server-side audit trail to read — a
+usage log has to be written on this side, by the tool that performs the load.
+That makes the controller the only writer that can be trusted: a log kept by
+convention is bypassed by every bare `tiiny load`, and a bypassed log is
+worse than no log because it claims completeness it does not have.
+
+## The required set
+
+**There is no watchdog any more.** A five-minute cron poller used to reload a
+fixed set of models whenever the device looked cold. It was retired on
+2026-11-10 for two reasons: that set was duplicated across three scripts and
+drifted apart three times, and a fixed set is the wrong shape when a batch
+needs one specific model.
+
+**`ensure` replaces it.** Before delegating, make the model resident:
+
+```bash
+python3 scripts/tiiny_ctl.py ensure --model "Qwen/Qwen3.6-35B-A3B"
+```
+
+It is idempotent, it checks the cross-agent lock, it evicts explicitly when a
+model does not fit, and it exits non-zero when a model did not land. The two
+scan jobs run it before they dispatch a child — if `ensure` fails, they do not
+delegate, because a missing model means a 404 and a silent fallback to the
+paid provider.
+
+**One list, one file.** `REQUIRED_MODELS` in `scripts/tiiny_ctl.py` is the
+only copy. Every other location — `~/.hermes/scripts/`, both skill tiers,
+`~/.hermes/shared-skills/` — is a **symlink** into the canonical file in the
+vault, so a change cannot fork. Only the publish tree holds a second real
+copy, because it ships to GitHub and git cannot publish a link; the deploy
+step regenerates it. The mechanics — why each skill root still needs its own
+directory, why a symlink in a git tree shows as a typechange, and how to
+convert an existing set of copies — are in
+[references/single-source-deployment.md](references/single-source-deployment.md).
+
+**Trimming is a functional decision, not just an NPU decision.** Hermes's own
+`stt` and `tts` providers used to point at the appliance, and TTS has no
+on-demand load path — a TTS model that is not resident makes `text_to_speech`
+fail. That constraint is gone: speech now lives on the Mac's OffGrid gateway,
+which serves it from its own process at no NPU cost. See
+`mlops/offgrid-local-inference`. The appliance's speech models were unloaded
+on 2026-11-10 and are no longer in the required set.
+
+`references/required-set-drift.md` keeps the audit recipe for "who changed the
+resident set, and when" — still worth reading, because the mechanism that
+caused those drifts (one policy, many copies) is exactly what the symlinks
+now make impossible.
+
 ## Pitfalls
 
 - **A load is a swap.** Loading a model evicts the resident one; the evicted
@@ -400,10 +487,116 @@ silicon. The lock makes that visible instead of silent.
   asked for. The controller evicts explicitly, keeping the cheapest models
   that fit. Never let a bare `tiiny load` be the only thing that touches the
   device during a batch.
-- **The watchdog fights deliberate swaps.** It reloads the required models
-  every five minutes and will evict a research model you loaded for a long
-  task. The hold file is what prevents this — the hold check must run before
-  the cold-check, or the hold reads as cold.
+- **A cold device bills you, and says nothing.** The appliance unloads on
+  reboot. There is no poller putting models back any more, so the *parent*
+  must run `ensure` before it delegates. Skip that and the child gets a 404
+  which Hermes classifies as terminal and answers from the paid provider.
+
+- **A logged-out CLI session looks exactly like a cold device, and it is
+  the more dangerous of the two.** `tiiny load` opens a device-admin session.
+  With no session it fails with "Not logged in. Use 'tiiny login' to sign
+  in", nothing becomes resident, and `ensure` has to notice. The load verdict
+  therefore never claims a model was loaded when it was not: it prints
+  `NOT RESIDENT` on its own, never `loaded: X` next to `NOT RESIDENT: X`.
+  A batch that reads only the exit code and skips the log still catches it —
+  the exit code is non-zero. Check the session before blaming the NPU.
+
+- **The catalogue is the device's, not the table's.** Read `GET
+  /api/v1/models/online_models` and use each entry's `npu_usage` and
+  `context_window`. When two boxes are in play, compare their catalogues
+  against each other rather than assuming one table fits both: measured
+  2026-11-12, the Pocket and the Octo reported identical model sets and
+  identical NPU and context figures for every tier model, while stocking
+  them differently (16 models on one, 42 on the other). That is what makes
+  one box the pinned vault and the other the flex box.
+
+- **Two boxes need two locks, two holds and two plans — and one endpoint
+  each.** The shared state (lock, hold, plan, catalogue snapshot) is
+  device-scoped through `TIINY_LOCK_FILE`, `TIINY_HOLD_FILE`,
+  `TIINY_PLAN_FILE` and `TIINY_SNAPSHOT_FILE`, and the endpoints through
+  `TIINY_HOST` and `TIINY_BASE_URL`. The defaults are the single-device
+  paths, so nothing moves unless a caller asks. The alias
+  `openai.api.tiiny` resolves to the desktop app's forwarder and serves ONE
+  device at a time — a second box has to be addressed by its own IP.
+
+- **A script that edits a credentials file must write atomically.** A
+  mistyped `open(path, "w", encoding=...)` truncated the file before it
+  raised. Write through a temp file and `os.replace` it into place, and
+  prove the change against a copy — the real config is the one file that
+  cannot be rebuilt from a backup of itself.
+
+- **Different form factors mean different NPU figures.** A Pocket and an
+  Octo are not the same silicon. The tier table's shares were measured on
+  one of them; re-measure the other (`catalog --refresh` pointed at it)
+  before routing anything to it.
+
+- **Do not hard-code a device's error strings.** A signature-based LAN scan
+  that matched on `{"error":"auth_failed"}` found nothing after the device's
+  OS update renamed it to `{"error":"unauthorized","reason":"missing_token"}`.
+  Match on the route and the status code, and read the body for a human —
+  never a pinned string.
+
+- **A device's display name is not its identity.** A Tiiny was "Tiiny
+  Pocket" until it was renamed "TinyAnt" in the desktop app, and the CLI
+  scan, the device's own `device_name` and the account view each showed a
+  different string. Key every record, lock, plan and provider on the
+  **device ID** (`TNYM…`) and treat the name as a label.
+
+- **Each box has its own device-admin bearer, and the alias fronts only
+  one of them.** `tiiny auth key --device-address <ip>` issues a credential
+  for a specific box; the account-level key opens one box's store and
+  inference while the other answers "Not authenticated" on the same
+  routes. The alias `openai.api.tiiny` is a local nginx forwarder that
+  holds the credentials and serves the app's currently selected box — one
+  at a time. That is not a hardware limit: the boxes are separate hosts
+  with separate NPUs, and one answers while the other refuses. Two-box
+  parallelism needs two bearers and two direct addresses.
+
+- **A device stays closed until the desktop TiinyOS app has an
+  authenticated session for it.** The gate is the app's session, not the
+  bearer: with no app session the CLI and the API both refuse, and the
+  routes answer 401 / "Not authenticated" even with a valid key. One box
+  can be open while its sibling is closed. The CLI session is separate
+  again — `tiiny login` signs the CLI in, and it is what `tiiny load` and
+  `tiiny auth key` need.
+
+- **The CLI session is bound to the device it was signed in for.** Point it
+  at another box and it reports "Not logged in" even though the account
+  session is live — `tiiny auth key --device-address <ip>` issues a
+  credential for that box only to a session bound to that box. So each box
+  needs its own `tiiny login`, and each has its own bearer: two valid keys
+  existed for one box while neither opened the other. The alias rejects a
+  client-supplied bearer outright (401 even with a valid device key) — it
+  is app-internal, not an endpoint an agent can use.
+
+- **The alias is the app's forwarder, so address the box.** `openai.api.tiiny`
+  resolves to the desktop app's forwarder on 127.0.0.1, and that forwarder
+  follows the app's session and its currently selected device — it answers
+  for one box at a time and 401s whenever the session does not cover it. A
+  device is addressed by its own IP. The cost is that an IP needs a DHCP
+  reservation, because a provider pinned to a wandering address fails
+  silently as a fallback to the paid provider.
+
+- **Serving and loading are different paths.** A model that is already
+  running answers immediately — no CLI session needed. The CLI session is
+  required only to load or unload, which the device's HTTP API does not
+  expose. So a box with a warm model is usable while the CLI is logged
+  out.
+
+- **The store entry is the download truth, not a storage endpoint.**
+  `GET /api/v1/models/online_models` carries each model's `status`
+  (`running` / `downloaded` / `downloading` / `not_downloaded`),
+  `progress` and `npu_usage`. `/api/v1/sys/storage/llm` reported
+  `total_size: 0` while eight models were downloaded and one was running —
+  it is not a model-presence measure, and reading it as one invents a
+  missing-models finding.
+
+- **A revoked bearer fails as a 401, and a stale one fails quietly
+  enough.** The bearer is account-level (`tiiny auth key` issues it) and
+  covers every box on the account. When it was revoked, every call returned
+  401 `auth_failed` while the controller still reported "key: found" —
+  found in the environment, not valid at the device. Check the device's
+  answer, not the key's presence.
 - **Two heavy children deadlock.** Not an error — a hang, with the device
   still reporting healthy. One heavy child at a time.
 - **`tiiny ls` shows size, not residency.** Its NPU column is how much NPU a
@@ -430,8 +623,22 @@ silicon. The lock makes that visible instead of silent.
 - **The device's `toggleable` flag has been wrong.** A model flagged as
   having no on/off switch honours it anyway. Send the boolean whenever it can
   be sent, and let the label report what actually took effect.
-- **A stale hold is worse than no hold.** It silently stops the watchdog from
-  ever restoring the device. `release` clears it and verifies.
+- **A stale hold makes `status` lie.** With no poller to disable, a leftover
+  hold no longer breaks the device — it just makes `status` report a resident
+  set that is no longer true. `release` clears it and verifies.
+- **Trimming the device is not trimming the policy.** `release` restores
+  `REQUIRED_MODELS`, so unloading a model without editing that list means it
+  returns at the next release and the change looks like it never applied.
+  Edit the list first, then unload. See "The required set" above.
+- **One thinking model hides it in its prose.** `trohrbaugh/Qwen3.8-27B-heretic-ara-Turbo` reports `thinking.supported:true` (switch + levels `low/medium/xhigh`, 56% NPU) but its `desc` never mentions "thinking" or "reasoning" — read `thinking` from `GET /api/v1/models/online_models` at route time, not from the description, or you will burn a trace you never asked for. On 2026-11-10 this was the only one of 22 thinking models with hidden prose.
+- **Absolute paths and vault-local prefixes are publish-blockers.** The
+  publisher's scanner forbids absolute home paths and any vault-local
+  prefix — a catalogue footer that spells out a home directory, the vault
+  root, or the publish tree is a `PUBLISH-SAFETY` finding and blocks the
+  push. Write review locations as a plain relative name and scrub before
+  pushing; JSON must also scan `CLEAN` before it ships as
+  `data/catalogue.json`. This bullet once named the forbidden patterns
+  literally, which made the skill's own file fail the scan it describes.
 - **This skill never downloads a model.** It chooses and loads from what is
   already on the device.
 

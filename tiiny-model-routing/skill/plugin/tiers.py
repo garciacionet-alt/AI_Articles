@@ -21,11 +21,15 @@ rather than letting a stale number look authoritative.
 
 from __future__ import annotations
 
-#: The device's OpenAI-compatible endpoint. Local, on the LAN.
-TIINY_BASE_URL = "http://openai.api.tiiny/v1"
+import os
+
+#: The device's OpenAI-compatible endpoint. Local, on the LAN. The
+#: environment override is what lets a second box be addressed directly
+#: rather than through the one alias the desktop app forwards.
+TIINY_BASE_URL = os.environ.get("TIINY_BASE_URL", "http://openai.api.tiiny/v1").rstrip("/")
 
 #: The device's management host. Serves the Model Store catalogue.
-TIINY_HOST = "http://tiinyhost.local"
+TIINY_HOST = os.environ.get("TIINY_HOST", "http://tiinyhost.local").rstrip("/")
 
 #: Provider name as configured in ``providers:`` in config.yaml.
 TIINY_PROVIDER = "custom:tiiny"

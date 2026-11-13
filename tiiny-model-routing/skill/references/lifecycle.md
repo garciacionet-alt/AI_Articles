@@ -80,32 +80,33 @@ block is appended.
 
 ## The hold
 
-`~/.hermes/tiiny-hold` is the promise to the watchdog: *these models are
-deliberately resident; do not evict them.* The watchdog reloads its required
-set every five minutes, and because a load is a swap, that reload would
-evict the model a long batch just loaded.
+`~/.hermes/tiiny-hold` records what an agent deliberately loaded: *these
+models are resident because this batch asked for them.*
 
-Three rules, each learned the hard way:
+**It used to be an interlock.** A five-minute watchdog read this file and
+reloaded nothing while it existed, so the hold was what stopped a policy
+poller from evicting a long batch's model mid-run. That watchdog was retired
+on 2026-11-10, so the file no longer stops anything from firing.
 
-1. **Write it before the load.** The watchdog can fire in the gap between
-   the load and the hold, and it would undo the load.
-2. **The first line is the one that matters.** The watchdog reads the first
-   line to decide whether the hold still means something. In a multi-wave
-   batch the controller rewrites the hold as each wave starts, so the first
-   line is always a model that is resident for the whole of that wave.
+What replaced it is `tiiny_ctl.py ensure --model <id>`, called before
+delegating. It is idempotent, it checks the cross-agent lock, and it fails
+loudly when a model does not land — which is the property the hold could
+never provide, because a hold only ever *prevented* something.
+
+Three rules still hold, because they are about the file's shape:
+
+1. **Write it before the load.** `status` should report what the batch is
+   about to have, not what it had a moment ago.
+2. **The first line is the one that matters.** In a multi-wave batch the
+   controller rewrites the hold as each wave starts, so the first line is
+   always a model that is resident for the whole of that wave.
 3. **An emptied hold file is a released hold.** Truncation is a write, and a
    write works where deletion is blocked.
 
-The watchdog honours a hold only while it still means something: the file
-must be non-empty, and the held model must still be resident — unless the
-hold is fresh, within its 600-second grace window, which covers the gap
-between writing the hold and finishing the load it protects.
-
-**A stale hold is the worst failure in this system.** It stops the watchdog
-from ever restoring the device, and the symptom is not a broken device: it
-is delegated work quietly running on the paid provider. `release` clears the
-hold and *verifies* it, because a script that prints "hold cleared" without
-checking is how this happens.
+**A stale hold is now a reporting bug, not an outage.** With no poller to
+disable, a hold left behind makes `status` claim a resident set that is no
+longer true. `release` clears the hold and *verifies* it, because a script
+that prints "hold cleared" without checking is how that happens.
 
 ## The NPU budget
 
