@@ -181,7 +181,7 @@ problem.
 | 401 on a box that is powered on | The credential belongs to the other box | Fetch this box's credential with its own address |
 | "Not logged in" from the CLI | One session slot — the other box's sign-in owns it | Log in again for this box, which signs the other one out |
 | A load reports success but the model is absent | The CLI session was not authenticated | Check the session, then the model's own `status` in the catalogue — not the CLI's exit code |
-| A load does nothing at all, with no error | The CLI opens a terminal for its prompts | Run it inside a pseudo-terminal |
+| A load does nothing at all, with no error | The CLI opens a terminal for its prompts | Run it inside a pseudo-terminal — the appliance exposes no SSH shell to borrow one from |
 | A download lands and the CLI dies with a Go deadlock | The transfer worked; the CLI's progress reporter deadlocks and the command exits non-zero | Read the model's `status` and `progress` in the catalogue |
 | The client answers with the wrong box's models | It is pointed at the vendor hostname | Address the boxes directly |
 | Two agents evict each other | One lock file for two pools | One lock per pool; `own_lock = yes` for the second box |

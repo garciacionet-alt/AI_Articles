@@ -182,7 +182,9 @@ what is on disk, and the difference between the two is the download list.
   on a perfectly ordinary "already downloaded" as well.
 - **A load does nothing at all.** The control CLI opens a terminal for its
   prompts, and from a script it fails on that with nothing becoming
-  resident. Give it a pseudo-terminal.
+  resident. Give it a pseudo-terminal. The appliance exposes no SSH shell,
+  so there is no borrowed terminal to fall back on — and `--json` does not
+  avoid the prompt.
 - **Verify the catalogue on both boxes before you trust the tier table on
   either.** "Same model" was an assumption until the two stores were
   compared entry by entry. They matched — but they were checked.
