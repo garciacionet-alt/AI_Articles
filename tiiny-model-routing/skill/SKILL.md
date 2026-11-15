@@ -429,9 +429,10 @@ silicon. The lock makes that visible instead of silent.
 
 `status` shows both. `release` clears both.
 
-**The device cannot record who loaded what.** Its management API exposes no
-load or unload route, so there is no server-side audit trail to read — a
-usage log has to be written on this side, by the tool that performs the load.
+**The device cannot record who loaded what.** Its management API does expose
+load and unload routes, but they report only the model and the outcome — no
+actor and no owner — so there is still no server-side audit trail to read, and
+a usage log has to be written on this side, by the tool that performs the load.
 That makes the controller the only writer that can be trusted: a log kept by
 convention is bypassed by every bare `tiiny load`, and a bypassed log is
 worse than no log because it claims completeness it does not have.
@@ -638,6 +639,26 @@ now make impossible.
   is logged out, and a box that is *not* the signed-in one can still be
   loaded, unloaded and stocked.
 
+- **The device's published route map is not proof of what it will accept.**
+  `GET /openapi.json` lists 36 paths and none of them is model lifecycle —
+  and the device still answers `POST /api/v1/models/<id>/download`,
+  `/start` and `/stop`. **A spec describes the system; the system decides
+  what it accepts.** Never write "the device has no route for X" from a
+  route map — POST it and read the status code. Probing an undocumented
+  route costs one request; publishing the absence costs a correction, and a
+  published correction stays in the commit history permanently.
+
+- **Three things decide which box a CLI command reaches: the flag, the
+  config, and the token — and they do not agree by default.**
+  `--device-address <ip>` reaches the box you named even when the config
+  points elsewhere; with no flag the CLI follows the config's
+  `deviceAddress`; and the stored token decides whether you are authorised
+  for whichever box is selected. So the flag **selects** the target and the
+  token **grants** access, and a session for one box will not open the
+  other however you address it. Pass the address on every control call, and
+  read a "Not logged in" answer as "this token is for another box", not as
+  "the device is down".
+
 - **The store entry is the download truth, not a storage endpoint.**
   `GET /api/v1/models/online_models` carries each model's `status`
   (`running` / `downloaded` / `downloading` / `not_downloaded`),
@@ -647,11 +668,12 @@ now make impossible.
   missing-models finding.
 
 - **A revoked bearer fails as a 401, and a stale one fails quietly
-  enough.** The bearer is account-level (`tiiny auth key` issues it) and
-  covers every box on the account. When it was revoked, every call returned
-  401 `auth_failed` while the controller still reported "key: found" —
-  found in the environment, not valid at the device. Check the device's
-  answer, not the key's presence.
+  enough.** When it was revoked, every call returned 401 `auth_failed`
+  while the controller still reported "key: found" — found in the
+  environment, not valid at the device. Check the device's answer, not the
+  key's presence. The bearer is **device-scoped**: each box issues its own
+  from `tiiny auth key --device-address <ip>`, and one box's bearer answers
+  401 on the sibling box's routes.
 - **Two heavy children deadlock.** Not an error — a hang, with the device
   still reporting healthy. One heavy child at a time.
 - **`tiiny ls` shows size, not residency.** Its NPU column is how much NPU a

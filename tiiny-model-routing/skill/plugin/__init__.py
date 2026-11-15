@@ -199,6 +199,10 @@ def resident_models() -> frozenset[str] | None:
     if not key:
         return None
     try:
+        # This must be the SAME box the request will go to. The provider
+        # is pinned to one appliance by address; asking a forwarder or a
+        # mDNS hostname instead reads a DIFFERENT device's resident set,
+        # and the router then picks a model the target cannot serve.
         request = urllib.request.Request(
             TIINY_BASE_URL + "/models",
             headers={"Authorization": "Bearer " + key},
@@ -286,8 +290,14 @@ def choose_model(tier: str, goal: str = "") -> tuple[str, str]:
         return planned, f"{tier}→{planned.split('/')[-1]}"
 
     if resident is None:
-        # Residency unknown — behave exactly as before.
-        return default_model, tier
+        # Residency unknown - the lookup timed out, the key was missing,
+        # or the device answered with something unreadable.
+        #
+        # The generalist is the device's own default model and the one it
+        # serves, so it is the safest thing to ask for. Returning the
+        # tier's first choice here is what made a lookup failure turn
+        # into "not a valid model ID" on the device.
+        return GENERALIST, f"{tier}->generalist"
 
     for model, _npu, _ctx in choices:
         if model in resident:

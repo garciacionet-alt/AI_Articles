@@ -21,15 +21,11 @@ rather than letting a stale number look authoritative.
 
 from __future__ import annotations
 
-import os
-
-#: The device's OpenAI-compatible endpoint. Local, on the LAN. The
-#: environment override is what lets a second box be addressed directly
-#: rather than through the one alias the desktop app forwards.
-TIINY_BASE_URL = os.environ.get("TIINY_BASE_URL", "http://openai.api.tiiny/v1").rstrip("/")
+#: The device's OpenAI-compatible endpoint. Local, on the LAN.
+TIINY_BASE_URL = "http://openai.api.tiiny/v1"
 
 #: The device's management host. Serves the Model Store catalogue.
-TIINY_HOST = os.environ.get("TIINY_HOST", "http://tiinyhost.local").rstrip("/")
+TIINY_HOST = "http://tiinyhost.local"
 
 #: Provider name as configured in ``providers:`` in config.yaml.
 TIINY_PROVIDER = "custom:tiiny"
@@ -52,9 +48,9 @@ TIER_CHOICES: dict[str, tuple[tuple[str, int, int], ...]] = {
         ("openai/gpt-oss-20b", 27, 131072),
     ),
     "code": (
-        ("Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo", 55, 65536),
-        ("deepreinforce-ai/Ornith-1.0-35B", 50, 131072),
         ("Qwen/Qwen3.6-35B-A3B", 47, 262144),
+        ("deepreinforce-ai/Ornith-1.0-35B", 50, 131072),
+        ("Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo", 55, 65536),
         ("Qwen/Qwen3-Coder-Next", 94, 131072),
     ),
     "browser": (
