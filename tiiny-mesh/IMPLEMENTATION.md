@@ -14,6 +14,7 @@ tiiny-mesh/
 ├── mesh.py                  # Mesh data models, target lifecycle, and borrow transactions
 ├── capabilities.py          # Model capability classification & embedding dimensions
 ├── openrouter.py            # OpenRouter credits client & key usage fallback
+├── minimax_quota.py         # MiniMax token plan quota client (5h rolling & weekly)
 ├── mesh_amc.py              # AMC host-side health witness (Engraphis, Obsidian, iDrive)
 ├── mdrender.py              # Dependency-free Markdown to HTML parser
 ├── meshclient.py            # Test and client request helper
@@ -23,6 +24,8 @@ tiiny-mesh/
 │   ├── mesh-dashboard.css   # Dashboard stylesheet source
 │   ├── mesh-dashboard.js    # Dashboard UI script source
 │   └── inline.py            # Build script that inlines CSS/JS into index.html
+├── test_minimax_quota.py    # MiniMax quota client offline test suite
+├── test_failover.py         # Transparent 429 failover test suite
 ├── test_openrouter.py       # OpenRouter target & catalogue resolution test
 ├── test_openrouter_credits.py # Credits client & caching offline test
 ├── test_amc.py              # AMC health probe offline test
@@ -161,22 +164,33 @@ Performs credit balance and limit monitoring with atomic file caching:
 - If a management key is missing or returns `403 Forbidden`, falls back to `GET https://openrouter.ai/api/v1/key` using `OPENROUTER_API_KEY` to report `limit_remaining` and `usage`.
 - Utilizes `mesh._ssl_context()` to guarantee certificate chain resolution across macOS Python runtimes.
 
-### 3.4 AMC Health Witnessing (`mesh_amc.py`)
+### 3.4 MiniMax Quota Monitoring & Transparent Failover (`minimax_quota.py` & `mesh.py`)
+- **Quota Client:** Queries `GET https://api.minimax.io/v1/token_plan/remains` every 5 minutes to track 5-hour rolling and weekly remaining quota percentages and reset countdowns.
+- **Auto-Switch:** Automatically flips the secondary fallback to OpenRouter when weekly quota hits 0% (status 2), and automatically re-engages MiniMax when the reset window elapses.
+- **Transparent 429 Failover:** `Mesh.chat()` catches upstream HTTP 429 rate-limit responses, intercepts the error, and immediately re-executes the completion through the secondary cloud fallback target (`openrouter/google/gemini-3.8-flash`) without surfacing an error to the caller.
+
+### 3.5 AMC Health Witnessing (`mesh_amc.py`)
 Queries host-side memory subsystems and outputs status:
 - **Engraphis:** Checks `engraphis.db` and WAL mtime. Returns `up` if written within 24h, `degraded` if older, or `down` if missing.
 - **Obsidian:** Verifies the `Obsidian` application process and runs a bounded scan (up to 20,000 files / 3.0s ceiling) for the latest note mtime.
 - **iDrive:** Checks volume mount points and `os.statvfs` capacity. Returns `not-configured` when unmounted.
 
-### 3.5 Markdown Renderer (`mdrender.py`)
+### 3.6 Markdown Renderer (`mdrender.py`)
 Transforms Markdown into clean HTML with zero dependencies. Escapes `<script>`, `&`, `<`, and `>` tags to prevent XSS while parsing headings, code blocks, lists, and tables into responsive HTML for `/mesh/readme`.
 
 ---
 
 ## 4. Testing Suite
 
-The implementation includes five self-contained test suites:
+The implementation includes seven self-contained test suites:
 
 ```bash
+# Test MiniMax token plan quota client and caching (offline fixtures)
+python3 test_minimax_quota.py
+
+# Test transparent in-flight HTTP 429 failover to secondary cloud target
+python3 test_failover.py
+
 # Test OpenRouter target configuration and model namespacing
 python3 test_openrouter.py
 

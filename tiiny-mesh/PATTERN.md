@@ -81,7 +81,7 @@ In the delegation hierarchy (defined in `tiers.py`), repo-scale agentic coding i
 
 ---
 
-## 4. Dual-Cloud Fallback Architecture & Live Toggling
+## 4. Dual-Cloud Fallback Architecture, Quota Monitoring & Live Toggling
 
 Local hardware can become unavailable due to reboot cycles, long batch jobs, or hardware stalls. When Hermes Agent detects an unresponsive upstream endpoint (stale socket for >180s), it initiates an automated fallback.
 
@@ -89,8 +89,25 @@ However, hardcoding a single cloud fallback creates a single point of failure:
 - An account token quota may be exhausted (resulting in `HTTP 429 RateLimitError`).
 - A cloud provider's API may experience transient outages.
 
-TiinyMesh decouples fallback policy from static configuration by implementing an **In-Flight Cloud Fallback Toggle**:
+Many operators hold an annual flat-rate subscription (such as MiniMax Token Plan) alongside pay-as-you-go providers (such as OpenRouter). The ideal economic strategy is: **consume flat-rate subscription tokens first, and only spend variable cloud tokens when the subscription hits its quota or rate limit.**
 
+TiinyMesh automates this strategy through three interlocking mechanisms:
+
+### 4.1 Proactive Token Plan Monitoring
+MiniMax exposes account quota data via `GET https://api.minimax.io/v1/token_plan/remains`. A background daemon in TiinyMesh polls this endpoint every 5 minutes:
+- Tracks `current_interval_remaining_percent` (5-hour rolling window) and `current_weekly_remaining_percent` (weekly window).
+- Monitors `weekly_remains_time` (millisecond countdown until quota resets).
+- **Auto-Switch to OpenRouter:** When `current_weekly_status == 2` (exhausted) or remaining quota falls below a safety threshold (<10%), TiinyMesh automatically flips `policy.chat.secondary` to OpenRouter and synchronizes the agent's delegation config.
+- **Auto-Recovery to MiniMax:** When the reset timer elapses and quota recovers, TiinyMesh automatically re-engages MiniMax as the primary cloud model.
+
+### 4.2 Transparent In-Flight HTTP 429 Failover
+Even with polling, sudden token bursts can trigger rate limits or TPM throttling. When an upstream cloud target returns `HTTP 429`:
+- Rather than passing the 429 back to the client, `Mesh.chat()` intercepts the error.
+- It immediately resolves the configured secondary fallback (`openrouter/google/gemini-3.8-flash`).
+- It re-executes the completion through the fallback provider and tags the response telemetry with `failover_from: "minimax"`.
+- To the calling agent, the request succeeds without crashing or timing out.
+
+### 4.3 In-Flight Manual Override
 1. **State Persistence:** The `chat` capability's secondary slot is stored in `config.json` and served over `GET /mesh/fallback`.
 2. **Dual-Synchronization:** When `POST /mesh/fallback` is invoked with `target: "openrouter"` or `target: "minimax"`, TiinyMesh:
    - Updates `policy.chat.secondary` in its own gateway configuration.

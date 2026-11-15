@@ -28,6 +28,8 @@ TiinyMesh is the architecture and gateway companion to **[Tiiny Model Routing](.
 | **Automated Model Borrowing** | A Tiiny appliance serves only what is resident. When a request asks for a downloaded model, TiinyMesh snapshots current residency, loads the specialist, serves the request, and restores the prior state. |
 | **OpenRouter Target & Credits** | Exposes OpenRouter models (`openrouter/<slug>`). Polls account credit balances (`/api/v1/credits` via management key) with automatic fallback to per-key cap/usage monitoring (`/api/v1/key`). |
 | **AMC Health Witnessing** | Probes host-side Agent Memory Commons subsystems (Engraphis SQLite memory, Obsidian vault indexing, and iDrive sandbox storage) without consuming appliance NPU cycles. |
+| **MiniMax Quota & Auto-Switch** | Polls MiniMax Token Plan quota (`/v1/token_plan/remains` 5h & weekly windows). Proactively auto-switches to OpenRouter when quota is exhausted (<10%), and auto-recovers when the reset timer elapses. |
+| **Transparent 429 Failover** | Intercepts HTTP 429 rate-limit errors in `mesh.py` and transparently retries completions through the cloud secondary (OpenRouter Gemini) without failing client requests. |
 | **In-Flight Cloud Fallback Toggle** | Switch the gateway's secondary chat fallback and Hermes agent's delegation fallback between MiniMax (M3.1 Flash) and OpenRouter (Gemini 3.8 Flash) with a single click. |
 | **Single-File Control Panel** | Responsive dark/light dashboard at `/ui` with zero external JS/CSS dependencies. Built from source via `python3 ui/inline.py`. |
 | **Rendered Documentation** | `/mesh/readme` serves the project documentation parsed into styled HTML using an internal standard-library Markdown renderer. |
@@ -81,6 +83,7 @@ GET  /mesh/store/<target>      online model store catalog
 GET  /mesh/running/<target>    currently resident models
 POST /mesh/lifecycle           appliance model download / start / stop / boot
 GET  /mesh/openrouter/credits  OpenRouter credit balance and key limits
+GET  /mesh/minimax/quota       MiniMax token plan quota & reset countdown
 GET  /mesh/amc                 Agent Memory Commons health matrix
 GET  /mesh/fallback            current cloud fallback status
 POST /mesh/fallback            toggle fallback between openrouter and minimax
