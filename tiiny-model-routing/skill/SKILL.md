@@ -33,6 +33,9 @@ the Model Store becomes available to every batch.
   two need to be able to see that it is spoken for.
 - You need an image and want the right image model rather than the default.
 
+**Standing rule: Always delegate to local AI, manage the sub-agents, and audit for quality.**
+The manager agent delegates execution to local AI models hosted on Tiiny (e.g. `Qwen3-Coder-30B-A3B-Instruct-Turbo`), supervises the child's progress, and independently audits deliverables for quality against runnable acceptance commands. The manager does not write code directly when an appliance model is capable of serving the tier.
+
 Don't use for: a single-model deployment where every subtask is the same kind
 of work (set `delegation.model` and stop — but still `ensure` that model is
 resident first, because nothing else will), or non-Tiiny providers (the
@@ -112,34 +115,43 @@ like success.
 
 | Tier | Model | NPU | Context | Reasoning | On the device? |
 |---|---|---|---|---|---|
-| `research` | `InternScience/Sage-A1.5-Turbo` | 48% | 262144 | switch | downloaded |
+| `research` | `InternScience/Sage-A1.5-Turbo` | 48% | 262144 | always-on | downloaded |
 | `research` (alt) | `endless-frontier/BigBang-v1-Turbo` | 54% | 131072 | switch | downloaded |
 | `index` | `openai/gpt-oss-20b` | 27% | 131072 | **levels only** | **resident** |
 | `code` | `Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo` | 55% | 65536 | none | downloaded |
-| `code` (alt) | `deepreinforce-ai/Ornith-1.0-35B` | 50% | 131072 | switch | downloaded |
+| `code` (alt) | `deepreinforce-ai/Ornith-1.0-35B` | 50% | 131072 | always-on | downloaded |
 | `code` (alt) | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 | switch | **resident** |
 | `code` (heavy) | `Qwen/Qwen3-Coder-Next` | 94% | 131072 | none | not downloaded |
 | `browser` | `Qwen/Qwen3.8-27B` | 52% | 262144 | switch | downloaded |
 | `draft` | `Qwen/Qwen3.5-9B` | 29% | 131072 | switch | downloaded |
 | `general` | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 | switch | **resident** |
 
-The Reasoning column is a snapshot of what the device reported on 2026-11-09.
-**The device is the authority** — the router reads the capability at route
-time, so this table can go stale without breaking anything. See
-[Thinking mode](#thinking-mode).
+The Reasoning column is a snapshot of what the device reported, re-read
+against the live catalogue since. **The device is the authority** — the
+router reads the capability at route time, so this table can go stale
+without breaking anything. See [Thinking mode](#thinking-mode).
+
+The column takes four values: **switch** (a boolean turns the trace off),
+**levels only** (no boolean; the cheapest level is the floor),
+**always-on** (`supported:true` with neither a boolean nor levels — the
+trace is unconditional, and `off` is best-effort), and **none**. Two tier
+models are always-on, which a reader would otherwise assume were
+switchable.
 
 ### The commands
 
+All commands accept `--device <name|ip>` (e.g. `--device tiiny-octo`) to target a specific box from the per-device registry at `~/.hermes/tiiny-devices/`. If omitted, commands default to `tiiny-ant`.
+
 | Command | What it does |
 |---|---|
-| `tiiny_ctl.py status` | Device, resident set with NPU shares, the lock, the hold, the plan |
-| `tiiny_ctl.py plan --goal "..."` | Pick the models, check the NPU fit, write the plan |
-| `tiiny_ctl.py reserve --owner NAME` | Take the cross-agent lock and announce it |
-| `tiiny_ctl.py load [--wave N]` | Load the batch's models, evict what does not fit, verify |
-| `tiiny_ctl.py ensure --model M` | Make a model resident on demand — run this before delegating |
-| `tiiny_ctl.py release` | Restore the required set, clear the lock, the plan and the notice |
-| `tiiny_ctl.py catalog --refresh` | Diff the live Model Store against the last snapshot |
-| `tiiny_ctl.py image "a job"` | Pick the right image model for a job |
+| `tiiny_ctl.py [--device DEV] status` | Device, resident set with NPU shares, the lock, the hold, the plan |
+| `tiiny_ctl.py [--device DEV] plan --goal "..."` | Pick the models, check the NPU fit, write the plan |
+| `tiiny_ctl.py [--device DEV] reserve --owner NAME` | Take the cross-agent lock and announce it |
+| `tiiny_ctl.py [--device DEV] load [--wave N]` | Load the batch's models, evict what does not fit, verify |
+| `tiiny_ctl.py [--device DEV] ensure --model M` | Make a model resident on demand — run this before delegating |
+| `tiiny_ctl.py [--device DEV] release` | Restore the required set, clear the lock, the plan and the notice |
+| `tiiny_ctl.py [--device DEV] catalog --refresh` | Diff the live Model Store against the last snapshot |
+| `tiiny_ctl.py [--device DEV] image "a job"` | Pick the right image model for a job |
 | `route_check.py "a goal"` | Read-only: which model would this goal route to, and why |
 | `route_check.py --thinking off "a goal"` | The same, plus the reasoning state it would achieve |
 
@@ -211,24 +223,19 @@ to the paid provider, invisibly.
 
 *Done when:* the load reports no model missing.
 
-### 6 — Plan the work: the device is single-threaded
+### 6 — Plan the work: one heavy child per appliance
 
-**Tiiny serves one generation-heavy stream at a time.** Two heavy children
-starve each other, and the failure mode is a *hang*, not an error — the
-device keeps reporting healthy while it answers nothing.
+**Each Tiiny serves one generation-heavy stream at a time.** Two heavy children on the *same* device starve each other, and the failure mode is a *hang*, not an error — the device keeps reporting healthy while it answers nothing.
 
-So: run **one heavy child per wave**, not every wave's children at once. The
-parent's own cloud route is a separate stream, so parent work and one device
-child genuinely run in parallel. If a batch needs a second workstream, give
-it a named non-device provider.
+**Dual-appliance concurrency:** With two appliances in the estate (`tiiny-ant` and `tiiny-octo`), you can run **two concurrent subagents in parallel** — one targeted to Ant and one targeted to Octo. Each physical device is single-threaded for heavy inference, so do not run two heavy children on the same box, but fan out across the two separate appliances. If a batch needs a third workstream, give it a named cloud provider.
 
-**A single `delegate_task` batch with two tasks is two heavy children.** The
+**A single `delegate_task` batch targeting one box with two tasks is two heavy children.** The
 batch API is the easiest way to break this rule by accident: one call, two
-entries, both generation-heavy, both pointed at the device. The symptom is
+entries, both generation-heavy, both pointed at the same device. The symptom is
 not an error — it is a hang that reads like slow progress. One child sat
 `waiting for model response` for over fifteen minutes while the device
-reported healthy, and its sibling stalled on the same pool. Dispatch the
-second child only after the first has returned.
+reported healthy, and its sibling stalled on the same pool. Dispatch to the
+second box or dispatch the second child only after the first has returned.
 
 **A hung child may still have written its output.** The hang is often in the
 handover, not the work: the child can finish writing the artifact and then
@@ -482,6 +489,10 @@ now make impossible.
 
 ## Pitfalls
 
+- **A 401 is an authentication error (wrong bearer), not an unreachable appliance.** An unreachable box times out or fails with connection refused; a 401 means the device is alive, listening on the LAN, and actively rejected the bearer. Always verify which `key_env` the target expects before troubleshooting network connectivity.
+- **`device_key()` and all shared credentials must resolve against `_shared_home() / ".env"`, never `HERMES_HOME / ".env"`.** When running in a profile, `HERMES_HOME` points to `~/.hermes/profiles/<name>/` whose `.env` can hold a stale key for another device or an outdated token, producing `HTTP 401 {"error":"auth_failed"}` against the target device that deceptively looks like a down box.
+- **`tiiny --device-address` alone does NOT switch devices in the CLI.** The CLI reads its `account.authKey` from the config file; pointing `--device-address` at another device without pointing `--config` at a config for that device sends the first device's key and fails with "Not logged in. Use 'tiiny login' to sign in." The working mechanism is isolated per-device CLI configs: `tiiny --config ~/.hermes/tiiny-devices/cli-<name>.json`.
+- **Use the per-device registry at `~/.hermes/tiiny-devices/`.** Managed by `devices.py` (`load_registry()`, `get_device()`, `ensure_registry()`). It maintains descriptor files (`tiiny-ant.json`, `tiiny-octo.json`) with env var names (no secrets) and 0600 CLI configs (`cli-ant.json`, `cli-octo.json`).
 - **A load is a swap.** Loading a model evicts the resident one; the evicted
   model's endpoint then returns `404`, which means *not resident*, not a bad
   model id. Restore the required set when the work is done.
@@ -551,6 +562,21 @@ now make impossible.
   skip the prompt. Any controlling terminal works: the `script` wrapper, or
   a runner that allocates one.
 
+- **The mesh gateway is the multi-box control surface, and it takes no
+  lock.** `~/.hermes/mesh/gateway.py` runs under launchd and routes across
+  every target in `~/.hermes/mesh/config.json`, where each `tiiny` target
+  carries its own `base_url` (a literal box IP) and its own `key_env` — so
+  the mesh resolves a box without the desktop app's focus and without a
+  per-box CLI config. `POST /mesh/lifecycle` takes
+  `{"target","model","action"}` and calls the box's own
+  `POST /api/v1/models/<id>/<action>`; **the verbs are `start` and `stop`,
+  not `load` and `unload`** (the latter two 405 under the catch-all and
+  are not routes). Nothing in the mesh takes a per-box lock, so the mesh
+  and the CLI controller can both load on the same box and neither waits.
+  `keep_resident` is the mesh's post-reboot restore, so a replacement
+  watchdog must be compatible with it rather than duplicate it. See
+  [references/multi-device.md](references/multi-device.md).
+
 - **The control CLI holds ONE session, bound to ONE device.** Signing in
   for a second box signs the first one *out* — the stored session is a
   single opaque token, not a map of devices. The CLI can therefore manage
@@ -580,10 +606,19 @@ now make impossible.
   restarts** — say that when the change is handed over, because a provider
   that appears configured but answers nothing looks like a routing fault.
 
-- **Different form factors mean different NPU figures.** A Pocket and an
-  Octo are not the same silicon. The tier table's shares were measured on
-  one of them; re-measure the other (`catalog --refresh` pointed at it)
-  before routing anything to it.
+- **Both boxes are the same silicon, so the tier table's percentages
+  transfer as written.** `GET /api/v1/sys/device_info` answers
+  unauthenticated and reports the same appliance for each box — ARMv9.2
+  CPU, G720 GPU, 160 BF16 TOPS dNPU, 190 TOPS peak INT8 (30 on the SoC,
+  160 on the dNPU), 80 GB RAM split 32 GB SoC / 48 GB dNPU. The NPU-RAM
+  pool `tiiny status` reports as 47.9 GiB IS the dNPU's 48 GB, which is
+  the pool the tier table's percentages were measured against — so two
+  boxes are two independent 47.9 GiB pools, not a small box and a large
+  one. What differs is STOCKING: route by what a box has on disk
+  (`catalog --refresh` pointed at it), not by what you think a box is.
+  Re-measure before routing anyway; a note that paraphrases a captured
+  `tiiny status` run can describe the wrong machine, because the desktop
+  app's forwarder answers for whichever box it has selected.
 
 - **Do not hard-code a device's error strings.** A signature-based LAN scan
   that matched on `{"error":"auth_failed"}` found nothing after the device's
@@ -727,6 +762,7 @@ python3 scripts/tiiny_ctl.py plan --goal "your goal" # tier, model, NPU fit, wav
 python3 scripts/route_check.py --all                 # every tier and its budget
 python3 scripts/route_check.py --thinking off "goal" # tier, model, and the reasoning state
 python3 scripts/tiiny_ctl.py catalog --refresh       # what moved in the Model Store
+python3 scripts/probe_device.py <box-ip>             # a box's hardware, residency, working verbs
 ```
 
 A batch is correct when the plan's model matches the shape of the work, every

@@ -71,6 +71,23 @@ HERE = Path(__file__).resolve().parent
 SKILL_ROOT = HERE.parent
 HERMES_HOME = Path(os.environ.get("HERMES_HOME", "~/.hermes")).expanduser()
 
+try:
+    import devices as D
+except Exception:
+    try:
+        import importlib.util
+        for cand in (HERE / "devices.py", HERMES_HOME / "mesh" / "devices.py"):
+            if cand.exists():
+                spec = importlib.util.spec_from_file_location("devices", cand)
+                if spec and spec.loader:
+                    D = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(D)
+                    break
+        else:
+            D = None
+    except Exception:
+        D = None
+
 
 def _shared_home() -> Path:
     """The BASE Hermes home, even when HERMES_HOME points at a profile.
@@ -214,23 +231,6 @@ VAULT = _find_vault()
 #: Shared state. These live in the BASE Hermes home, not the profile — see
 #: `_shared_home` for why, and for the failure that follows if they do not.
 SHARED_HOME = _shared_home()
-#: Per-device overrides for the shared state. The defaults are the
-#: single-device paths and are unchanged, so nothing moves unless a caller
-#: asks for a second box explicitly. Two boxes must not share one lock: the
-#: lock exists to keep two agents off the same NPU pool, and with two pools
-#: it becomes two locks, not one contended one.
-LOCK_FILE = Path(os.environ.get("TIINY_LOCK_FILE", str(SHARED_HOME / "tiiny-lock.json")))
-PLAN_FILE = Path(os.environ.get("TIINY_PLAN_FILE", str(SHARED_HOME / "tiiny-plan.json")))
-HOLD_FILE = Path(os.environ.get("TIINY_HOLD_FILE", str(SHARED_HOME / "tiiny-hold")))
-#: One snapshot per device. The path is overridable so refreshing one
-#: box's catalogue cannot replace another box's baseline.
-SNAPSHOT_FILE = Path(os.environ.get("TIINY_SNAPSHOT_FILE", str(SHARED_HOME / "tiiny-catalogue.json")))
-
-TIINY_BIN = Path(os.environ.get("TIINY_BIN", "~/.local/tiiny/bin/tiiny")).expanduser()
-INFERENCE_BASE = (os.environ.get("TIINY_BASE_URL") or _dotenv_value("TIINY_BASE_URL")
-                  or "http://openai.api.tiiny/v1").rstrip("/")
-MANAGEMENT_BASE = (os.environ.get("TIINY_HOST") or _dotenv_value("TIINY_HOST")
-                   or "http://tiinyhost.local").rstrip("/")
 
 
 def _address_from(url: str) -> str:
@@ -246,6 +246,118 @@ def _address_from(url: str) -> str:
     return text.split("/")[0].split(":")[0]
 
 
+_ACTIVE_DEVICE: Any | None = None
+
+
+def set_active_device(target: str | None = None) -> Any | None:
+    """Set and return the active device from the registry."""
+    global _ACTIVE_DEVICE, _SESSION_CHECKED
+    _SESSION_CHECKED = None
+    if D is None:
+        _ACTIVE_DEVICE = None
+        return None
+    if target:
+        dev = D.get_device(target)
+        if dev:
+            _ACTIVE_DEVICE = dev
+            return dev
+        reg = D.load_registry()
+        for d in reg.values():
+            if d.address == target:
+                _ACTIVE_DEVICE = d
+                return d
+    env_target = (
+        os.environ.get("TIINY_DEVICE_NAME")
+        or os.environ.get("TIINY_DEVICE_ADDRESS")
+        or _dotenv_value("TIINY_DEVICE_NAME")
+        or _dotenv_value("TIINY_DEVICE_ADDRESS")
+    )
+    if env_target:
+        dev = D.get_device(env_target)
+        if dev:
+            _ACTIVE_DEVICE = dev
+            return dev
+    host_env = os.environ.get("TIINY_HOST") or _dotenv_value("TIINY_HOST")
+    if host_env:
+        host = _address_from(host_env)
+        if host and host != "tiinyhost.local":
+            dev = D.get_device(host)
+            if dev:
+                _ACTIVE_DEVICE = dev
+                return dev
+    reg = D.load_registry()
+    if "tiiny-ant" in reg:
+        _ACTIVE_DEVICE = reg["tiiny-ant"]
+        return _ACTIVE_DEVICE
+    elif reg:
+        _ACTIVE_DEVICE = next(iter(reg.values()))
+        return _ACTIVE_DEVICE
+    _ACTIVE_DEVICE = None
+    return None
+
+
+def active_device() -> Any | None:
+    global _ACTIVE_DEVICE
+    if _ACTIVE_DEVICE is None:
+        set_active_device()
+    return _ACTIVE_DEVICE
+
+
+def lock_file() -> Path:
+    if os.environ.get("TIINY_LOCK_FILE"):
+        return Path(os.environ["TIINY_LOCK_FILE"]).expanduser()
+    dev = active_device()
+    if dev:
+        return SHARED_HOME / f"tiiny-lock-{dev.name}.json"
+    return SHARED_HOME / "tiiny-lock.json"
+
+
+def plan_file() -> Path:
+    if os.environ.get("TIINY_PLAN_FILE"):
+        return Path(os.environ["TIINY_PLAN_FILE"]).expanduser()
+    dev = active_device()
+    if dev:
+        return SHARED_HOME / f"tiiny-plan-{dev.name}.json"
+    return SHARED_HOME / "tiiny-plan.json"
+
+
+def hold_file() -> Path:
+    if os.environ.get("TIINY_HOLD_FILE"):
+        return Path(os.environ["TIINY_HOLD_FILE"]).expanduser()
+    dev = active_device()
+    if dev:
+        return SHARED_HOME / f"tiiny-hold-{dev.name}"
+    return SHARED_HOME / "tiiny-hold"
+
+
+LOCK_FILE = Path(os.environ.get("TIINY_LOCK_FILE", str(SHARED_HOME / "tiiny-lock.json")))
+PLAN_FILE = Path(os.environ.get("TIINY_PLAN_FILE", str(SHARED_HOME / "tiiny-plan.json")))
+HOLD_FILE = Path(os.environ.get("TIINY_HOLD_FILE", str(SHARED_HOME / "tiiny-hold")))
+SNAPSHOT_FILE = Path(os.environ.get("TIINY_SNAPSHOT_FILE", str(SHARED_HOME / "tiiny-catalogue.json")))
+
+TIINY_BIN = Path(os.environ.get("TIINY_BIN", "~/.local/tiiny/bin/tiiny")).expanduser()
+
+
+def inference_base() -> str:
+    dev = active_device()
+    if dev:
+        return dev.base_url()
+    return (os.environ.get("TIINY_BASE_URL") or _dotenv_value("TIINY_BASE_URL")
+            or "http://openai.api.tiiny/v1").rstrip("/")
+
+
+def management_base() -> str:
+    dev = active_device()
+    if dev:
+        return dev.admin_url()
+    return (os.environ.get("TIINY_HOST") or _dotenv_value("TIINY_HOST")
+            or "http://tiinyhost.local").rstrip("/")
+
+
+INFERENCE_BASE = inference_base()
+MANAGEMENT_BASE = management_base()
+
+
 def _cli_config_device() -> str:
     """The device the control CLI is currently pointed at."""
     try:
@@ -257,23 +369,30 @@ def _cli_config_device() -> str:
         return ""
 
 
-def device_address() -> str:
-    """The address every control call has to name.
+def cli_config_path() -> Path | None:
+    dev = active_device()
+    if dev:
+        p = dev.cli_config_path()
+        if p.exists():
+            return p
+    return None
 
-    The control CLI keeps ONE session, bound to ONE device: signing in for
-    a second box signs the first one out. So a load that does not name its
-    device lands on whichever box the CLI config happens to point at — which
-    in a two-box setup is how the controller quietly manages the wrong
-    appliance. This resolves the address from the environment first, then
-    from the management base URL, and falls back to the CLI config.
-    """
+
+def device_address() -> str:
+    """The address every control call has to name."""
+    dev = active_device()
+    if dev:
+        return dev.address
     explicit = os.environ.get("TIINY_DEVICE_ADDRESS") or _dotenv_value("TIINY_DEVICE_ADDRESS")
     if explicit:
         return explicit.strip()
-    host = _address_from(MANAGEMENT_BASE)
+    host = _address_from(management_base())
     if host and host != "tiinyhost.local":
         return host
-    return _cli_config_device()
+    addr = _cli_config_device()
+    if addr:
+        print(f"tiiny_ctl: warning: per-device registry not available, falling back to CLI config device {addr}", file=sys.stderr)
+    return addr
 
 
 #: Probed once per run: (address, is_signed_in).
@@ -281,35 +400,38 @@ _SESSION_CHECKED: tuple[str, bool] | None = None
 
 
 def cli_session_ok() -> bool:
-    """True when the control CLI is signed in for the device it must manage.
-
-    One session, one device. A load against a box with no session fails
-    with "Not logged in", nothing becomes resident, and the failure looks
-    like a refusal rather than an authentication gap. Checking first turns
-    that into an actionable message instead of a silent no-op.
-    """
+    """True when the control CLI is signed in for the device it must manage."""
     global _SESSION_CHECKED
     addr = device_address()
+    cfg_path = cli_config_path()
     if not addr or not TIINY_BIN.exists():
         return True
-    if _SESSION_CHECKED and _SESSION_CHECKED[0] == addr:
+    cache_key = f"{addr}:{cfg_path}"
+    if _SESSION_CHECKED and _SESSION_CHECKED[0] == cache_key:
         return _SESSION_CHECKED[1]
+    cmd = [str(TIINY_BIN)]
+    if cfg_path:
+        cmd += ["--config", str(cfg_path)]
+    cmd += ["ls", "-d"]
+    if addr and not cfg_path:
+        cmd += ["--device-address", addr]
     try:
         result = subprocess.run(
-            [str(TIINY_BIN), "ls", "-d", "--device-address", addr],
+            cmd,
             capture_output=True, text=True, timeout=120,
         )
     except Exception:
-        # A probe failure is not evidence of a missing session. Do not
-        # block the load on the strength of a failed check.
         return True
     out = (result.stdout or "") + (result.stderr or "")
     signed_in = "Not logged in" not in out
-    _SESSION_CHECKED = (addr, signed_in)
+    _SESSION_CHECKED = (cache_key, signed_in)
     if not signed_in:
         print(f"tiiny_ctl: the control CLI is not signed in for {addr}.", file=sys.stderr)
-        print("  'tiiny login' is a human step, and the CLI holds ONE session", file=sys.stderr)
-        print("  bound to ONE device: signing in here signs the other box out.", file=sys.stderr)
+        if cfg_path:
+            print(f"  Using per-device config: {cfg_path}", file=sys.stderr)
+        else:
+            print("  'tiiny login' is a human step, and the CLI holds ONE session", file=sys.stderr)
+            print("  bound to ONE device: signing in here signs the other box out.", file=sys.stderr)
     return signed_in
 
 #: The models `release` restores. There is no watchdog any more — the cron
@@ -381,15 +503,22 @@ tiers = _load_tiers()
 def device_key() -> str:
     """Return the device bearer, or an empty string.
 
-    Tried in order: the environment, ``~/.hermes/.env`` (where Hermes keeps
-    it — it is NOT in the process environment for plugin code), and the vault's
-    ``pocketlab/CREDENTIALS.md``. The value is never printed.
+    Tried in order: explicit environment variable TIINY_API_KEY, the active
+    device's configured key_env via the registry, ``~/.hermes/.env`` (where
+    Hermes keeps it), and the vault's ``pocketlab/CREDENTIALS.md``.
+    The value is never printed.
     """
     value = os.environ.get("TIINY_API_KEY", "").strip()
     if value:
         return value
 
-    dotenv = HERMES_HOME / ".env"
+    dev = active_device()
+    if dev:
+        k = dev.key(env_file=_shared_home() / ".env")
+        if k:
+            return k
+
+    dotenv = _shared_home() / ".env"
     try:
         for line in dotenv.read_text().splitlines():
             line = line.strip()
@@ -429,7 +558,7 @@ def resident_ids() -> list[str]:
     key = device_key()
     if not key:
         return []
-    payload = _request(INFERENCE_BASE + "/models", key, timeout=10)
+    payload = _request(inference_base() + "/models", key, timeout=10)
     ids = []
     for entry in payload.get("data") or []:
         value = entry.get("id") if isinstance(entry, dict) else None
@@ -443,7 +572,7 @@ def catalogue() -> list[dict]:
     key = device_key()
     if not key:
         raise SystemExit("no device key found (TIINY_API_KEY, ~/.hermes/.env, or the vault)")
-    payload = _request(MANAGEMENT_BASE + "/api/v1/models/online_models", key, timeout=30)
+    payload = _request(management_base() + "/api/v1/models/online_models", key, timeout=30)
     items = payload["items"] if isinstance(payload, dict) and "items" in payload else payload
     rows = []
     for item in items if isinstance(items, list) else []:
@@ -477,22 +606,98 @@ def npu_of(model: str, index: dict[str, dict] | None = None) -> int:
 
 # --- device state -----------------------------------------------------------
 
+def http_load(model: str) -> bool:
+    """Load a model via the device's native HTTP lifecycle API."""
+    dev = active_device()
+    if not dev:
+        return False
+    key = dev.key()
+    if not key:
+        return False
+    url = dev.admin_url(f"/api/v1/models/{model}/start")
+    req = urllib.request.Request(
+        url,
+        data=b"{}",
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            if resp.status == 200:
+                t0 = time.time()
+                while time.time() - t0 < 180:
+                    status, running = D.probe_running(dev, timeout=5) if D else (0, [])
+                    if model in running:
+                        return True
+                    time.sleep(2)
+                return False
+    except urllib.error.HTTPError as exc:
+        if exc.code == 401:
+            print(f"tiiny_ctl: HTTP 401 auth_failed for {dev.name} via {dev.key_env}", file=sys.stderr)
+            return False
+        return False
+    except Exception:
+        return False
+    return False
+
+
+def http_unload(model: str) -> bool:
+    """Unload a model via the device's native HTTP lifecycle API."""
+    dev = active_device()
+    if not dev:
+        return False
+    key = dev.key()
+    if not key:
+        return False
+    url = dev.admin_url(f"/api/v1/models/{model}/stop")
+    req = urllib.request.Request(
+        url,
+        data=b"{}",
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            if resp.status == 200:
+                t0 = time.time()
+                while time.time() - t0 < 60:
+                    status, running = D.probe_running(dev, timeout=5) if D else (0, [])
+                    if model not in running:
+                        return True
+                    time.sleep(1)
+                return True
+    except urllib.error.HTTPError as exc:
+        if exc.code == 401:
+            print(f"tiiny_ctl: HTTP 401 auth_failed for {dev.name} via {dev.key_env}", file=sys.stderr)
+            return False
+        return False
+    except Exception:
+        return False
+    return False
+
+
 def cli_load(model: str) -> bool:
     """Load a model onto the device.
 
-    ``tiiny load`` opens ``/dev/tty`` and fails from a script with "could not
-    open a new TTY", so it runs under ``script -q /dev/null`` to get a
-    pseudo-terminal. Loads are sequential: the NPU is one shared pool, and
-    concurrent loads evict each other mid-load.
+    Prefers HTTP lifecycle (/api/v1/models/{model}/start) which is fast,
+    needs no pty, and isolates credentials. Falls back to CLI with isolated
+    per-device configuration if HTTP lifecycle is unavailable.
     """
+    if http_load(model):
+        return True
+
     if not TIINY_BIN.exists():
         print(f"tiiny_ctl: the tiiny CLI is missing at {TIINY_BIN}", file=sys.stderr)
         return False
     addr = device_address()
+    cfg_path = cli_config_path()
     if not cli_session_ok():
         return False
-    cmd = ["script", "-q", "/dev/null", str(TIINY_BIN), "load", model, "-y"]
-    if addr:
+    cmd = ["script", "-q", "/dev/null", str(TIINY_BIN)]
+    if cfg_path:
+        cmd += ["--config", str(cfg_path)]
+    cmd += ["load", model, "-y"]
+    if addr and not cfg_path:
         cmd += ["--device-address", addr]
     try:
         result = subprocess.run(
@@ -512,14 +717,21 @@ def cli_load(model: str) -> bool:
 def cli_unload(model: str) -> bool:
     """Unload a model from the device, freeing its NPU share.
 
-    Same pseudo-terminal trick as the load: the CLI opens ``/dev/tty``.
+    Prefers HTTP lifecycle (/api/v1/models/{model}/stop), falls back to CLI.
     """
+    if http_unload(model):
+        return True
+
     if not TIINY_BIN.exists():
         print(f"tiiny_ctl: the tiiny CLI is missing at {TIINY_BIN}", file=sys.stderr)
         return False
     addr = device_address()
-    cmd = ["script", "-q", "/dev/null", str(TIINY_BIN), "unload", model, "-y"]
-    if addr:
+    cfg_path = cli_config_path()
+    cmd = ["script", "-q", "/dev/null", str(TIINY_BIN)]
+    if cfg_path:
+        cmd += ["--config", str(cfg_path)]
+    cmd += ["unload", model, "-y"]
+    if addr and not cfg_path:
         cmd += ["--device-address", addr]
     try:
         result = subprocess.run(
@@ -573,41 +785,27 @@ def ensure_room(wave: list[str], index: dict[str, dict] | None = None) -> tuple[
 
 
 def hold_write(models: list[str]) -> None:
-    """Record what this agent deliberately loaded.
-
-    This used to be an interlock: a five-minute watchdog read this file and
-    reloaded nothing while it existed. That poller was retired on 2026-11-10
-    and `ensure` replaced it, so the file no longer stops anything from
-    firing. It is kept because it is the only local record of which models a
-    batch asked for, and `status` and `release` still read it.
-
-    The FIRST line names the model that is resident for the whole batch. A
-    multi-wave batch rewrites the hold as each wave starts.
-    """
-    HOLD_FILE.parent.mkdir(parents=True, exist_ok=True)
-    HOLD_FILE.write_text("".join(f"{m}\n" for m in models))
+    """Record what this agent deliberately loaded."""
+    hf = hold_file()
+    hf.parent.mkdir(parents=True, exist_ok=True)
+    hf.write_text("".join(f"{m}\n" for m in models))
 
 
 def hold_clear() -> None:
-    """Release the hold.
-
-    Truncate first — a write always works, even where deletion is blocked —
-    then try to remove the file, then VERIFY. An empty hold file is a released
-    hold, and a script that prints "cleared" without checking leaves a stale
-    record behind for `status` to report as if it were live.
-    """
+    """Release the hold."""
+    hf = hold_file()
     try:
-        HOLD_FILE.write_text("")
+        hf.write_text("")
     except Exception:
         pass
     try:
-        HOLD_FILE.unlink()
+        hf.unlink()
     except Exception:
         pass
     try:
-        if HOLD_FILE.exists() and HOLD_FILE.stat().st_size > 0:
+        if hf.exists() and hf.stat().st_size > 0:
             raise SystemExit(
-                f"tiiny_ctl: could not release the hold at {HOLD_FILE} — "
+                f"tiiny_ctl: could not release the hold at {hf} — "
                 "`status` will keep reporting it as held. Truncate it by hand."
             )
     except FileNotFoundError:
@@ -616,8 +814,9 @@ def hold_clear() -> None:
 
 def hold_state() -> list[str]:
     """The models the hold file names."""
+    hf = hold_file()
     try:
-        return [line.strip() for line in HOLD_FILE.read_text().splitlines() if line.strip()]
+        return [line.strip() for line in hf.read_text().splitlines() if line.strip()]
     except Exception:
         return []
 
@@ -626,15 +825,17 @@ def hold_state() -> list[str]:
 
 def lock_read() -> dict | None:
     """The lock's current contents, or None if there is no lock file."""
+    lf = lock_file()
     try:
-        return json.loads(LOCK_FILE.read_text())
+        return json.loads(lf.read_text())
     except Exception:
         return None
 
 
 def _lock_fd():
-    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
-    return os.open(LOCK_FILE, os.O_CREAT | os.O_RDWR, 0o600)
+    lf = lock_file()
+    lf.parent.mkdir(parents=True, exist_ok=True)
+    return os.open(lf, os.O_CREAT | os.O_RDWR, 0o600)
 
 
 def _lock_write(fd: int, payload: dict) -> None:
@@ -789,38 +990,59 @@ def plan_write(entries: list[dict], waves: list[list[str]], owner: str, task: st
         "entries": entries,
         "waves": waves,
     }
-    PLAN_FILE.parent.mkdir(parents=True, exist_ok=True)
-    PLAN_FILE.write_text(json.dumps(payload, indent=1))
+    target_plan = plan_file()
+    target_plan.parent.mkdir(parents=True, exist_ok=True)
+    target_plan.write_text(json.dumps(payload, indent=1))
+    default_plan = SHARED_HOME / "tiiny-plan.json"
+    if target_plan != default_plan:
+        try:
+            default_plan.write_text(json.dumps(payload, indent=1))
+        except Exception:
+            pass
     return payload
 
 
 def plan_read() -> dict | None:
     try:
-        return json.loads(PLAN_FILE.read_text())
+        return json.loads(plan_file().read_text())
     except Exception:
-        return None
+        try:
+            return json.loads((SHARED_HOME / "tiiny-plan.json").read_text())
+        except Exception:
+            return None
 
 
 def plan_clear() -> None:
+    target_plan = plan_file()
     try:
-        PLAN_FILE.write_text("")
+        target_plan.write_text("")
     except Exception:
         pass
     try:
-        PLAN_FILE.unlink()
+        target_plan.unlink()
     except Exception:
         pass
+    default_plan = SHARED_HOME / "tiiny-plan.json"
+    if target_plan != default_plan:
+        try:
+            default_plan.write_text("")
+            default_plan.unlink()
+        except Exception:
+            pass
 
 
 # --- commands ---------------------------------------------------------------
 
 def cmd_status(args) -> int:
-    print("TIINY DEVICE STATUS\n")
+    dev = active_device()
+    dev_hdr = f" — {dev.name} ({dev.address})" if dev else ""
+    print(f"TIINY DEVICE STATUS{dev_hdr}\n")
 
     key = device_key()
-    print(f"  key        : {'found' if key else 'NOT FOUND'}")
-    print(f"  inference  : {INFERENCE_BASE}")
-    print(f"  management : {MANAGEMENT_BASE}")
+    key_src = f" ({dev.key_env})" if dev and dev.key_env else ""
+    print(f"  key        : {'found' + key_src if key else 'NOT FOUND'}")
+    print(f"  inference  : {inference_base()}")
+    print(f"  management : {management_base()}")
 
     try:
         resident = resident_ids()
@@ -1297,7 +1519,7 @@ def cmd_catalog(args) -> int:
 
     if args.update:
         SNAPSHOT_FILE.write_text(json.dumps({
-            "source": MANAGEMENT_BASE + "/api/v1/models/online_models",
+            "source": management_base() + "/api/v1/models/online_models",
             "read": time.strftime("%Y-%m-%d %H:%M:%S"),
             "model_count": len(current),
             "models": current,
@@ -1355,6 +1577,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Control the Tiiny device: plan, lock, load, release, refresh.",
     )
+    parser.add_argument("--device", help="target device name (e.g. tiiny-ant, tiiny-octo) or IP address")
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("status", help="device, resident set, lock, hold, plan")
@@ -1404,6 +1627,9 @@ def main() -> int:
     image.add_argument("--load", action="store_true", help="load the chosen model")
 
     args = parser.parse_args()
+    if getattr(args, "device", None):
+        set_active_device(args.device)
+
     if not args.command:
         parser.print_help()
         return 2
