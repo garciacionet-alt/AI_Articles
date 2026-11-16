@@ -460,6 +460,26 @@ def test_regression_bugs():
         print(f"    ✗ FAIL: {e}")
         all_ok = False
 
+    # BUG 13: internal names from the machine this was written on leaked into
+    # the published skill — "the AMC" in two docstrings. The publish safety
+    # scan matches paths and credentials, not internal vocabulary, so the
+    # read-back assertions are what caught it.
+    print("\n  [Bug 13] No internal names in the source")
+    try:
+        offenders = []
+        for py in MUSE_DIR.rglob("*.py"):
+            if py.name == "test_muse_system.py":
+                continue
+            for lineno, line in enumerate(py.read_text().split("\n"), 1):
+                code = line.split("#")[0]
+                if "the AMC" in code or "Friendlybot" in code:
+                    offenders.append(f"{py.name}:{lineno}")
+        assert not offenders, f"internal names still present: {offenders}"
+        print("    ✓ PASS: no internal names")
+    except Exception as e:
+        print(f"    ✗ FAIL: {e}")
+        all_ok = False
+
     print("\n  All regression tests passed ✓" if all_ok else "\n  SOME REGRESSION TESTS FAILED ✗")
     return all_ok
 

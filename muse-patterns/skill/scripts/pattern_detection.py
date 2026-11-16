@@ -99,7 +99,7 @@ def load_kanban_tasks(limit: int = 50) -> List[dict]:
 
 
 def load_cron_results(limit: int = 20) -> List[dict]:
-    """Load recent cron job results from the AMC vault.
+    """Load recent cron job results from the agent's cron output directory.
     
     Looks for cron log files or kanban task results.
     Returns a list of result dicts.

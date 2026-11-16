@@ -160,7 +160,7 @@ class MuseDaemon:
             return False
     
     def create_kanban_task(self, fired_action: Dict) -> None:
-        """Create a kanban task in the AMC vault."""
+        """Create a kanban task in the output inbox."""
         title = fired_action["action_data"].get("title", 
                     fired_action["action_data"].get("message", 
                     fired_action["objective_name"]))
