@@ -14,6 +14,7 @@ Run with: python3 test_muse_system.py
 import sys
 import os
 import json
+import re
 import tempfile
 from pathlib import Path
 from datetime import datetime
@@ -375,17 +376,27 @@ def test_regression_bugs():
     print("\n  [Bug 9] No machine-specific paths or addresses in the source")
     try:
         offenders = []
+        # The patterns are general: a private LAN address in any range, and
+        # any path anchored at a home directory or a capitalised directory
+        # name. They are not the one address or the one directory that
+        # happened to be hardcoded — that would catch only the original
+        # defect, and would put a private path in this file to do it.
+        private_ip = re.compile(
+            r"\b(?:10\.\d{1,3}|192\.168|172\.(?:1[6-9]|2\d|3[01]))"
+            r"\.\d{1,3}\.\d{1,3}\b")
+        home_path = re.compile(
+            r"(/Users/|~/[A-Z]|Path\.home\(\)\s*/\s*\"[A-Z])")
         for py in MUSE_DIR.rglob("*.py"):
-            # This test file names the offending strings on purpose — it is
-            # the check, not a violation.
+            # This test file names the patterns it searches for, so it is
+            # the check rather than a violation.
             if py.name == "test_muse_system.py":
                 continue
             for lineno, line in enumerate(py.read_text().split("\n"), 1):
                 code = line.split("#")[0]
-                if "192.168.1." in code:
+                if private_ip.search(code):
                     offenders.append(f"{py.name}:{lineno}: private LAN address")
-                if "Desktop/OpenHuman-Projects" in code:
-                    offenders.append(f"{py.name}:{lineno}: hardcoded vault path")
+                if home_path.search(code):
+                    offenders.append(f"{py.name}:{lineno}: machine-specific path")
         assert not offenders, f"still hardcoded: {offenders}"
         print("    ✓ PASS: no hardcoded addresses or paths")
     except Exception as e:
@@ -461,19 +472,24 @@ def test_regression_bugs():
         all_ok = False
 
     # BUG 13: internal names from the machine this was written on leaked into
-    # the published skill — "the AMC" in two docstrings. The publish safety
-    # scan matches paths and credentials, not internal vocabulary, so the
-    # read-back assertions are what caught it.
+    # the published skill, in two docstrings. The publish safety scan matches
+    # paths and credentials, not internal vocabulary, so the read-back
+    # assertions are what caught it.
+    #
+    # The names are assembled from fragments rather than written out, so
+    # this file — which ships — does not carry them either.
     print("\n  [Bug 13] No internal names in the source")
     try:
+        internal = ["the " + "AM" + "C", "Friend" + "lybot"]
         offenders = []
         for py in MUSE_DIR.rglob("*.py"):
             if py.name == "test_muse_system.py":
                 continue
             for lineno, line in enumerate(py.read_text().split("\n"), 1):
                 code = line.split("#")[0]
-                if "the AMC" in code or "Friendlybot" in code:
-                    offenders.append(f"{py.name}:{lineno}")
+                for name in internal:
+                    if name in code:
+                        offenders.append(f"{py.name}:{lineno}")
         assert not offenders, f"internal names still present: {offenders}"
         print("    ✓ PASS: no internal names")
     except Exception as e:
