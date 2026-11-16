@@ -38,7 +38,12 @@ def load_trust_data() -> dict:
 
 
 def save_trust_data(data: dict) -> None:
-    """Save the trust scoring file atomically."""
+    """Save trust scoring file atomically."""
+    # Create the parent directory as well as the file. The trust file lives
+    # beside the objectives file, and on a machine where that directory does
+    # not exist yet, writing here raised FileNotFoundError — the same
+    # first-run crash the objectives file had.
+    TRUST_FILE.parent.mkdir(parents=True, exist_ok=True)
     tmp = TRUST_FILE.with_suffix(".tmp")
     with open(tmp, "w") as f:
         json.dump(data, f, indent=2)

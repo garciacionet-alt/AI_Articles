@@ -131,7 +131,11 @@ objectives:
 def load_objectives() -> List[dict]:
     """Load standing objectives from YAML file, creating with sample if missing."""
     if not OBJECTIVES_FILE.exists():
-        # Create with sample objectives
+        # Create the parent directory as well as the file. On a machine where
+        # ~/.hermes does not exist yet, opening the file raised
+        # FileNotFoundError and the daemon died on its very first cycle —
+        # which is also when the reader running the published skill meets it.
+        OBJECTIVES_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(OBJECTIVES_FILE, "w") as f:
             f.write(SAMPLE_OBJECTIVES)
     

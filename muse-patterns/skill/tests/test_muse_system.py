@@ -496,6 +496,43 @@ def test_regression_bugs():
         print(f"    ✗ FAIL: {e}")
         all_ok = False
 
+    # BUG 14: the daemon died on its FIRST cycle on a machine where the
+    # state directory did not exist yet. Both state files — the objectives
+    # YAML and the trust JSON — are created on first use, and neither
+    # created its parent directory, so the write raised FileNotFoundError.
+    #
+    # It never showed on the machine this was written on, because that
+    # machine already had ~/.hermes. A reader running the published skill
+    # meets it immediately.
+    print("\n  [Bug 14] The daemon starts on a machine with no state directory")
+    try:
+        import tempfile as _tempfile
+        from pathlib import Path as _Path
+        fresh_home = _Path(_tempfile.mkdtemp(prefix="muse-fresh-home-"))
+        nested = fresh_home / "no" / "such" / "dir" / "muse-objectives.yaml"
+
+        real_objectives_file = objectives_engine.OBJECTIVES_FILE
+        real_trust_file = trust_scoring.TRUST_FILE
+        real_home = Path.home
+        try:
+            objectives_engine.OBJECTIVES_FILE = nested
+            trust_scoring.TRUST_FILE = fresh_home / "no" / "such" / "dir" / "muse-trust.json"
+            # A file under a directory that does not exist must be created,
+            # not raise.
+            objectives_engine.load_objectives()
+            assert nested.exists(), \
+                "the objectives file was not created"
+            trust_scoring.save_trust_data({"x": {"score": 0.5}})
+            assert trust_scoring.TRUST_FILE.exists(), \
+                "the trust file was not created"
+        finally:
+            objectives_engine.OBJECTIVES_FILE = real_objectives_file
+            trust_scoring.TRUST_FILE = real_trust_file
+        print("    ✓ PASS: state files are created on a fresh machine")
+    except Exception as e:
+        print(f"    ✗ FAIL: {e}")
+        all_ok = False
+
     print("\n  All regression tests passed ✓" if all_ok else "\n  SOME REGRESSION TESTS FAILED ✗")
     return all_ok
 
