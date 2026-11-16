@@ -45,11 +45,53 @@ def save_trust_data(data: dict) -> None:
     tmp.replace(TRUST_FILE)
 
 
-def get_score(pattern_id: str) -> float:
-    """Get current trust score for a pattern. Returns DEFAULT_SCORE if unknown."""
+def get_score(pattern_id: str, default: Optional[float] = None) -> float:
+    """Get current trust score for a pattern.
+
+    ``default`` is the *granted* score: what this pattern starts at when
+    nobody has vouched for it yet. A pattern that has never fired has no
+    record, so its score comes from the grant — the detector's confidence,
+    or the ``initial_score`` its author declared. Without a grant it falls
+    back to DEFAULT_SCORE, which is below the threshold, so an unvouched
+    pattern stays silent.
+
+    Once a pattern has a record, the record wins: the grant applies once,
+    and everything after it is earned.
+    """
     data = load_trust_data()
     entry = data.get(pattern_id, {})
-    return entry.get("score", DEFAULT_SCORE)
+    if "score" in entry:
+        return entry["score"]
+    if default is not None:
+        try:
+            return max(SCORE_MIN, min(SCORE_MAX, float(default)))
+        except (TypeError, ValueError):
+            return DEFAULT_SCORE
+    return DEFAULT_SCORE
+
+
+def grant_score(pattern_id: str, score: float) -> float:
+    """Record the starting score for a pattern that has no history yet.
+
+    Write-if-absent: a grant is a starting position, not a decision. Once
+    the pattern has fired, its own outcomes own the score and this does
+    nothing.
+    """
+    data = load_trust_data()
+    if pattern_id in data:
+        return data[pattern_id].get("score", DEFAULT_SCORE)
+    try:
+        value = max(SCORE_MIN, min(SCORE_MAX, float(score)))
+    except (TypeError, ValueError):
+        value = DEFAULT_SCORE
+    data[pattern_id] = {
+        "score": value,
+        "successes": 0,
+        "ignores": 0,
+        "last_updated": datetime.now(timezone.utc).isoformat()
+    }
+    save_trust_data(data)
+    return value
 
 
 def update_score(pattern_id: str, success: bool) -> float:
@@ -86,12 +128,17 @@ def update_score(pattern_id: str, success: bool) -> float:
     return entry["score"]
 
 
-def should_fire(pattern_id: str, threshold: Optional[float] = None) -> bool:
-    """Check if a pattern should fire based on trust score and threshold."""
+def should_fire(pattern_id: str, threshold: Optional[float] = None,
+                default: Optional[float] = None) -> bool:
+    """Check if a pattern should fire based on trust score and threshold.
+
+    ``default`` is the granted score, for a pattern that has no history
+    yet — see :func:`get_score`.
+    """
     if threshold is None:
         threshold = DEFAULT_THRESHOLD
     
-    score = get_score(pattern_id)
+    score = get_score(pattern_id, default=default)
     return score >= threshold
 
 

@@ -18,7 +18,7 @@ Fills the gap between Hermes's reactive cron/delegation system and Muse's proact
 ## What it does
 
 - **Pattern Detection**: Reads kanban/cron/session history, uses a local model to extract recurring patterns as standing objectives
-- **Trust Scoring**: Each pattern gets a score (0.0–1.0) that increases on success, decreases on ignore; only fires when score >= threshold (default 0.6)
+- **Trust Scoring**: Each pattern gets a score (0.0–1.0) that increases on success, decreases on ignore; only fires when score >= threshold (default 0.6). A pattern starts at 0.5 — below the threshold — so it needs a **grant** (`initial_score`) before it can fire; detected patterns are granted one from the model's confidence
 - **Standing Objectives**: Persistent if/then rules that survive across sessions, evaluated by a daemon loop every 15 minutes
 - **Pattern Learning**: Once per day, the system scans history for new patterns and suggests them as objectives
 
@@ -99,7 +99,7 @@ python3 pattern_detection.py
 
 | Setting | Default | Description |
 |---|---|---|
-| `DEFAULT_SCORE` | 0.5 | Starting score for new patterns |
+| `DEFAULT_SCORE` | 0.5 | Starting score for a pattern with no grant |
 | `SCORE_UP` | 0.1 | How much to increase on success |
 | `SCORE_DOWN` | 0.2 | How much to decrease on ignore |
 | `DEFAULT_THRESHOLD` | 0.6 | Minimum score to fire |
@@ -122,6 +122,9 @@ Objectives are stored in `~/.hermes/muse-objectives.yaml`. Edit this file direct
 
 ## Sample Objectives (from `muse-objectives.yaml`)
 
+All four carry `initial_score: 0.6` — the grant. Without it they would sit
+at 0.5, below the threshold, and never fire.
+
 1. **Weekly Job Alert Review** — every Tuesday 9-17, create kanban task to review alerts
 2. **Meeting Preparation** — 30 minutes before a meeting, notify to prepare notes
 3. **Task Deadline Reminder** — 2 days before a task is due, notify to check progress
@@ -138,16 +141,23 @@ Objectives are stored in `~/.hermes/muse-objectives.yaml`. Edit this file direct
 ## Trust Scoring Behavior
 
 ```
-New pattern → score 0.5
+Unvouched            → score 0.5 (below threshold — does not fire)
+Granted              → the score it starts at (initial_score; 0.6 fires)
 If fires & succeeds → score += 0.1
 If fires & ignored → score -= 0.2
 Only fires when score >= 0.6 (threshold)
 
 Example:
-  0.5 → 0.6 → 0.7 → 0.8 → 0.9 → 1.0 (max)
+  grant 0.6 → 0.7 → 0.8 → 0.9 → 1.0 (max)
   0.9 → 0.7 (once ignored) → 0.5 (twice) → stops firing
   0.5 → 0.6 → 0.7 → 0.8 (recovers with 3 successes)
 ```
+
+The **grant** is `initial_score` — the score an objective starts at, and the
+only thing that can start one. Without it, an objective has no history, sits
+at 0.5, and never fires. A detected pattern is granted its starting score
+from the model's confidence; a hand-written objective declares its own. The
+grant is spent on the first firing; after that the score is earned.
 
 ## Testing
 
@@ -158,6 +168,7 @@ python3 test_muse_system.py
 
 Tests:
 - Trust scoring (load, update, threshold)
+- Grant path (a declared starting score starts an objective, and is spent once)
 - Objectives engine (load, evaluate trigger)
 - File structure
 - Pattern detection module

@@ -190,7 +190,37 @@ objectives:
     priority: 3
     enabled: true
     objective_type: "cron"
+    initial_score: 0.6
 ```
+
+### The grant — `initial_score`
+
+`initial_score` is the score an objective starts at. It is optional, and
+it is the only thing that can start an objective.
+
+An objective without one has no history, so it scores at `DEFAULT_SCORE`
+(0.5) — below the 0.6 threshold — and it never fires. It cannot climb out
+of that either: it does not fire, so it cannot succeed, so it stays at 0.5.
+The threshold is meant to be load-bearing, but a pattern with no way in
+never gets a hearing at all.
+
+So there are two ways to grant one:
+
+- **A detected pattern gets it automatically.** The scan already refuses to
+  save a pattern it is less than 0.6 confident about; that confidence now
+  becomes the objective's `initial_score`, so the model's judgement is the
+  vouch rather than a gate that leads nowhere.
+- **A hand-written objective grants one itself.** Declare `initial_score`
+  in the YAML:
+
+  ```yaml
+    initial_score: 0.6    # starts at the threshold, fires
+  ```
+
+The grant applies **once**. On the first firing it is written into the
+trust file, and from then on the score is earned from outcomes — one
+success takes it to 0.7, one ignore takes it to 0.4, and a second ignore
+puts it back below the threshold where it stops firing.
 
 ### Triggers
 
@@ -317,9 +347,10 @@ For a fresh install, this is the order that proves it works:
 2. **Run the harness.** Everything passes, including the twelve regression
    tests.
 3. **Run one daemon cycle.** It prints `[SILENT]` — nothing fires yet,
-   because a new objective starts at 0.5, below the 0.6 threshold.
-4. **Raise one objective's trust** to 0.7 (two successful updates, or edit
-   the trust file).
+   because an objective with no grant starts at 0.5, below the 0.6
+   threshold.
+4. **Give one objective a grant** — add `initial_score: 0.6` to it, or put
+   a score of 0.6 for it in the trust file.
 5. **Run the daemon again.** It fires, writes a task file into
    `MUSE_OUTPUT_DIR`, and reports the new trust score.
 6. **Point at a model** and run the pattern scan. It reports the number of
@@ -327,8 +358,8 @@ For a fresh install, this is the order that proves it works:
 7. **Schedule it.** Every fifteen minutes.
 
 Step 3 before step 4 is not a formality — it is the behaviour that makes
-the system usable. If a new objective fires on its first cycle, the trust
-score is not doing anything.
+the system usable. If an objective fires on its first cycle without anyone
+having vouched for it, the trust score is not doing anything.
 
 ## Troubleshooting
 
@@ -337,7 +368,8 @@ Each module puts its sibling's directory on `sys.path`, so
 `trust/trust_scoring.py` must be a sibling of `objectives/`, not nested
 inside it.
 
-**The daemon fires nothing.** Work down this list: is the objective's trust
+**The daemon fires nothing.** Work down this list: does the objective have
+a grant — an `initial_score`, or an entry in the trust file? Is its trust
 score at or above 0.6? Does its trigger evaluate with the current
 conditions? Does it use a context trigger with no context supplied?
 

@@ -469,7 +469,15 @@ def save_patterns_to_objectives(patterns: List[dict]) -> None:
                 },
                 "priority": pattern.get("priority", 3),
                 "enabled": True,
-                "objective_type": pattern.get("objective_type", "custom")
+                "objective_type": pattern.get("objective_type", "custom"),
+                # The grant. The model's confidence that this pattern is
+                # real becomes the objective's starting trust score, so a
+                # detected pattern can get the one hearing the trust
+                # mechanism allows. Without it the objective would sit at
+                # DEFAULT_SCORE — below the threshold — and never fire, and
+                # the confidence would be an admission gate that leads
+                # nowhere.
+                "initial_score": round(float(pattern.get("confidence", 0.6)), 2),
             }
             add_objective(objective)
             print(f"[muse-patterns] Saved objective: {objective['name']}")

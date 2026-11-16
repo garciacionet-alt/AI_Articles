@@ -63,7 +63,16 @@ SAMPLE_OBJECTIVES = """
 #   - create_kanban_task: "title of task to create"
 #   - draft_email: "email draft subject"
 #   - review_alerts: "review and summarize"
-
+#
+# The grant — initial_score:
+#   - initial_score: 0.0-1.0 — the score this objective STARTS at.
+#   - It is the one thing that can start an objective. Without it, an
+#     objective sits at DEFAULT_SCORE (0.5), below the threshold, and never
+#     fires — the threshold is load-bearing, so nothing starts by accident.
+#   - A detected pattern gets its grant from the model's confidence. A
+#     hand-written objective declares its own. After the first firing, the
+#     grant is spent and the score is earned from outcomes.
+#
 objectives:
   - id: "obj_job_alert_review"
     name: "Weekly Job Alert Review"
@@ -77,6 +86,7 @@ objectives:
     priority: 3
     enabled: true
     objective_type: "cron"
+    initial_score: 0.6
 
   - id: "obj_meeting_prep"
     name: "Meeting Preparation"
@@ -88,6 +98,7 @@ objectives:
     priority: 4
     enabled: true
     objective_type: "calendar"
+    initial_score: 0.6
 
   - id: "obj_task_deadline"
     name: "Task Deadline Reminder"
@@ -99,6 +110,7 @@ objectives:
     priority: 3
     enabled: true
     objective_type: "tasks"
+    initial_score: 0.6
 
   - id: "obj_morning_brief"
     name: "Morning Briefing"
@@ -112,6 +124,7 @@ objectives:
     priority: 2
     enabled: true
     objective_type: "cron"
+    initial_score: 0.6
 """
 
 

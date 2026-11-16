@@ -13,6 +13,11 @@ agent that speaks up on every cycle gets muted, and a muted agent is worse
 than a reactive one. So every objective here has to earn the right to fire,
 and the mechanism for that is a number, not a setting.
 
+> **Name collision.** The Hermes plugin catalog also lists a community plugin
+> called *Hermes Muse* (`hermes-muse`, maintainer `xiaohei-info`). This skill
+> is not that plugin and does not depend on it. Everything here is plain Python
+> plus one local model call — copy the `skill/` folder and run it yourself.
+
 ## The three pieces
 
 | Component | Purpose | Needs an LLM? |
@@ -29,16 +34,23 @@ model is unavailable.
 ## How trust gating works
 
 ```
-New pattern          → 0.5   (below threshold — does not fire yet)
+Unvouched            → 0.5   (below threshold — does not fire)
+Granted              → the score it starts at (0.6 fires)
 Fires and succeeds   → +0.1
 Fires and is ignored → -0.2
 Threshold            → 0.6
 ```
 
-A pattern starts at 0.5, which is **below** the threshold. It cannot fire
-until it has succeeded once. Each success adds 0.1, so the second success
-takes it to 0.7 and it starts firing. Two ignores take it from 0.9 to 0.5 and
-it stops entirely — three more successes bring it back.
+A pattern starts at 0.5, which is **below** the threshold, so it does not
+fire on its own. What starts one is a **grant** — the score it is given
+before it has any history. The daily scan grants one automatically (the
+model's confidence in the pattern becomes its starting score); a
+hand-written objective grants one itself with `initial_score`.
+
+The grant is spent on the first firing. After that the score is earned:
+each success adds 0.1, each ignore takes 0.2 off. Two ignores take a
+pattern from 0.9 to 0.5 and it stops entirely — three more successes bring
+it back.
 
 The practical effect: **a bad pattern announces itself once, quietly, and
 then goes away.** You never get a stream of noise from something the agent
@@ -148,7 +160,7 @@ python3 pattern_detection.py
 
 | Setting | Default | Description |
 |---|---|---|
-| `DEFAULT_SCORE` | 0.5 | Starting score for a new pattern |
+| `DEFAULT_SCORE` | 0.5 | Starting score for an objective with no grant |
 | `SCORE_UP` | 0.1 | Increase on success |
 | `SCORE_DOWN` | 0.2 | Decrease on ignore |
 | `DEFAULT_THRESHOLD` | 0.6 | Minimum score to fire |
@@ -177,9 +189,15 @@ objectives:
     priority: 3
     enabled: true
     objective_type: "cron"
+    initial_score: 0.6
 ```
 
 Action types: `notify`, `create_kanban_task`, `draft_email`, `review_alerts`.
+
+`initial_score` is the **grant** — the score this objective starts at, and
+the only thing that can start it. Without one, an objective has no history,
+scores at 0.5, sits below the threshold and never fires. With one, it gets
+its one hearing; after that the score is earned from outcomes.
 
 ## Testing
 

@@ -33,7 +33,7 @@ MUSE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(MUSE_DIR / "trust"))
 sys.path.insert(0, str(MUSE_DIR / "objectives"))
 
-from trust_scoring import get_score, should_fire, update_score, get_all_scores
+from trust_scoring import get_score, grant_score, should_fire, update_score, get_all_scores
 from objectives_engine import get_enabled_objectives, evaluate_trigger, load_objectives
 
 # Configuration
@@ -96,15 +96,28 @@ class MuseDaemon:
         for obj in objectives:
             obj_id = obj.get("id", "unknown")
             
-            # Check trust score
-            trust_score = get_score(obj_id)
+            # Check trust score.
+            #
+            # An objective nobody has vouched for carries no grant, so its
+            # score is DEFAULT_SCORE — below the threshold, and silent. The
+            # grant is the one thing that can start an objective: the
+            # detector's confidence becomes the grant for a detected
+            # pattern, and a hand-written objective declares its own
+            # ``initial_score``. Without either, a pattern waits — which is
+            # the point of the threshold, not a bug in it.
+            granted = obj.get("initial_score")
+            trust_score = get_score(obj_id, default=granted)
             if trust_score < TRUST_THRESHOLD:
                 continue  # Not trusted enough to fire
             
             # Evaluate trigger
             try:
                 if evaluate_trigger(obj, now, context=self.context):
-                    # Trigger is met — fire the action
+                    # Trigger is met — fire the action. The grant applies
+                    # once: record it before the action runs, so the outcome
+                    # is scored from where the grant left the pattern rather
+                    # than from DEFAULT_SCORE.
+                    grant_score(obj_id, trust_score)
                     action = obj.get("action", {})
                     fired.append({
                         "objective_id": obj_id,

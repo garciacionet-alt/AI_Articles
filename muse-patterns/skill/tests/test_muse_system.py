@@ -500,6 +500,58 @@ def test_regression_bugs():
     return all_ok
 
 
+def test_grant_path():
+    """Test the grant — the one thing that can start an objective.
+
+    The defect this covers: an objective with no trust record scores
+    DEFAULT_SCORE (0.5), which is below the threshold, so it never fires —
+    and because it never fires, it can never earn its way up. The grant
+    breaks that circle: a declared starting score is what gets an
+    objective its one hearing.
+    """
+    print("\n=== Testing Grant Path ===")
+    _setup_test_trust_file()
+
+    # Test 1: No grant, no record — stays at the default, below threshold.
+    score = trust_scoring.get_score("obj_no_grant")
+    assert score == trust_scoring.DEFAULT_SCORE, \
+        f"Expected {trust_scoring.DEFAULT_SCORE}, got {score}"
+    assert not trust_scoring.should_fire("obj_no_grant"), \
+        "An objective with no grant must not fire"
+    print("  ✓ PASS: No grant means no firing")
+
+    # Test 2: A grant is the score an objective starts at.
+    score = trust_scoring.get_score("obj_granted", default=0.6)
+    assert score == 0.6, f"Expected 0.6, got {score}"
+    assert trust_scoring.should_fire("obj_granted", default=0.6), \
+        "A granted objective at the threshold must fire"
+    print("  ✓ PASS: Grant supplies the starting score")
+
+    # Test 3: The grant is written down once, then spent.
+    recorded = trust_scoring.grant_score("obj_granted", 0.6)
+    assert recorded == 0.6, f"Expected 0.6, got {recorded}"
+    assert trust_scoring.TRUST_FILE.exists(), "Grant was not recorded"
+    # A second grant does not overwrite what the pattern has earned.
+    again = trust_scoring.grant_score("obj_granted", 0.9)
+    assert again == 0.6, f"Grant overwrote an existing score: {again}"
+    print("  ✓ PASS: Grant is write-if-absent")
+
+    # Test 4: The outcome is scored from the grant, not from the default.
+    # 0.6 + 0.1 = 0.7 — not 0.5 + 0.1 = 0.6.
+    after = trust_scoring.update_score("obj_granted", True)
+    assert after == 0.7, f"Expected 0.7 (0.6 + 0.1), got {after}"
+    print("  ✓ PASS: Outcome is scored from the grant")
+
+    # Test 5: A record beats the grant — once a pattern has history, the
+    # grant no longer speaks for it.
+    score = trust_scoring.get_score("obj_granted", default=0.6)
+    assert score == 0.7, f"Expected the recorded 0.7, got {score}"
+    print("  ✓ PASS: A record outranks the grant")
+
+    print("  All grant path tests passed ✓")
+    return True
+
+
 def main():
     """Run all tests."""
     print("=" * 60)
@@ -520,6 +572,13 @@ def main():
         test_objectives_engine()
     except Exception as e:
         print(f"  ✗ FAIL: Objectives test error: {e}")
+        all_passed = False
+    
+    # Test the grant path
+    try:
+        test_grant_path()
+    except Exception as e:
+        print(f"  ✗ FAIL: Grant path test error: {e}")
         all_passed = False
     
     # Test file structure

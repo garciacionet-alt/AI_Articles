@@ -75,14 +75,14 @@ Two sub-rules make this concrete:
 
 ## 4. A pattern must earn the right to fire
 
-The scoring curve is deliberately arranged so that **nothing fires on first
-contact**:
+The scoring curve is deliberately arranged so that **nothing fires just
+because it exists**:
 
 ```
-0.5  new — below threshold
-0.6  one success — fires from now on
-0.7  two successes
-0.8  three
+0.5  new and unvouched — below threshold
+0.6  granted at the threshold — fires from now on
+0.7  one success
+0.8  two successes
 1.0  maximum
 ```
 
@@ -104,10 +104,24 @@ deliberate: an objective should get a hearing, but it should not get many.
 The cost of a false positive is asymmetric too — a bad objective that
 keeps firing is much worse than a good one that stays quiet for a week.
 
-**The new pattern cannot fire at all.** 0.5 is below 0.6. This is the part
-that is easy to get wrong by accident: a default score equal to the
-threshold means everything fires immediately, and the trust mechanism
-becomes decoration. Below the threshold means the mechanism is load-bearing.
+**The new pattern cannot fire on its own.** 0.5 is below 0.6, and an
+objective with no history cannot climb out of that hole: it does not fire,
+so it cannot succeed, so it stays at 0.5. That is not a rounding error in
+the design — it is the design. A default score equal to the threshold
+means everything fires immediately, and the trust mechanism becomes
+decoration. Below the threshold means the mechanism is load-bearing.
+
+Which leaves the obvious question: what starts one? A **grant**. The grant
+is the score an objective is given before it has any history, and it is
+the only thing that can start an objective. The daily scan grants one
+automatically — the model's confidence that the pattern is real becomes
+the pattern's starting score — and a hand-written objective grants one
+itself, by declaring `initial_score`. The grant is spent on the first
+firing; after that the score is earned, and only earned, by outcomes.
+
+That distinction is the whole point. A grant is a vouch: someone looked at
+this pattern and said it was worth one hearing. Everything after it has to
+be earned.
 
 **The downward branch is the whole point.** A score that only rises is a
 ratchet, not a trust score. It looks like the mechanism works — the number

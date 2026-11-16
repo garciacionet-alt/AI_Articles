@@ -64,16 +64,24 @@ objective does something useful** and **down when it is ignored**. It fires
 only at or above a threshold.
 
 ```
-New pattern          → 0.5    (below threshold — cannot fire)
+Unvouched            → 0.5    (below threshold — cannot fire)
+Granted              → the score it starts at (0.6 fires)
 Fires and succeeds   → +0.1
 Fires and is ignored → -0.2
 Threshold            → 0.6
 ```
 
-A new pattern starts at 0.5, which is **below** the 0.6 threshold. It sits
-there silently until it succeeds once, then it crosses to 0.6 and starts
-firing. Two ignores take it from 0.9 down to 0.5 and it stops entirely.
-Three more successes bring it back.
+A new pattern starts at 0.5, which is **below** the 0.6 threshold, so it
+does not fire on its own. What starts one is a **grant** — the score it is
+given before it has any history. The daily scan grants one automatically:
+the model's confidence that the pattern is real becomes the pattern's
+starting score. A hand-written objective grants one itself, by declaring
+`initial_score`. Two ignores take a pattern from 0.9 down to 0.5 and it
+stops entirely. Three more successes bring it back.
+
+The grant is the only thing that can start an objective, and it is spent
+on the first firing. After that the score is earned, and only earned, by
+outcomes.
 
 The behaviour this buys is the thing worth having:
 
