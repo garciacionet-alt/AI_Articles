@@ -71,8 +71,51 @@ tis health
 ```
 
 If it answers, carry on. If it says the agency is not running, tell the
-user — it has to be started with `tis serve` — rather than reaching for
-the device yourself.
+user — it has to be started with `tis serve` — rather than reaching for the
+device yourself.
+
+### Clean Python Environment for CLI and Server
+The agency virtualenv (`~/.hermes/venvs/tis311`) is built on Python 3.11. When launched from an agent shell or subshell where other Python environments are active in the environment variables, C-extension packages like `pydantic_core` can fail with ABI mismatches (`cannot import name 'ArgsKwargs'`).
+
+Always run `tis` and `tis serve` with a sanitized environment:
+```bash
+env -i HOME="$HOME" USER="$USER" PATH="/path/to/tis/bin:/path/to/cli/bin:/usr/bin:/bin:/usr/sbin:/sbin" tis <command>
+```
+
+When targeting a specific appliance directly by IP (bypassing the TiinyOS desktop forwarder), provide `TIINY_HOST`, `TIINY_BASE_URL`, and the device's bearer variable into the clean environment.
+
+### The agency must name the box the CLI session holds — not the forwarder
+
+`tis serve` always uses the appliance URL in `Settings`, whose default is the
+desktop app's forwarder (`http://openai.api.tiiny`). **The forwarder
+authenticates for whichever box the TiinyOS app currently has selected, and
+rejects the other box's bearer** — so the agency's `TIINY_API_KEY` and the
+forwarder have to agree about which box that is, or every call is a 401 and
+`tis health` reports "appliance: NOT reachable".
+
+The half that makes this unfixable by picking the right key: **the agency
+LOADS models by shelling out to the vendor CLI**, and that CLI's session is
+bound to ONE box. If the agency infers through the forwarder (one appliance)
+and loads through the CLI (the other), it loads a model on one appliance and
+then asks the other for it.
+
+So start the agency with its own `Settings` pointed at the box the CLI
+session holds, and that box's bearer:
+
+```python
+# tis_serve_direct.py — the agency's own factory, one setting changed
+from tis.api import create_app
+from tis.config import Settings
+app = create_app(settings=Settings(base_url="http://<appliance-ip>", api_key=key))
+```
+
+Both halves then land on the same appliance, and the swap the agency
+performs is the one it can restore.
+
+**Changing focus in TiinyOS changes what the CLI and the forwarder can
+reach.** That is the root of the confusion above, and it means a box is
+reachable by IP and bearer — not by whatever the app happens to have
+selected.
 
 ## The Commands
 
@@ -220,6 +263,13 @@ tis alpha the-file.png     # fully transparent / partly / opaque, measured
 A cut-out is measurable and the measurement is the truth. A model that
 answers "transparent background" in the prompt is not the same thing as
 a transparent background in the file.
+
+**Judge a cut-out by its alpha, never by how its pixels look.** The
+background of a generated cut-out can carry a loud RGB - magenta is
+common - under an alpha of 0-3. A viewer that ignores the alpha channel
+shows a solid block of colour where the file is genuinely transparent, so
+the asset looks broken when it is not. `tis alpha` is the measurement; a
+raw pixel preview is not.
 
 If the request needs a transparent background, the plan will say so and
 it will cost a swap: the planner is released for the generation and
@@ -374,6 +424,9 @@ the prompt did not already say.
 - Do not re-encode, resize or re-save a PNG that came out of the agency.
   The alpha channel is the product; a round trip through an image library
   is exactly where a transparent background quietly becomes an opaque one.
+- Do not let a generated image carry a word when the image will sit in a
+  layout. Ask for no text in the request and set the type yourself -
+  see `house-brand-graphics`.
 - Do not hand-roll a prompt to iterate when `tis iterate` exists.
 - Do not start a second generation while one is running. The appliance
   serves one inference at a time, and the agency serialises them — but a
@@ -636,6 +689,8 @@ The findings, the checks that establish them, and the recipe are in
 
 ## Related
 
-- `tiiny-model-routing` — using the appliance to host delegated sub-agents.
+- `tiiny-model-routing` - using the appliance to host delegated sub-agents.
   The two skills share one device, and the lock in that skill is what keeps
   them from colliding.
+- `house-brand-graphics` - composing a generated asset into a house-identity
+  card: what to ask the model for, and what to typeset yourself.
