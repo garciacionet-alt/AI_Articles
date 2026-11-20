@@ -1323,6 +1323,66 @@ def cmd_load(args) -> int:
     return 0
 
 
+def ensure_model(model: str, owner: str | None = None,
+                 force: bool = False, quiet: bool = False) -> tuple[bool, str]:
+    """Make a model resident on demand and return (success, detail).
+
+    This is the machine-readable interface used by the delegation router.
+    Calls ``cmd_ensure``'s logic directly (no subprocess, no CLI) so the
+    router can call it inside ``route_task``.
+
+    * **Idempotent.** A model already resident returns ``(True, "resident")``.
+    * **Guard-aware.** Refuses while another agent holds the lock.
+    * **Evicts only what this caller may evict.** Explicit eviction, not
+      device-guessed.
+    * **Verifies.** Returns ``(False, "NOT RESIDENT: <model>")`` when the
+      device answers 404.
+
+    Returns ``(True, "resident")`` when the model is already running,
+    ``(True, "loaded")`` when a load was needed and succeeded,
+    ``(False, "locked: ...")`` when the device is held by another agent,
+    ``(False, "NOT RESIDENT: <model>")`` when the model failed to load.
+    """
+    owner = owner or _caller_owner()
+    holder = _lock_holder()
+    if holder and _held_by_other(owner, holder) and not force:
+        expires = float(holder.get("expires") or 0)
+        detail = (f"locked: device held by {holder.get('owner')} "
+                  f"until {time.strftime('%H:%M:%S', time.localtime(expires))}")
+        return False, detail
+
+    resident = set(resident_ids())
+    if model in resident:
+        return True, "resident"
+
+    # Record what this call loaded.
+    hold_write([model])
+
+    index = {}
+    try:
+        index = catalogue_index()
+    except SystemExit:
+        pass
+
+    evict, kept = ensure_room([model], index)
+    for m in evict:
+        if not quiet:
+            print(f"  evicting {m} to make room", flush=True)
+        cli_unload(m)
+    if kept and not quiet:
+        print(f"  staying alongside: {', '.join(kept)}")
+
+    if not quiet:
+        print(f"  loading {model} ...", flush=True)
+    cli_load(model)
+
+    after = set(resident_ids())
+    if model in after:
+        return True, "loaded"
+
+    return False, f"NOT RESIDENT: {model}"
+
+
 def cmd_ensure(args) -> int:
     """Make models resident on demand — the replacement for the watchdog.
 

@@ -74,9 +74,15 @@ goal, and this plugin routes that goal to that model. Without the plan the
 router falls back to the residency-only rule below, which is safe but cannot
 use a specialist that is not loaded yet.
 
+However, when **no plan is used** (a single task, or ad-hoc delegation), the
+router calls ``ctl.ensure_model()`` automatically after choosing the model.
+This puts the specialist on the device before the child runs, without an extra
+manual step. The call is idempotent — when the model is already resident, it
+costs one HTTP round-trip.
+
 The two halves therefore compose like this:
 
-    controller: plan -> reserve -> load      |  plugin: route_task
+    controller: plan -> reserve -> load      |  plugin: route_task + ensure
     controller: release                      |  child runs on the plan's model
 
 Residency is read, never changed
@@ -101,6 +107,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import subprocess
+import sys
 import time
 import urllib.request
 from pathlib import Path
@@ -160,6 +168,32 @@ PLAN_FILE = Path(
     os.environ.get("TIINY_PLAN_FILE", "~/.hermes/tiiny-plan.json")
 ).expanduser()
 
+#: Whether the router calls ``ensure`` on every route.  When ``True`` the
+#: router silently loads any model that is not yet resident (idempotent, so
+#: a resident model costs only an HTTP round-trip).  When ``False`` the
+#: router behaves as before — picking what is resident, falling back on
+#: what is not, with no loading.
+#:
+#: This is the config toggle for Stage 3.  The default is ``True`` — the
+#: ``ensure`` call makes the device ready for the child without an extra
+#: manual step.
+ENSURE_ON_ROUTE = os.environ.get("TIINY_ENSURE_ON_ROUTE", "true").lower() != "false"
+
+#: The controller module. Loaded by path (see ``tiers.py`` for why a
+#: relative import would break under the Hermes plugin loader).
+_CTL_SPEC = importlib.util.spec_from_file_location(
+    "tiiny_controller",
+    Path(__file__).resolve().parent.parent / "scripts" / "tiiny_ctl.py",
+)
+if _CTL_SPEC is None or _CTL_SPEC.loader is None:
+    ctl = None
+else:
+    ctl = importlib.util.module_from_spec(_CTL_SPEC)
+    try:
+        _CTL_SPEC.loader.exec_module(ctl)
+    except Exception:
+        ctl = None
+
 
 def device_key() -> str:
     """Return the device API key, or an empty string if it cannot be found.
@@ -199,6 +233,10 @@ def resident_models() -> frozenset[str] | None:
     if not key:
         return None
     try:
+        # This must be the SAME box the request will go to. The provider
+        # is pinned to one appliance by address; asking a forwarder or a
+        # mDNS hostname instead reads a DIFFERENT device's resident set,
+        # and the router then picks a model the target cannot serve.
         request = urllib.request.Request(
             TIINY_BASE_URL + "/models",
             headers={"Authorization": "Bearer " + key},
@@ -286,8 +324,14 @@ def choose_model(tier: str, goal: str = "") -> tuple[str, str]:
         return planned, f"{tier}→{planned.split('/')[-1]}"
 
     if resident is None:
-        # Residency unknown — behave exactly as before.
-        return default_model, tier
+        # Residency unknown - the lookup timed out, the key was missing,
+        # or the device answered with something unreadable.
+        #
+        # The generalist is the device's own default model and the one it
+        # serves, so it is the safest thing to ask for. Returning the
+        # tier's first choice here is what made a lookup failure turn
+        # into "not a valid model ID" on the device.
+        return GENERALIST, f"{tier}->generalist"
 
     for model, _npu, _ctx in choices:
         if model in resident:
@@ -416,6 +460,14 @@ class TiinyRouterDelegationProvider(DelegationProvider):
 
         model, label = choose_model(tier, goal)
 
+        # Ensure the chosen model is resident.  Idempotent — when the model
+        # is already running this is one HTTP round-trip; when it is not,
+        # ``ensure_model`` loads it and verifies the load before returning.
+        # Exceptions are caught inside the helper so a load failure cannot
+        # break the routing decision — the device will return 404 and Hermes
+        # will fall back to the paid provider as expected.
+        _ensure_model(model)
+
         # Return the delegation section's own shape and override only the
         # model — the way the default backend returns ``dict(config)``.
         #
@@ -485,6 +537,29 @@ class TiinyRouterDelegationProvider(DelegationProvider):
             if isinstance(configured, int) and not isinstance(configured, bool) and configured > 0:
                 floor = configured
         return floor
+
+
+def _ensure_model(model: str) -> None:
+    """Ensure the chosen model is resident before the child runs.
+
+    Calls ``ctl.ensure_model()`` when the controller is loaded and
+    ``ENSURE_ON_ROUTE`` is ``True``.  Idempotent — a resident model
+    costs only one HTTP round-trip to confirm.  Exceptions are caught
+    and silently ignored so a routing decision is never broken by a
+    load failure.
+    """
+    if not ENSURE_ON_ROUTE:
+        return
+    if ctl is None:
+        return
+    try:
+        ctl.ensure_model(model, quiet=True)
+    except Exception:
+        # A load must never break routing.  If ensure_model raises,
+        # the model may still be resident (http_load polls for up to
+        # 180 s), or the device may be unreachable — both cases the
+        # caller already handles via 404 / timeout.
+        pass
 
 
 def register(ctx) -> None:

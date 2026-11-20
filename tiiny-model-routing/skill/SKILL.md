@@ -18,10 +18,10 @@ device while it works, supervise the child, check what it produced, and hand
 the device back.
 
 The shape of it: **a frontier model on a paid plan supervises, and the device
-does the work.** MiniMax-M3 stays in the main loop — that is where judgement
-and conversation belong — and everything token-heavy goes down to the box on
-the LAN. The paid subscription stops paying for volume, and the diversity of
-the Model Store becomes available to every batch.
+does the work.** The paid model stays in the main loop — that is where
+judgement and conversation belong — and everything token-heavy goes down to
+the box on the LAN. The paid subscription stops paying for volume, and the
+diversity of the Model Store becomes available to every batch.
 
 ## When to Use
 
@@ -32,9 +32,6 @@ the Model Store becomes available to every batch.
 - Another agent in the AMC might want the device at the same time, and the
   two need to be able to see that it is spoken for.
 - You need an image and want the right image model rather than the default.
-
-**Standing rule: Always delegate to local AI, manage the sub-agents, and audit for quality.**
-The manager agent delegates execution to local AI models hosted on Tiiny (e.g. `Qwen3-Coder-30B-A3B-Instruct-Turbo`), supervises the child's progress, and independently audits deliverables for quality against runnable acceptance commands. The manager does not write code directly when an appliance model is capable of serving the tier.
 
 Don't use for: a single-model deployment where every subtask is the same kind
 of work (set `delegation.model` and stop — but still `ensure` that model is
@@ -109,51 +106,111 @@ Each step has a checkable completion criterion. Do not skip ahead — a skipped
 step here fails quietly, and a quiet failure on this device looks exactly
 like success.
 
+## Pointing the router at the mesh
+
+The router is single-URL by design. Point that URL at the mesh and it
+becomes multi-target: residency and the chat request both come from the
+gateway, which picks the box. Four changes, all in the plugin and the
+Hermes config — no mesh change:
+
+1. **URL** — `TIINY_BASE_URL` in `tiers.py` prefers `TIINY_MESH_URL` when
+   set, then `TIINY_BASE_URL`, then the device hostname. Set
+   `TIINY_MESH_URL=http://127.0.0.1:8767/v1` in `~/.hermes/.env`.
+2. **Key** — the mesh authenticates with its **gateway key**
+   (`~/.hermes/mesh/gateway_key`), and rejects device bearers with 401.
+   `device_key()` must return the gateway key when the URL is the mesh,
+   and the device key otherwise. Detect by URL (`127.0.0.1:8767`), not by
+   guessing from the key's shape.
+3. **Id normalisation** — `/v1/models` on the mesh returns qualified ids
+   (`tiiny-ant/Qwen/Qwen3.6-35B-A3B`) plus a bare `model_id` field. The
+   tier table holds bare ids. Record **both** in `resident_models()`, or
+   every tier reads as "not loaded" and the router silently degrades to
+   the generalist.
+4. **Provider** — add a `tiinymesh` provider block (`api` =
+   mesh URL, `key_env: TIINY_MESH_KEY`, `transport: chat_completions`) and
+   set `delegation.provider: custom:tiinymesh`. The route config is passed
+   through unchanged, so the provider in the delegation section is the
+   provider the child runs on.
+
+**The mesh accepts bare ids for chat** — verified HTTP 200 — so chat needs
+no id rewriting; only the residency match does. A downloaded-but-not-
+resident model auto-loads on first request (~35–40s), so a slow first call
+is not a failure.
+
+**Editing `~/.hermes/config.yaml` is blocked for the patch tool.** It is
+security-sensitive: the tool refuses. Edit it with a Python heredoc in
+`terminal` (back up first) or use `hermes config set`, then validate with
+`hermes config get delegation.provider` and `hermes config get
+providers.tiinymesh` — `yaml` is not importable from the system Python,
+so do not validate by importing it.
+
+**Changes to `.env` and `config.yaml` are read at server start.** A
+running session keeps the old values and reports "No API key for custom
+provider … not set for this profile" even though `hermes config get`
+returns the key. Restart the app after the edits; verify the whole path in
+a fresh process first:
+
+```bash
+hermes -z "Reply with exactly: MESHOK" \
+  -m "Qwen/Qwen3.6-35B-A3B" --provider custom:tiinymesh
+```
+
+A `MESHOK` answer proves provider resolution, key lookup and mesh chat. A
+delegation error in the already-running session afterwards is the stale
+process, not a broken config.
+
 ## Quick Reference
 
 ### The tiers
 
 | Tier | Model | NPU | Context | Reasoning | On the device? |
 |---|---|---|---|---|---|
-| `research` | `InternScience/Sage-A1.5-Turbo` | 48% | 262144 | always-on | downloaded |
+| `research` | `InternScience/Sage-A1.5-Turbo` | 48% | 262144 | switch | downloaded |
 | `research` (alt) | `endless-frontier/BigBang-v1-Turbo` | 54% | 131072 | switch | downloaded |
 | `index` | `openai/gpt-oss-20b` | 27% | 131072 | **levels only** | **resident** |
-| `code` | `Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo` | 55% | 65536 | none | downloaded |
-| `code` (alt) | `deepreinforce-ai/Ornith-1.0-35B` | 50% | 131072 | always-on | downloaded |
-| `code` (alt) | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 | switch | **resident** |
+| `code` | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 | switch | **resident** |
+| `code` (alt) | `deepreinforce-ai/Ornith-1.0-35B` | 50% | 131072 | switch | downloaded |
+| `code` (alt) | `Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo` | 55% | 65536 | none | downloaded |
 | `code` (heavy) | `Qwen/Qwen3-Coder-Next` | 94% | 131072 | none | not downloaded |
 | `browser` | `Qwen/Qwen3.8-27B` | 52% | 262144 | switch | downloaded |
 | `draft` | `Qwen/Qwen3.5-9B` | 29% | 131072 | switch | downloaded |
 | `general` | `Qwen/Qwen3.6-35B-A3B` | 47% | 262144 | switch | **resident** |
 
-The Reasoning column is a snapshot of what the device reported, re-read
-against the live catalogue since. **The device is the authority** — the
-router reads the capability at route time, so this table can go stale
-without breaking anything. See [Thinking mode](#thinking-mode).
-
-The column takes four values: **switch** (a boolean turns the trace off),
-**levels only** (no boolean; the cheapest level is the floor),
-**always-on** (`supported:true` with neither a boolean nor levels — the
-trace is unconditional, and `off` is best-effort), and **none**. Two tier
-models are always-on, which a reader would otherwise assume were
-switchable.
+The Reasoning column is a snapshot of what the device reported on 2026-11-09.
+**The device is the authority** — the router reads the capability at route
+time, so this table can go stale without breaking anything. See
+[Thinking mode](#thinking-mode).
 
 ### The commands
 
-All commands accept `--device <name|ip>` (e.g. `--device tiiny-octo`) to target a specific box from the per-device registry at `~/.hermes/tiiny-devices/`. If omitted, commands default to `tiiny-ant`.
-
 | Command | What it does |
 |---|---|
-| `tiiny_ctl.py [--device DEV] status` | Device, resident set with NPU shares, the lock, the hold, the plan |
-| `tiiny_ctl.py [--device DEV] plan --goal "..."` | Pick the models, check the NPU fit, write the plan |
-| `tiiny_ctl.py [--device DEV] reserve --owner NAME` | Take the cross-agent lock and announce it |
-| `tiiny_ctl.py [--device DEV] load [--wave N]` | Load the batch's models, evict what does not fit, verify |
-| `tiiny_ctl.py [--device DEV] ensure --model M` | Make a model resident on demand — run this before delegating |
-| `tiiny_ctl.py [--device DEV] release` | Restore the required set, clear the lock, the plan and the notice |
-| `tiiny_ctl.py [--device DEV] catalog --refresh` | Diff the live Model Store against the last snapshot |
-| `tiiny_ctl.py [--device DEV] image "a job"` | Pick the right image model for a job |
+| `tiiny_ctl.py status` | Device, resident set with NPU shares, the lock, the hold, the plan |
+| `tiiny_ctl.py plan --goal "..."` | Pick the models, check the NPU fit, write the plan |
+| `tiiny_ctl.py reserve --owner NAME` | Take the cross-agent lock and announce it |
+| `tiiny_ctl.py load [--wave N]` | Load the batch's models, evict what does not fit, verify |
+| `tiiny_ctl.py ensure --model M` | Make a model resident on demand — run this before delegating |
+| `tiiny_ctl.py release` | Restore the required set, clear the lock, the plan and the notice |
+| `tiiny_ctl.py catalog --refresh` | Diff the live Model Store against the last snapshot |
+| `tiiny_ctl.py image "a job"` | Pick the right image model for a job |
 | `route_check.py "a goal"` | Read-only: which model would this goal route to, and why |
 | `route_check.py --thinking off "a goal"` | The same, plus the reasoning state it would achieve |
+
+## Picking a model for a project role
+
+The tiers answer one sub-task at a time. A project — a requirements doc to be
+planned and then run — has three roles (planner, manager, worker) and they are
+not chosen the same way: the planner is bought for depth per token, the manager
+for state retention across turns, the worker for specialisation. The decision
+table, the discriminators and the two-box topology are in
+[references/project-role-selection.md](references/project-role-selection.md).
+
+Two cases the tiers do not cover and that reference does:
+
+- **A manager is not a reasoning role.** It is a state-retention role, so
+  thinking preservation and reliable tool calling beat raw reasoning depth.
+- **A 100% NPU model is escalation, not a standing resident** — load it for
+  the one hard decision and unload it, or nothing else fits beside it.
 
 ## Procedure
 
@@ -223,19 +280,24 @@ to the paid provider, invisibly.
 
 *Done when:* the load reports no model missing.
 
-### 6 — Plan the work: one heavy child per appliance
+### 6 — Plan the work: the device is single-threaded
 
-**Each Tiiny serves one generation-heavy stream at a time.** Two heavy children on the *same* device starve each other, and the failure mode is a *hang*, not an error — the device keeps reporting healthy while it answers nothing.
+**Tiiny serves one generation-heavy stream at a time.** Two heavy children
+starve each other, and the failure mode is a *hang*, not an error — the
+device keeps reporting healthy while it answers nothing.
 
-**Dual-appliance concurrency:** With two appliances in the estate (`tiiny-ant` and `tiiny-octo`), you can run **two concurrent subagents in parallel** — one targeted to Ant and one targeted to Octo. Each physical device is single-threaded for heavy inference, so do not run two heavy children on the same box, but fan out across the two separate appliances. If a batch needs a third workstream, give it a named cloud provider.
+So: run **one heavy child per wave**, not every wave's children at once. The
+parent's own cloud route is a separate stream, so parent work and one device
+child genuinely run in parallel. If a batch needs a second workstream, give
+it a named non-device provider.
 
-**A single `delegate_task` batch targeting one box with two tasks is two heavy children.** The
+**A single `delegate_task` batch with two tasks is two heavy children.** The
 batch API is the easiest way to break this rule by accident: one call, two
-entries, both generation-heavy, both pointed at the same device. The symptom is
+entries, both generation-heavy, both pointed at the device. The symptom is
 not an error — it is a hang that reads like slow progress. One child sat
 `waiting for model response` for over fifteen minutes while the device
-reported healthy, and its sibling stalled on the same pool. Dispatch to the
-second box or dispatch the second child only after the first has returned.
+reported healthy, and its sibling stalled on the same pool. Dispatch the
+second child only after the first has returned.
 
 **A hung child may still have written its output.** The hang is often in the
 handover, not the work: the child can finish writing the artifact and then
@@ -447,12 +509,39 @@ worse than no log because it claims completeness it does not have.
 ## The required set
 
 **There is no watchdog any more.** A five-minute cron poller used to reload a
-fixed set of models whenever the device looked cold. It was retired on
-2026-11-10 for two reasons: that set was duplicated across three scripts and
-drifted apart three times, and a fixed set is the wrong shape when a batch
-needs one specific model.
+fixed set of models whenever the device looked cold. It was retired for two
+reasons: that set was duplicated across three scripts and drifted apart three
+times, and a fixed set is the wrong shape when a batch needs one specific
+model.
 
-**`ensure` replaces it.** Before delegating, make the model resident:
+**Prove that, do not assume it — and do not trust a document that still says a
+watchdog exists.** The four places a timer can hide, all of them cheap to read:
+`crontab -l`; `~/Library/LaunchAgents`; `/Library/LaunchDaemons`; and the
+Hermes job store at `~/.hermes/cron/jobs.json` (there is one hourly job that
+mentions "watchdog" — the Engraphis MCP watchdog — and it restarts a server,
+not a model). A vault `AGENTS.md` that describes a five-minute reload poller
+fighting a deliberate swap is stale; the mechanism is gone, and quoting it back
+to the user as a live risk is a wrong answer.
+
+**The mesh gateway has a restore path, and it is inert by design.**
+`_restore_worker` in `mesh/gateway.py` fires **once at gateway start**, retries
+6 × 20 s while the boxes come up, and only ever *loads* — there is no unload
+code and no timer. It is gated by `auto_restore` in `~/.hermes/mesh/config.json`,
+and the log prints `[restore] disabled by config (auto_restore=false)` at every
+start. Note what that switch really controls: it turns off `keep_resident` too,
+so on a box that declares one, a reboot leaves it cold until `ensure` runs.
+That is the deliberate trade — no mid-batch eviction, no unattended recovery —
+and it should be stated as a trade rather than fixed by turning restore on.
+
+**What does evict a model mid-project is traffic, not time.** Two paths, both
+in the mesh: the `borrow`/`unborrow` pair (`mesh.py`) snapshots `was_resident`,
+loads an on-demand model on a Tiiny, serves, then restores — during that window
+the resident specialist is gone; and any route whose `policy` entry points at a
+Tiiny will trigger it. Read `policy` before a long run: an `image_gen` primary
+of `tiiny-octo`, an `embedding` secondary of `tiiny-ant/...`, or a `chat`
+secondary on the other box are each an eviction waiting for one request.
+
+- **`ensure` replaces it.** Before delegating, make the model resident:
 
 ```bash
 python3 scripts/tiiny_ctl.py ensure --model "Qwen/Qwen3.6-35B-A3B"
@@ -463,6 +552,18 @@ model does not fit, and it exits non-zero when a model did not land. The two
 scan jobs run it before they dispatch a child — if `ensure` fails, they do not
 delegate, because a missing model means a 404 and a silent fallback to the
 paid provider.
+
+**The router calls `ensure` automatically.** When `ENSURE_ON_ROUTE` is `True`
+(the default), `route_task` calls `ctl.ensure_model(model, quiet=True)` after
+choosing the model and before returning the route. This makes the device ready
+for the child without an extra manual step. The call is idempotent — when the
+model is already running, it costs one HTTP round-trip. When it is not, the
+controller loads it and verifies the load before returning. Exceptions are
+silently caught so a load failure cannot break routing — the device returns 404
+and Hermes falls back to the paid provider as expected.
+
+To disable, set the environment variable ``TIINY_ENSURE_ON_ROUTE=false`` or
+edit ``ENSURE_ON_ROUTE`` in the plugin.
 
 **One list, one file.** `REQUIRED_MODELS` in `scripts/tiiny_ctl.py` is the
 only copy. Every other location — `~/.hermes/scripts/`, both skill tiers,
@@ -482,17 +583,106 @@ which serves it from its own process at no NPU cost. See
 `mlops/offgrid-local-inference`. The appliance's speech models were unloaded
 on 2026-11-10 and are no longer in the required set.
 
+- **Two boxes need a per-box capability map, not one table.** The two boxes carry
+  the SAME store — verified 2026-11-13: identical 93 model ids, and identical
+  `npu_usage` / `context_window` / `type` / `capabilities` / `params` for every
+  one of them. They differ only in what is on disk and what is resident, so
+  "which model do I ask for" is a question about download state, never about
+  configuration. `references/two-box-capability-matrix.md` has the endpoint map,
+  the NPU-budget findings, and the classification rules; `scripts/tiiny_two_box_matrix.py`
+  regenerates and self-verifies the whole matrix read-only.
+- **The NPU budget is 48 GiB and only one endpoint says so.**
+  `GET /api/v1/npu/status` -> `devices[0].mem_total_mb` = 49024 (LQ50-48GB).
+  The catalogue's `npu_usage` is percent of that pool (resident declares 47,
+  device measures 46.30%), so a co-resident set must sum to <= 100.
+  `GET /api/v1/sys/status` -> `npus[].memory_total_mb` is NOT the budget — it
+  moves between samples and never equals 49024. Every other `/api/v1/npu/*`
+  path 404s.
+- **The device has no code flag, and a naive "does the desc contain 'coding'"
+  misfires.** The word appears as a purpose ("is a coding-specialized model"),
+  as a training-data footnote (gpt-oss-20b/120b) and as a benchmark aside
+  (Qwen3.5-9B). Only the first is a capability. See
+  `references/two-box-capability-matrix.md` for the rule and the models it
+  separates.
+
 `references/required-set-drift.md` keeps the audit recipe for "who changed the
 resident set, and when" — still worth reading, because the mechanism that
 caused those drifts (one policy, many copies) is exactly what the symlinks
 now make impossible.
 
+## Scheduled work on the device
+
+Delegated children are not the only thing that can run on the box — a
+scheduled job can, and a scheduled job is the better host for work that has
+to happen unattended every day. The two differ in one way that matters:
+**a cron job's provider is pinned per job**, so a box that is down fails
+the job instead of quietly falling through to a paid model.
+
+### Pin a job to the box
+
+```bash
+hermes cron edit <job_id> --model "Qwen/Qwen3.6-35B-A3B" --provider custom:tiiny --pin
+```
+
+Precedence is **per-job pin > `cron.model_provider` > the persisted global
+config**, and the model follows the same order (`cron.model` > the main
+agent model). Set the defaults once and a job created later starts on the
+box without anyone pinning it:
+
+```bash
+hermes config set cron.model "Qwen/Qwen3.6-35B-A3B"
+hermes config set cron.model_provider custom:tiiny
+```
+
+### The pin is what makes the saving real
+
+A job that carries its own `model`, `provider` or `base_url` gets **no
+fallback chain at all** — it does not inherit `fallback_providers`, so a box
+that is down produces a **failed job with a visible error** and a zero bill.
+An unpinned job inherits the chain and can quietly spend. Pin the job, and
+the failure is legible instead of expensive.
+
+### Do not route scheduled work through the mesh
+
+The mesh is a router, and a router's **secondary is a paid provider**. A
+chat policy whose secondary is `openrouter/...` falls through to it the
+moment the box misses — so the saving disappears exactly when the box is
+busy. **Point scheduled work at a device provider block directly.** It is
+also materially faster: a live call measured ~2.4 s direct against ~34 s
+through the mesh.
+
+### Look for the provider block before you write one
+
+`providers:` usually already carries a block per box — `tiiny`, `tiiny2`,
+`tiinymesh` — each complete with its own `key_env` and model list. Grep
+the config before writing a block: one that already exists needs no edit
+and no restart, and a **new** block is not live until the client restarts,
+because provider blocks are read at startup.
+
+### Contention is decided by agent windows, not by the clock
+
+A scheduled job's **script phase does no model work** — the script collects
+data and the agent interprets it. Only the agent phase occupies the device.
+So two jobs whose schedules are minutes apart may not contend at all, and
+two jobs hours apart certainly can. Place jobs by when each one's **agent**
+phase runs, and give the longest agent phase a box to itself: two boxes are
+two free streams.
+
+### The cron inactivity watchdog
+
+`HERMES_CRON_TIMEOUT` is the limit on how long a job may be **silent**
+before the scheduler declares it dead. It is **not** a cap on total
+runtime. The default is 600 s, sized for a provider that answers in
+seconds; a local model on a long context can be quiet for a minute or two
+between turns. Raise it when jobs start dying at the watchdog rather than
+at the model. Both the inactivity monitor and the cwd-lock bound derive
+from this one value, so they cannot drift apart.
+
+`~/.hermes/.env` is a protected credential file with no CLI of its own —
+hand the human a script for it (see the pitfall below).
+
 ## Pitfalls
 
-- **A 401 is an authentication error (wrong bearer), not an unreachable appliance.** An unreachable box times out or fails with connection refused; a 401 means the device is alive, listening on the LAN, and actively rejected the bearer. Always verify which `key_env` the target expects before troubleshooting network connectivity.
-- **`device_key()` and all shared credentials must resolve against `_shared_home() / ".env"`, never `HERMES_HOME / ".env"`.** When running in a profile, `HERMES_HOME` points to `~/.hermes/profiles/<name>/` whose `.env` can hold a stale key for another device or an outdated token, producing `HTTP 401 {"error":"auth_failed"}` against the target device that deceptively looks like a down box.
-- **`tiiny --device-address` alone does NOT switch devices in the CLI.** The CLI reads its `account.authKey` from the config file; pointing `--device-address` at another device without pointing `--config` at a config for that device sends the first device's key and fails with "Not logged in. Use 'tiiny login' to sign in." The working mechanism is isolated per-device CLI configs: `tiiny --config ~/.hermes/tiiny-devices/cli-<name>.json`.
-- **Use the per-device registry at `~/.hermes/tiiny-devices/`.** Managed by `devices.py` (`load_registry()`, `get_device()`, `ensure_registry()`). It maintains descriptor files (`tiiny-ant.json`, `tiiny-octo.json`) with env var names (no secrets) and 0600 CLI configs (`cli-ant.json`, `cli-octo.json`).
 - **A load is a swap.** Loading a model evicts the resident one; the evicted
   model's endpoint then returns `404`, which means *not resident*, not a bad
   model id. Restore the required set when the work is done.
@@ -505,6 +695,9 @@ now make impossible.
   reboot. There is no poller putting models back any more, so the *parent*
   must run `ensure` before it delegates. Skip that and the child gets a 404
   which Hermes classifies as terminal and answers from the paid provider.
+  Nothing on a timer unloads a model either — an eviction comes from another
+  load, which in practice means a mesh `policy` route pointing at the wrong
+  box. Read `policy` before a long run, not the clock.
 
 - **A logged-out CLI session looks exactly like a cold device, and it is
   the more dangerous of the two.** `tiiny load` opens a device-admin session.
@@ -532,6 +725,18 @@ now make impossible.
   paths, so nothing moves unless a caller asks. The alias
   `openai.api.tiiny` resolves to the desktop app's forwarder and serves ONE
   device at a time — a second box has to be addressed by its own IP.
+
+- **The controller drives ONE box; the mesh lifecycle route drives both.**
+  `tiiny_ctl.py` reads the bearer from the literal name `TIINY_API_KEY` only
+  (there is no `TIINY_API_KEY_2` fallback), one `MANAGEMENT_BASE` from
+  `TIINY_HOST`, and shells its load/unload out to `tiiny load`, whose session
+  is bound to a single device. To reach the second box with it you must export
+  that box's key **as** `TIINY_API_KEY` in that shell, plus its `TIINY_HOST`
+  and its own lock/hold/plan/snapshot files. For both boxes at once, use
+  `POST /mesh/lifecycle` `{action, model, target}` on the mesh gateway, or the
+  box's own `POST /api/v1/models/<id>/start|stop` with its bearer — both run
+  concurrently, no CLI session involved. Recipe and the per-box error
+  asymmetry: [references/two-box-capability-matrix.md](references/two-box-capability-matrix.md#driving-both-boxes-at-once).
 
 - **Downloading a model is a separate path from loading one.** `POST
   /api/v1/models/<id>/download` pulls from the store onto the device's disk,
@@ -562,21 +767,6 @@ now make impossible.
   skip the prompt. Any controlling terminal works: the `script` wrapper, or
   a runner that allocates one.
 
-- **The mesh gateway is the multi-box control surface, and it takes no
-  lock.** `~/.hermes/mesh/gateway.py` runs under launchd and routes across
-  every target in `~/.hermes/mesh/config.json`, where each `tiiny` target
-  carries its own `base_url` (a literal box IP) and its own `key_env` — so
-  the mesh resolves a box without the desktop app's focus and without a
-  per-box CLI config. `POST /mesh/lifecycle` takes
-  `{"target","model","action"}` and calls the box's own
-  `POST /api/v1/models/<id>/<action>`; **the verbs are `start` and `stop`,
-  not `load` and `unload`** (the latter two 405 under the catch-all and
-  are not routes). Nothing in the mesh takes a per-box lock, so the mesh
-  and the CLI controller can both load on the same box and neither waits.
-  `keep_resident` is the mesh's post-reboot restore, so a replacement
-  watchdog must be compatible with it rather than duplicate it. See
-  [references/multi-device.md](references/multi-device.md).
-
 - **The control CLI holds ONE session, bound to ONE device.** Signing in
   for a second box signs the first one *out* — the stored session is a
   single opaque token, not a map of devices. The CLI can therefore manage
@@ -605,20 +795,20 @@ now make impossible.
   startup, so a newly added provider is not live until the client
   restarts** — say that when the change is handed over, because a provider
   that appears configured but answers nothing looks like a routing fault.
+  `hermes config set KEY VAL` covers `config.yaml`; `~/.hermes/.env` has no
+  CLI of its own, so a credential-file change is always the hand-run
+  script.
+- **A revert must remove what you added, not rewind the file.** The newest
+  backup of a file you have already edited still contains your own change,
+  so restoring it does not revert anything — it just restores your last
+  state. Revert by removing the one key you added, leaving every other
+  byte alone, and keep the backup for the case where the file itself is
+  wrong.
 
-- **Both boxes are the same silicon, so the tier table's percentages
-  transfer as written.** `GET /api/v1/sys/device_info` answers
-  unauthenticated and reports the same appliance for each box — ARMv9.2
-  CPU, G720 GPU, 160 BF16 TOPS dNPU, 190 TOPS peak INT8 (30 on the SoC,
-  160 on the dNPU), 80 GB RAM split 32 GB SoC / 48 GB dNPU. The NPU-RAM
-  pool `tiiny status` reports as 47.9 GiB IS the dNPU's 48 GB, which is
-  the pool the tier table's percentages were measured against — so two
-  boxes are two independent 47.9 GiB pools, not a small box and a large
-  one. What differs is STOCKING: route by what a box has on disk
-  (`catalog --refresh` pointed at it), not by what you think a box is.
-  Re-measure before routing anyway; a note that paraphrases a captured
-  `tiiny status` run can describe the wrong machine, because the desktop
-  app's forwarder answers for whichever box it has selected.
+- **Different form factors mean different NPU figures.** A Pocket and an
+  Octo are not the same silicon. The tier table's shares were measured on
+  one of them; re-measure the other (`catalog --refresh` pointed at it)
+  before routing anything to it.
 
 - **Do not hard-code a device's error strings.** A signature-based LAN scan
   that matched on `{"error":"auth_failed"}` found nothing after the device's
@@ -711,11 +901,58 @@ now make impossible.
   401 on the sibling box's routes.
 - **Two heavy children deadlock.** Not an error — a hang, with the device
   still reporting healthy. One heavy child at a time.
+- **Dead fallbacks crash the run.** When a local model times out or stalls,
+  Hermes aborts the connection and silently falls back to
+  `delegation.fallback_providers`. If that fallback provider is exhausted
+  (e.g., MiniMax returning HTTP 429), the run fails immediately. Ensure
+  fallback points to an active provider with working credits (e.g., OpenRouter).
+  The `/mesh/fallback` route on TiinyMesh flips both the mesh chat secondary and
+  Hermes's `delegation.fallback_providers` in lockstep between OpenRouter and MiniMax.
+- **OpenRouter authentication & CA certificates on macOS.** Standard
+  `urllib.request` on macOS Python fails with `CERTIFICATE_VERIFY_FAILED`
+  against OpenRouter unless the system CA store / `certifi` bundle is loaded
+  (as in `mesh._ssl_context()`). OpenRouter's `/api/v1/credits` strictly
+  requires a management key (`OPENROUTER_MANAGEMENT_KEY`) and returns 403 on
+  inference keys; use `GET /api/v1/key` to check key spend and caps when only
+  an inference key is configured. Active keys may live in `~/.hermes/auth.json`
+  under `credential_pool` even when `~/.hermes/.env` holds a stale key.
+- **Large context causes NPU PCIe HDMA timeouts on 30B models.**
+  `Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo` has a 65K context ceiling, but on
+  hardware when prompt context approaches ~44K+ tokens, the device driver
+  times out (`pcie_hdma_timeout`) and hangs without closing the socket. After
+  180 seconds with no tokens, Hermes's stale-call watchdog aborts the connection
+  and silently falls back to `fallback_providers` (e.g., MiniMax). Keep prompts
+  under 30K tokens on 30B models, or use a 256K model (`Qwen3.6-35B-A3B` or
+  `Qwen3.8-27B`) for large context.
+- **Goal keywords override model intent in delegation.** The router infers
+  tiers from goal text ("execute", "code", "run" -> `tier: code`). A goal
+  stating "execute the sprint plan" routes to the 65K Coder model instead of
+  the 256K generalist or planner. Pass `tier="general"` or `tier="browser"`
+  explicitly when the task needs long context over coding specialization.
+- **Concurrent loads trigger PCIe HDMA timeouts.** Sending overlapping
+  model-load or lifecycle commands can cause the device driver to hit
+  `pcie_hdma_timeout` ("NPU PCIe HDMA transfer timed out"), emptying
+  `devices: []` and evicting all models (`running: []`). Always serialize
+  model loads sequentially per box.
+- **`route_check.py` does not take a `--model` flag.** It infers the tier from
+  goal text or accepts `--tier <name>` or `--all`. Passing `--model` is an
+  unrecognized argument error. Preflight with `--tier` or the goal string.
 - **`tiiny ls` shows size, not residency.** Its NPU column is how much NPU a
   model takes, not whether it is loaded. `tiiny_ctl.py status` is the
   residency truth.
 - **A 404 is not a typo.** Before concluding a model id is wrong, check
   residency. A model can be in the Store and not loaded.
+- **A FORCED tier overrides residency, and that is how work silently moves
+  to the paid provider.** The router's inference respects what is loaded;
+  `delegate_task(tier=...)` does not — it selects the tier's first choice
+  and sends it. If that model is not resident the device answers 404, Hermes
+  treats 404 as terminal, and the child falls back to the paid provider
+  *invisibly*, with a good answer and a bill. Measured 2026-11-13: forcing
+  `tier="code"` selected `Qwen/Qwen3-Coder-30B-A3B-Instruct-Turbo`
+  ("NOT loaded") where inference alone had selected the resident
+  `Qwen/Qwen3.6-35B-A3B`. **Run `route_check.py` before every dispatch and
+  only force a tier it reports as loaded.** The tier is a hint; residency
+  is the constraint.
 - **Context window is a ceiling, not a suggestion.** A child that silently
   truncates its context is usually routed to a model whose window is too
   small for the task, not to a broken task.
@@ -751,10 +988,106 @@ now make impossible.
   pushing; JSON must also scan `CLEAN` before it ships as
   `data/catalogue.json`. This bullet once named the forbidden patterns
   literally, which made the skill's own file fail the scan it describes.
+- **A dangling link inside a skill is usually drift, not a missing file.**
+  Two broken links in one deployed copy of this skill pointed at reference
+  documents the upstream source had since replaced or renamed — that copy
+  was an older revision nobody had re-synced. Patching the link text would
+  have left it diverging from upstream in every other way. **Sync the whole
+  skill instead, then fix what the sync breaks.** Two consequences worth
+  knowing before you start: the upstream copy's new files may carry a device
+  serial or a private LAN address that the publish scanner refuses, so the
+  sync needs a **build-time redaction transform** in the publisher (redact
+  the published bytes, never the source — the running controller needs the
+  real addresses); and a deployed copy may hold files upstream does not
+  have, so a wholesale copy over it deletes working code. Diff before
+  overwriting, and check the hash of every file you did not intend to change.
+
+- **The vault copy is the DEPLOY SOURCE — write there first.** The routing
+  layer lives in several places, and `sync-tiiny-router-skill.sh` copies
+  **from** `skills/tiiny-model-routing/` **to** three live skill roots and
+  the plugin directory, because the Hermes install copies are overwritten on
+  every Hermes update and the vault copy is the one that survives. A hand
+  edit to a live copy is therefore a change that **the next deploy erases**.
+  When you add a lesson to this skill, add it to the vault copy first and
+  let the deploy carry it out. Editing the profile copy alone leaves the two
+  divergent in both directions at once: the live copy has the change the
+  vault does not, and the vault has everything else the live copy does not.
+
+- **The deploy script's file filter omits `.pytest_cache`.** It excludes
+  `__pycache__` and `*.pyc`, so a test run that leaves a `.pytest_cache/`
+  directory in `scripts/` gets that directory **copied into every live
+  skill root** on the next deploy. Do not run the deploy script with a
+  dirty `.pytest_cache` present until the filter is widened.
 - **This skill never downloads a model.** It chooses and loads from what is
   already on the device.
 
+## Delegating coding work
+
+The discipline for making the appliance do the writing and the manager
+agent do the judging. The full method is in
+[references/coding-delegation.md](references/coding-delegation.md).
+
+### Two rules from the author that decide whether you delegate at all
+
+**A multi-part job delegates; it does not get done inline.** When a task has
+several parts — a sweep, a rewrite, a build, a set of independent edits — hand
+the mechanical parts to a sub-agent on the appliance rather than spending the
+paid model's tokens on them. The appliance has no rate limit and no bill, so a
+large job is free there and expensive here. **The manager keeps the diagnosis,
+the review and the final write** — and "the final write" means the edits the
+sub-agent's own verification could not make trustworthy.
+
+**When you are curious about something, ask the author — do not investigate it.**
+Curiosity is a reason to ask a question, not a reason to spend a search. The
+failure mode is specific: a manager that cannot verify a claim from the
+outside spends many tool calls proving a thing it was already told, and the
+user watches the token bill grow for a result they could have stated. If the author
+says he posted it, that **is** the evidence — record it and move on. If you
+need to know *why* he did something, ask; the answer costs one message and
+teaches the rule you did not have.
+
+The test for whether a lookup is worth its cost: **will the answer change what
+I write?** If not, it is curiosity — ask instead of digging.
+
+- **The manager does not write the code.** Reaching for `patch` or
+  `write_file` on the target file is the expensive model doing the worker's
+  job, which is the whole thing this discipline exists to prevent. The
+  manager writes the order, reads the diff, runs the acceptance and
+  decides. Exception: a one-edit correction where a delegation round trip
+  would cost more than the fix — make it, and say so plainly.
+- **Make the box match the router, not the router match the box.** To use a
+  specialist, put it on the box `TIINY_BASE_URL` already probes. Do not
+  repoint the endpoint or wait for a restart — `TIINY_BASE_URL` is read at
+  import time, so it only changes in a new process, and a downloaded model
+  costs nothing to load where the router is already looking.
+- **Preflight every dispatch.** `route_check.py --thinking off "<goal>"` and
+  read the residency line. If it says NOT loaded, do not force that tier.
+- **Order format.** One job, one file, exact absolute paths, exact anchors
+  (the function, the literal string), a runnable acceptance command, and
+  no `<...>` placeholders — the delegation backend refuses those outright.
+  A 30B appliance needs a tighter brief than a frontier model does.
+- **A child's summary is a self-report.** Run the acceptance command
+  yourself. Correct with a diff and the failure output as evidence, never
+  a re-brief. **Make the acceptance command resolve what the child
+  changed**, not merely assert that a string is present — a path that
+  is present but does not resolve from its file's directory is a broken
+  path wearing a green check. And a rewrite that alters a path *mentioned
+  inside prose* has changed what the sentence says; read the changed
+  lines in context before accepting the batch.
+- **The route label is the invoice.** `tiiny-router` means the box served
+  it; anything else means the paid provider did. Watch it every wave.
+- **One heavy child per box.** Two boxes are two free streams.
+- **Release after every wave.** Stop the specialist, restore the required
+  set.
+
+The work-order format and the fallback alarm live in
+[references/coding-delegation.md](references/coding-delegation.md);
+[templates/work-order.md](templates/work-order.md) is a starter to copy
+for each order.
+
 ## Verification
+
+
 
 ```bash
 python3 scripts/tiiny_ctl.py status                  # device, residency, lock, hold, plan
@@ -762,7 +1095,6 @@ python3 scripts/tiiny_ctl.py plan --goal "your goal" # tier, model, NPU fit, wav
 python3 scripts/route_check.py --all                 # every tier and its budget
 python3 scripts/route_check.py --thinking off "goal" # tier, model, and the reasoning state
 python3 scripts/tiiny_ctl.py catalog --refresh       # what moved in the Model Store
-python3 scripts/probe_device.py <box-ip>             # a box's hardware, residency, working verbs
 ```
 
 A batch is correct when the plan's model matches the shape of the work, every
