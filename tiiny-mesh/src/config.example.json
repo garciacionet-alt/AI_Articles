@@ -1,0 +1,133 @@
+{
+  "_comment": [
+    "TiinyMesh - an example config.",
+    "",
+    "Copy this, edit it, and point the gateway at it:",
+    "    TIINY_MESH_CONFIG=./config.json python3 gateway.py",
+    "",
+    "A TARGET is one of four things: an id, a base URL, an optional",
+    "credential, and a kind. The kind decides what else it has.",
+    "",
+    "  kind: tiiny     an appliance. Its catalogue comes from the STORE",
+    "                   (GET /api/v1/models/online_models), not /v1/models,",
+    "                   because /v1/models lists only what is resident.",
+    "                   Has a lifecycle: download / start / stop.",
+    "  kind: openai    anything speaking OpenAI /v1. No lifecycle.",
+    "  kind: anthropic  an Anthropic-style API.",
+    "",
+    "FIELDS",
+    "",
+    "  base_url     the OpenAI-compatible root every target speaks to.",
+    "  admin_url    the device admin root, for an appliance only.",
+    "  key_env      the NAME of an env var holding the credential. The",
+    "               value is never written here - it is read from the",
+    "               environment at call time. Omit it for a target that",
+    "               needs no credential.",
+    "  priority     lower wins when a bare model id is served by more than",
+    "               one target.",
+    "  capabilities what this target can do at all. Used for routing a",
+    "               request that did not name a model.",
+    "  keep_resident models to re-load after the appliance reboots. A Tiiny",
+    "               unloads everything on reboot. Only declare this for a",
+    "               box whose loads are unattended.",
+    "  extra_body   merged into every request to this target. The Tiiny",
+    "               boxes and OGAD need thinking off or they spend the",
+    "               whole token budget on reasoning.",
+    "  boot         the command that starts a stopped local server.",
+    "  models       an explicit model list, for a cloud target.",
+    "",
+    "DEFAULTS - capability -> the mesh_id that serves it when the caller",
+    "does not name a model.",
+    "",
+    "  embedding  the tier with no NPU cost and the biggest dimension",
+    "  tts        speech synthesis",
+    "  asr        transcription",
+    "  image_gen  image generation",
+    "  chat       the default chat model",
+    "",
+    "The embedding dimension is part of the contract: a RAG index built",
+    "against 1024-dim vectors breaks silently if the route shifts to a",
+    "384-dim model. Every embedding response carries its dimension."
+  ],
+  "defaults": {
+    "embedding": "ollama/bge-m3:latest",
+    "tts": "ogad",
+    "asr": "ogad",
+    "image_gen": "ogad",
+    "chat": "tiiny-ant/Qwen/Qwen3.6-35B-A3B"
+  },
+  "targets": {
+    "tiiny-ant": {
+      "kind": "tiiny",
+      "admin_url": "http://192.0.2.10",
+      "base_url": "http://192.0.2.10/v1",
+      "key_env": "TIINY_API_KEY",
+      "priority": 10,
+      "keep_resident": ["Qwen/Qwen3.6-35B-A3B"],
+      "capabilities": ["chat", "vision", "embedding", "rerank", "asr", "tts",
+                       "image_gen", "ocr", "audio_understand", "music_gen",
+                       "classification", "video_gen", "three_d"],
+      "extra_body": {
+        "chat_template_kwargs": {"enable_thinking": false}
+      },
+      "note": "the vault box"
+    },
+    "tiiny-octo": {
+      "kind": "tiiny",
+      "admin_url": "http://192.0.2.11",
+      "base_url": "http://192.0.2.11/v1",
+      "key_env": "TIINY_API_KEY_2",
+      "priority": 11,
+      "capabilities": ["chat", "vision", "embedding", "rerank", "asr", "tts",
+                       "image_gen", "ocr", "audio_understand", "music_gen",
+                       "classification", "video_gen", "three_d"],
+      "extra_body": {
+        "chat_template_kwargs": {"enable_thinking": false}
+      },
+      "note": "the flex box - specialists"
+    },
+    "ogad": {
+      "kind": "openai",
+      "base_url": "http://127.0.0.1:7878/v1",
+      "priority": 20,
+      "capabilities": ["chat", "vision", "embedding", "asr", "tts", "image_gen", "grounding"],
+      "extra_body": {
+        "chat_template_kwargs": {"enable_thinking": false}
+      },
+      "note": "Off Grid AI Desktop on this Mac"
+    },
+    "ollama": {
+      "kind": "openai",
+      "base_url": "http://127.0.0.1:11434/v1",
+      "priority": 30,
+      "capabilities": ["chat", "embedding"],
+      "note": "the embeddings tier - bge-m3:latest"
+    },
+    "lmstudio": {
+      "kind": "openai",
+      "base_url": "http://127.0.0.1:1234/v1",
+      "priority": 40,
+      "capabilities": ["chat", "vision", "embedding"],
+      "boot": ["lms", "server", "start"],
+      "note": "the specialist tier"
+    },
+    "minimax": {
+      "kind": "openai",
+      "base_url": "https://api.minimax.io/v1",
+      "key_env": "MINIMAX_API_KEY",
+      "models": ["MiniMax-M3", "MiniMax-M3.1-Flash"],
+      "priority": 60,
+      "capabilities": ["chat", "reasoning"],
+      "note": "cloud - last in priority, and the only paid tier"
+    },
+    "openrouter": {
+      "kind": "openrouter",
+      "base_url": "https://openrouter.ai/api/v1",
+      "key_env": "OPENROUTER_API_KEY",
+      "models": [],
+      "priority": 70,
+      "capabilities": ["chat"],
+      "note": "OpenRouter aggregated models"
+    }
+  }
+}

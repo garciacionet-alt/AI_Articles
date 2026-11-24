@@ -39,6 +39,55 @@ TiinyMesh is the architecture and gateway companion to **[Tiiny Model Routing](.
 
 ---
 
+## Source
+
+The gateway ships with this family, so a reader can clone the repository and
+run it rather than re-implement it from the prose. The source tree is
+[`src/`](./src/):
+
+```
+tiiny-mesh/src/
+├── gateway.py               # HTTP gateway server and route dispatcher
+├── mesh.py                  # data models, target lifecycle, borrow transactions
+├── activity.py              # live device activity sampler (load, reservations)
+├── find.py                  # specialty-model discovery and placement engine
+├── capabilities.py          # capability classification & embedding dimensions
+├── devices.py               # per-device registry
+├── mesh_amc.py              # AMC host-side health witness
+├── mesh_watchdog.py         # reservation watchdog
+├── mdrender.py              # dependency-free Markdown to HTML parser
+├── meshclient.py            # client request helper
+├── minimax_quota.py         # MiniMax token plan quota client
+├── openrouter.py            # OpenRouter credits client
+├── selftest.py              # live estate validation (needs a live mesh)
+├── config.example.json      # documented example configuration
+├── ui/                      # the control panel: compiled page plus sources
+└── test_*.py                # the suites that run standalone
+```
+
+**The published copy is redacted.** The source tree keeps the real appliance
+addresses and device serials — the running gateway needs them — and the
+publish build rewrites the published bytes: private LAN addresses become the
+documentation ranges (`192.0.2.x`, `198.51.100.x`, `203.0.113.x`), device
+serials become `TNYM…redacted`, and the personal name becomes *the author*.
+**No key value is in the source at all**: the code asks for the **name** of an
+environment variable and reads the credential from there, so publishing the
+source publishes no secret.
+
+**The suites run without the estate.** Every `test_*.py` here passes with no
+appliance, no live gateway, and no key file:
+
+```bash
+cd tiiny-mesh/src
+python3 test_find.py
+python3 test_activity.py
+```
+
+`selftest.py` validates a live estate and needs the mesh running, so it is
+shipped for reference rather than as a standalone check.
+
+---
+
 ## Quick Start
 
 ```bash
