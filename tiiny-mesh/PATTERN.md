@@ -142,3 +142,39 @@ TiinyMesh adheres strictly to standard-library Python:
 - **No Third-Party Frameworks:** Uses Python's built-in `http.server`, `urllib.request`, `threading`, and `json` modules.
 - **Inlined Dashboard:** Web assets (`mesh-dashboard.css` and `mesh-dashboard.js`) are compiled directly into `ui/index.html` via `ui/inline.py`. When `/ui` is requested, the server delivers a single, self-contained HTML payload. No static file routes or asset bundles are required.
 - **Embedded Documentation:** The `/mesh/readme` endpoint utilizes an internal, dependency-free Markdown parser (`mdrender.py`) with strict HTML escaping, rendering documentation cleanly on any device on the network.
+
+---
+
+## 7. Residency Is Not Activity
+
+The control panel had one meter per target, and it was answering a question nobody asked. The meter showed **NPU memory** — how much of the pool the resident models had allocated — and was labelled as though it were utilisation. A box with a 47% model loaded and nothing running reads 47% and is, in the only sense that matters to a scheduler, **idle**.
+
+Two questions, two numbers:
+
+| question | answered by | can it be wrong? |
+|---|---|---|
+| How much of the pool is **allocated**? | the resident model list | no |
+| How much is the silicon **computing**? | the device's own NPU status | no |
+
+They disagree more often than expected, which is exactly why a panel that shows only one of them misleads. The device reports 0.0% while idle and 75-97% during a generation, so a busy/idle threshold at 10% sits in the wide empty middle between those two readings rather than near either edge.
+
+**The reservation and the telemetry answer different questions, and you want both.** A hold says who *claimed* the box; the device says whether it is *actually working*. The hold can be stale — written by an agent that has since died — and the device cannot be stale, because it is the thing doing the work. Reporting the hold *alongside* the live state is what makes "busy with nobody holding it" visible as exactly that.
+
+---
+
+## 8. Discovery Is Not Residency: Fit and Placement Are Separate Answers
+
+The store catalogue answers "what exists". It does not answer "what would it cost to run this here", and a system that conflates the two gives an agent a model name and leaves it to discover the consequences.
+
+The finder keeps them apart:
+
+- **The score** answers *how well does this model fit the request?* — matched against the device's own type, capabilities, description, tags, and recommendation rank, with a lexicon mapping plain words onto the device's vocabulary so "drawing" is an image job rather than a chat job that happens to mention pictures.
+- **The placement** answers *what would it cost to run it on this box?* — and the answer is one of `ready`, `load`, `un-reside`, or `download`.
+
+Three things follow from keeping them apart:
+
+**Capability types must match exactly.** A substring match on "image" classifies `Image-Text-to-Text` — a vision *chat* model — as an image generator, and the chat model outranks the generator that can actually do the job.
+
+**NPU headroom and disk capacity are independent constraints.** A model can fit in NPU and have nowhere to live on disk, or fit on disk and require evicting a resident model. The disk is the half that bites later: most specialty models live on one box, and that box is often the one that is nearly full.
+
+**Only resident models can be evicted.** Stopping a model that is merely *downloaded* frees no NPU share. The eviction list is therefore drawn from running models only, and it prefers the smallest non-generalist, so the generalist fallback stays resident as long as possible.

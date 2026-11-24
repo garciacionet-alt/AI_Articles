@@ -565,6 +565,16 @@ and Hermes falls back to the paid provider as expected.
 To disable, set the environment variable ``TIINY_ENSURE_ON_ROUTE=false`` or
 edit ``ENSURE_ON_ROUTE`` in the plugin.
 
+**The plugin is edited in the vault, never in place.** The canonical source is
+``$VAULT_HOME/skills/tiiny-model-routing/plugin/``. Hermes does *not*
+load the plugin from the skill directory — it loads the bundled copy at
+``~/.hermes/hermes-agent/plugins/delegation/tiiny-router/``. Edit the vault
+source, then run ``bash ~/.hermes/scripts/sync-tiiny-router-skill.sh`` to
+push it to every live copy, then reload the gateway. A hand-edit to a deployed
+copy is erased by the next sync, and nothing fails while it is wrong.
+The full load-path map and the reload procedure are in
+[references/single-source-deployment.md](references/single-source-deployment.md).
+
 **One list, one file.** `REQUIRED_MODELS` in `scripts/tiiny_ctl.py` is the
 only copy. Every other location — `~/.hermes/scripts/`, both skill tiers,
 `~/.hermes/shared-skills/` — is a **symlink** into the canonical file in the

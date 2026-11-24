@@ -24,7 +24,8 @@ across all 93 ids on 2026-11-13.
 | `GET /api/v1/models/online_models` | full 93-model catalogue | **The store truth.** Carries `status`, `progress`, `npu_usage`, `context_window`, `type`, `capabilities`, `supported`, `input`, `output`, `params`, `desc`, `thinking`, `reasoning_levels` |
 | `GET /api/v1/models/running` | running + pending + instances | **The residency truth.** Each running instance carries its own `npu_usage` |
 | `GET /api/v1/npu/status` | one device: `model`, `mem_total_mb`, `mem_used_mb` | The **only** endpoint that gives the NPU budget |
-| `GET /api/v1/sys/status` -> `npus[]` | live working set | **Not the budget** — see below |
+| `GET /api/v1/sys/storage` | disk: `total_bytes`, `used_bytes`, `remaining_bytes`, per-category breakdown | The **disk** constraint — model store, agent apps, other containers. Independent of the NPU budget |
+| `GET /api/v1/sys/status` -> `npus[]` | live working set | **404 as of 2026-11-23** — the firmware dropped it. Use `/api/v1/npu/status` for the budget |
 | `GET /v1/models` | resident models only | Alias `default`; matches the store's `running` entries |
 
 `/v1/models` on the box lists only **resident** models. `/api/v1/models` lists
@@ -35,9 +36,13 @@ store**. Confusing these two is the classic misread.
 
 `/api/v1/npu` (bare), `/api/v1/npu/config`, `/devices`, `/occupants`,
 `/memory`, `/limit`, `/max`, `/total`, `/budget`, `/api/v1/sys/npu*`,
-`/api/v1/sys/info`, `/api/v1/sys`, `/api/v1/config`, `/api/v1/settings`,
-`/api/v1/device/*`, `/api/v1/hardware` — **all 404**. Only
-`/api/v1/npu/status` exists.
+`/api/v1/sys/info`, `/api/v1/sys`, `/api/v1/sys/status`, `/api/v1/config`,
+`/api/v1/settings`, `/api/v1/device/*`, `/api/v1/hardware` — **all 404**.
+Only `/api/v1/npu/status` exists, and — for disk — `/api/v1/sys/storage`.
+
+`/api/v1/sys/status` is the one that changed: it answered with `npus[]` on
+2026-11-13 and **404s on both boxes as of 2026-11-23**. The firmware dropped
+it. Probing a route you read about in an older note is how you discover that.
 
 ## The NPU budget (this took the most probing)
 
@@ -53,10 +58,43 @@ store**. Confusing these two is the classic misread.
   For large models the declared number runs *above* the raw file share,
   because residency also carries runtime/KV-cache overhead the file size
   does not show. **Co-resident sets must sum to <= 100.**
-- `/api/v1/sys/status` -> `npus[].memory_total_mb` is **not** the budget: it
-  moves between samples on the same box (TinyAnt: 1456 / 2691 / 5974 MB) and
-  never equals 49024. Treat it as a live working-set counter.
+- `/api/v1/sys/status` -> `npus[].memory_total_mb` was **not** the budget: it
+  moved between samples on the same box (TinyAnt: 1456 / 2691 / 5974 MB) and
+  never equalled 49024. Treat it as a live working-set counter. *(Observed
+  2026-11-13; the route now 404s — see the 404 list above.)*
 - `mem_used_mb` from `/api/v1/npu/status` was stable across 20 samples.
+
+## The disk is the other half of the constraint
+
+The NPU budget says how much of the *pool* a model may claim. It says nothing
+about whether the weights have anywhere to live, and on these two boxes the
+answer is not the one you would guess.
+
+`GET /api/v1/sys/storage` returns the appliance's own breakdown: the total
+disk, the bytes used, the bytes remaining, and the disk split into categories
+— the model store, the agent apps, other containers, and the system.
+
+Measured on 2026-11-23:
+
+| | TinyAnt | TiinyOcto |
+|---|---|---|
+| total | 921 GB | 921 GB |
+| used | 462 GB | 724 GB |
+| **free** | **412 GB** | **151 GB** |
+| model store | 405 GB | 658 GB |
+| agent apps | 0 GB | 19 GB |
+
+**The box with the most free disk is not the one with the models.** The
+specialty models — image generation, 3D, music, OCR — are overwhelmingly
+Octo-only, and Octo has 151 GB free against a 658 GB model store. NPU
+headroom and disk are independent limits: a model can fit in the NPU budget
+and still have nowhere to sit on the disk, and the placement answer has to
+carry both.
+
+The per-model disk size is an **estimate** derived from the declared NPU
+share — the device publishes no per-model file size. It is close for small
+models and an over-estimate for large ones, which is enough to catch "this
+will not fit on the Octo" before the download starts.
 
 ## Classification: use the device's fields, in this order
 

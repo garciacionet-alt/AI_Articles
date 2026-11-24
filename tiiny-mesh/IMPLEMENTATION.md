@@ -16,6 +16,8 @@ tiiny-mesh/
 ├── openrouter.py            # OpenRouter credits client & key usage fallback
 ├── minimax_quota.py         # MiniMax token plan quota client (5h rolling & weekly)
 ├── mesh_amc.py              # AMC host-side health witness (Engraphis, Obsidian, iDrive)
+├── activity.py              # Live device activity sampler (compute load, reservations, history)
+├── find.py                  # Specialty-model discovery & placement engine (read-only)
 ├── mdrender.py              # Dependency-free Markdown to HTML parser
 ├── meshclient.py            # Test and client request helper
 ├── config.example.json      # Documented example configuration
@@ -29,6 +31,8 @@ tiiny-mesh/
 ├── test_openrouter.py       # OpenRouter target & catalogue resolution test
 ├── test_openrouter_credits.py # Credits client & caching offline test
 ├── test_amc.py              # AMC health probe offline test
+├── test_activity.py         # Activity monitor offline test (states, history, busy streaks)
+├── test_find.py             # Model finder & placement offline test (scoring, budgets, eviction)
 ├── test_mdrender.py         # Markdown renderer & XSS escaping test
 ├── selftest.py              # Live estate validation script
 └── test_routes.py           # Comprehensive gateway route test
@@ -178,11 +182,27 @@ Queries host-side memory subsystems and outputs status:
 ### 3.6 Markdown Renderer (`mdrender.py`)
 Transforms Markdown into clean HTML with zero dependencies. Escapes `<script>`, `&`, `<`, and `>` tags to prevent XSS while parsing headings, code blocks, lists, and tables into responsive HTML for `/mesh/readme`.
 
+### 3.7 Activity Monitor (`activity.py`)
+Samples each appliance's own `/api/v1/npu/status` on an interval and keeps a rolling history, so the gateway can say whether a box is **idle**, **busy**, or **offline** rather than reporting only what is resident.
+- **Two numbers, deliberately separate.** NPU *memory* is how much of the pool the resident models have allocated; NPU *load* is how much the silicon is computing right now. A box with a 47% model loaded and nothing running reads 47% and is idle.
+- **Busy detection.** `busy` when a request is in flight **or** utilisation is above 10%. The device reports 0.0% while idle and 75-97% during a generation, so the threshold sits in the wide empty middle.
+- **Reservations attributed.** A hold says who *claimed* the box; the device says whether it is *actually working*. Both are reported, because a hold can be stale — written by an agent that has since died — and a busy box with no reservation is exactly the case worth seeing.
+- **Busy streaks.** `busy_since` walks backward through the current contiguous busy streak, so it reports when the box *started* being busy, not when the newest sample arrived.
+
+### 3.8 Model Finder (`find.py`)
+Answers "which model can do this job, and what would it cost to run it?" by searching the **complete** store catalogue — not just the resident models an OpenAI-compatible `/v1/models` route lists.
+- **Score and placement are separate outputs.** The score says how well a model fits the words of the request, matched against the device's own type, capabilities, description, tags, and recommendation rank. The placement says what it would cost to run it on each box.
+- **Exact type matching.** Capability types are compared exactly, not by substring: `Image-Text-to-Text` is a vision-chat model and is not a `Text-to-Image` generator.
+- **Two independent constraints.** NPU headroom and disk capacity are separate limits. A model can fit in NPU but have nowhere to live on disk, or fit on disk but require evicting a resident model.
+- **The NPU budget is 95, not 100.** A co-resident set must sum to 95 or less, because residency carries runtime and KV-cache overhead that the declared NPU share does not show.
+- **Eviction candidates are resident models only.** Stopping a merely *downloaded* model frees no NPU share, so only `running` models can be evicted, and the smallest non-generalist is preferred so the fallback stays resident as long as possible.
+- **Read-only by construction.** The finder discovers and prices; it never downloads, stops, or makes a model resident.
+
 ---
 
 ## 4. Testing Suite
 
-The implementation includes seven self-contained test suites:
+The implementation includes nine self-contained test suites:
 
 ```bash
 # Test MiniMax token plan quota client and caching (offline fixtures)
@@ -199,6 +219,12 @@ python3 test_openrouter_credits.py
 
 # Test AMC health probes across mock directories
 python3 test_amc.py
+
+# Test activity sampling: states, reservations, history, busy streaks
+python3 test_activity.py
+
+# Test model discovery and placement: scoring, NPU budget, disk, eviction
+python3 test_find.py
 
 # Test Markdown parser and XSS escaping
 python3 test_mdrender.py

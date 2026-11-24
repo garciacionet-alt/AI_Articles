@@ -74,6 +74,78 @@ architecture note — a comment that still says "the poller reloads this" teache
 the next agent a mechanism that no longer exists, and a `grep` embedded in a
 procedure is worse still, because it fails at run time.
 
+## The plugin package is not a symlink case — it is a load-path case
+
+The rules above are about **policy files** that several roots *read*. The
+delegation plugin is different: it is **code that Hermes loads**, and the
+location Hermes loads it from is not the location a reader would guess.
+
+| Location | Kind | Loaded by Hermes? |
+|---|---|---|
+| the vault's `skills/tiiny-model-routing/plugin/` | **real file — canonical** | no |
+| `~/.hermes/skills/mlops/tiiny-model-routing/plugin/` | real copy | no |
+| `~/.hermes/hermes-agent/plugins/delegation/tiiny-router/` | real copy | **yes — bundled** |
+| `~/.hermes/installs/*/environments/*/workspace/plugins/delegation/tiiny-router/` | real copy | yes, per install tree |
+
+**A skill directory's `plugin/` subdirectory is not a load path.** Plugin
+discovery scans the Hermes repo's `plugins/`, `~/.hermes/plugins/`, and the
+project's `./.hermes/plugins/`. It never scans `skills/`. So the copy inside
+the skill is *source material*, not the running plugin — and a change made
+there changes nothing at run time.
+
+**Rule: edit the vault source, then sync.** Never hand-edit a deployed copy —
+a copy is overwritten by the next sync, and the edit disappears silently,
+which is worse than a failure because the tool keeps working with the old
+behaviour and no error explains why.
+
+```bash
+# 1. edit the canonical source ($VAULT_HOME is the vault root)
+$EDITOR $VAULT_HOME/skills/tiiny-model-routing/plugin/__init__.py
+
+# 2. push it to every live copy (vault script; --check verifies without writing)
+bash ~/.hermes/scripts/sync-tiiny-router-skill.sh --check
+bash ~/.hermes/scripts/sync-tiiny-router-skill.sh
+
+# 3. verify all copies hash the same
+shasum -a 256 $VAULT_HOME/skills/tiiny-model-routing/plugin/__init__.py \
+  ~/.hermes/hermes-agent/plugins/delegation/tiiny-router/__init__.py
+```
+
+### The script cannot be executed from the vault
+
+The vault lives on a cloud-synced path. Hermes' lifecycle guard refuses to
+execute a script that sits there — a script a command runs must be a
+scannable regular text file under 1 MiB. The wrapper therefore copies the
+vault script to a local temp file and runs that copy. **The vault stays the
+single source of truth**; the temp copy is thrown away after the run.
+
+### Getting a plugin change into a running session
+
+A synced file is not a live process. Two things follow:
+
+- **The gateway can reload plugins without a restart.** Ask the running
+  gateway to re-discover:
+
+  ```python
+  from gateway.control_socket import reload_gateway_plugins
+  from hermes_constants import get_hermes_home
+  from pathlib import Path
+  reload_gateway_plugins(Path(get_hermes_home()))   # -> {'reloaded': True, ...}
+  ```
+
+  The answer lists each plugin and what it carries. A plugin's Python tools
+  come back under `deferred`, not `activated_now` — **Python plugin tools
+  reach the *next* session, not the running one.** A reload is enough to
+  prove the plugin loads; it is not enough to make a new tool callable in the
+  chat that asked for it.
+
+- **Verify the load, not the file.** The gateway's reload answer and
+  `hermes plugins list` are authoritative about what is *loaded*.
+  `hermes plugins show <name>` resolves by short name and can report
+  "not enabled" for a plugin whose key is namespaced (the router's key is
+  `delegation/tiiny-router`); that disagreement is a lookup quirk, not a
+  load failure. Say which one you checked.
+
 ## Counting honestly, and answering "why N"
 
 "N copies" is ambiguous and invites a justified objection. Say **N files

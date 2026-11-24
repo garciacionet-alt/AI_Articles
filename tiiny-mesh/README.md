@@ -31,6 +31,9 @@ TiinyMesh is the architecture and gateway companion to **[Tiiny Model Routing](.
 | **MiniMax Quota & Auto-Switch** | Polls MiniMax Token Plan quota (`/v1/token_plan/remains` 5h & weekly windows). Proactively auto-switches to OpenRouter when quota is exhausted (<10%), and auto-recovers when the reset timer elapses. |
 | **Transparent 429 Failover** | Intercepts HTTP 429 rate-limit errors in `mesh.py` and transparently retries completions through the cloud secondary (OpenRouter Gemini) without failing client requests. |
 | **In-Flight Cloud Fallback Toggle** | Switch the gateway's secondary chat fallback and Hermes agent's delegation fallback between MiniMax (M3.1 Flash) and OpenRouter (Gemini 3.8 Flash) with a single click. |
+| **Live Activity Telemetry** | Samples each appliance's own NPU status and reports idle / busy / offline, live compute load, active request count, and the reservation holding the box — kept separate from the NPU *memory* meter, which says what is resident rather than what is computing. |
+| **Disk Capacity Awareness** | Reads the appliance's own storage breakdown to report total, used, and remaining bytes per target, plus the model-store and agent-app share. Disk is the second half of the capacity constraint, after NPU headroom, and it is often the binding one. |
+| **Model Discovery & Placement** | `GET /mesh/find?q=` searches the complete store catalogue, scores models against the words of a request, then prices each placement — ready, load, un-reside (naming the model that must go), or download — with NPU headroom and disk free per target. |
 | **Single-File Control Panel** | Responsive dark/light dashboard at `/ui` with zero external JS/CSS dependencies. Built from source via `python3 ui/inline.py`. |
 | **Rendered Documentation** | `/mesh/readme` serves the project documentation parsed into styled HTML using an internal standard-library Markdown renderer. |
 
@@ -78,6 +81,10 @@ GET  /mesh/targets             every target, health, latency, model counts
 GET  /mesh/catalogue           complete catalog across all capabilities
 GET  /mesh/health              health summary
 GET  /mesh/npu/<target>        NPU memory headroom and utilization
+GET  /mesh/activity           per-target idle/busy/offline, live load, reservations
+GET  /mesh/storage            per-target disk capacity (total, used, remaining, breakdown)
+GET  /mesh/storage/<target>   one target's disk capacity and breakdown
+GET  /mesh/find?q=<terms>     specialty-model discovery and placement pricing
 GET  /mesh/status/<target>     system status (CPU/RAM/storage)
 GET  /mesh/store/<target>      online model store catalog
 GET  /mesh/running/<target>    currently resident models

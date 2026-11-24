@@ -113,6 +113,7 @@ import time
 import urllib.request
 from pathlib import Path
 from typing import Any, Mapping
+from urllib.parse import urlencode
 
 from agent.delegation_provider import DelegationProvider, DelegationRouteError
 
@@ -562,5 +563,176 @@ def _ensure_model(model: str) -> None:
         pass
 
 
+# ---------------------------------------------------------------------------
+# tiiny_find: the agent-facing half of the router.
+#
+# The delegation provider above routes a subtask automatically, with no
+# model in the loop. This tool is the other half: when an agent needs a
+# model the mesh does not already have - a specialty model for a job the
+# tier table does not cover - it asks the mesh what exists and what it
+# would take to get it running.
+#
+# The mesh decides; this asks. It is a thin client over the mesh's HTTP
+# API, so the mesh stays the single place that knows what is resident,
+# what is downloaded, and how much NPU and disk is left. A tool that
+# answered from its own snapshot would be a second opinion nobody
+# maintains.
+# ---------------------------------------------------------------------------
+
+MESH_URL_DEFAULT = "http://127.0.0.1:8767"
+
+TIINY_FIND_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "query": {
+            "type": "string",
+            "description": (
+                "What the model has to do, in plain words: 'create a drawing "
+                "of a child', 'read text from a scanned receipt', 'transcribe "
+                "this podcast episode'. The words are matched against the "
+                "appliance's own model descriptions and capabilities."
+            ),
+        },
+        "type": {
+            "type": "string",
+            "description": (
+                "Optional filter on the appliance's type string, e.g. "
+                "'Text-to-Image', 'Image-to-Text', 'ASR', 'Music Generation'."
+            ),
+        },
+        "limit": {
+            "type": "integer",
+            "description": "How many candidates to return. Default 6.",
+        },
+    },
+    "required": ["query"],
+}
+
+
+def mesh_url() -> str:
+    """The mesh gateway's ROOT url.
+
+    ``TIINY_MESH_URL`` is the OpenAI-compatible base - it ends in ``/v1``
+    because that is where a chat client posts. The mesh's own routes
+    hang off the root, so the ``/v1`` is stripped here. Reading the
+    variable the way Hermes reads its secrets - through its own
+    accessor - with the environment as a fallback.
+    """
+    value = ""
+    try:
+        from hermes_cli.config import get_env_value_prefer_dotenv
+
+        value = get_env_value_prefer_dotenv("TIINY_MESH_URL") or ""
+    except Exception:
+        value = ""
+    url = (value or os.environ.get("TIINY_MESH_URL") or MESH_URL_DEFAULT).strip().rstrip("/")
+    for suffix in ("/chat/completions", "/v1"):
+        if url.endswith(suffix):
+            url = url[: -len(suffix)]
+            break
+    return url.rstrip("/")
+
+
+def mesh_key() -> str:
+    """The mesh gateway's key, if one has been issued."""
+    value = ""
+    try:
+        from hermes_cli.config import get_env_value_prefer_dotenv
+
+        value = get_env_value_prefer_dotenv("TIINY_MESH_KEY") or ""
+    except Exception:
+        value = ""
+    return (value or os.environ.get("TIINY_MESH_KEY") or "").strip()
+
+
+def _mesh_get(path: str, timeout: int = 45):
+    """GET a mesh route. Returns (ok, payload_or_error_text)."""
+    headers = {"Accept": "application/json"}
+    key = mesh_key()
+    if key:
+        headers["X-Mesh-Key"] = key
+    try:
+        request = urllib.request.Request(mesh_url() + path, headers=headers)
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return True, json.load(response)
+    except Exception as exc:
+        return False, str(exc)
+
+
+def _tiiny_find(args: Mapping[str, Any], **kwargs: Any) -> str:
+    """Find a model in the Tiiny stores that can do a described job."""
+    query = str((args or {}).get("query") or "").strip()
+    if not query:
+        return ("tiiny_find needs a 'query' describing the job - for example "
+                "\"create a drawing of a child\".")
+    type_filter = str((args or {}).get("type") or "").strip()
+    try:
+        limit = int((args or {}).get("limit") or 6)
+    except (TypeError, ValueError):
+        limit = 6
+    params = {"q": query, "limit": limit}
+    if type_filter:
+        params["type"] = type_filter
+    ok, payload = _mesh_get("/mesh/find?" + urlencode(params))
+    if not ok:
+        return f"tiiny_find could not reach the mesh at {mesh_url()}: {payload}"
+    return _format_find(payload)
+
+
+def _format_find(payload: Mapping[str, Any]) -> str:
+    """Render the mesh's answer for a model to read.
+
+    The placement is the point of the report: a model that fits the job
+    perfectly but cannot be placed - no NPU headroom, no disk - is not
+    the same answer as one that is running right now, and the agent has
+    to be able to tell them apart before it commits.
+    """
+    candidates = payload.get("candidates") or []
+    if not candidates:
+        hints = payload.get("hints") or {}
+        note = ""
+        if hints:
+            note = (" The query read as: "
+                    + "; ".join(f"{k} -> {', '.join(v)}" for k, v in hints.items())
+                    + ".")
+        return (f"No model in the Tiiny stores matched "
+                f"{payload.get('query')!r}.{note} Try naming the kind of work "
+                f"- drawing, scanned page, transcribe, music, 3d.")
+
+    lines = [f"{len(candidates)} model(s) in the Tiiny stores can do "
+             f"{payload.get('query')!r}:"]
+    for entry in candidates:
+        npu = entry.get("npu_usage")
+        npu_text = f", {npu}% NPU" if npu is not None else ""
+        lines.append(f"- {entry.get('model_id')}  "
+                     f"[{entry.get('type') or 'unknown type'}{npu_text}]  "
+                     f"score {entry.get('score')}")
+        why = entry.get("why") or []
+        if why:
+            lines.append(f"    matched: {'; '.join(why)}")
+        for place in entry.get("placements") or []:
+            bits = [f"    {place.get('target')}: {place.get('status')} -> "
+                    f"{place.get('action')}"]
+            if place.get("npu_free") is not None:
+                bits.append(f"({place.get('npu_free')}% NPU free)")
+            if place.get("est_size_gb"):
+                bits.append(f"(~{place.get('est_size_gb')} GB needed, "
+                            f"{place.get('disk_free_gb')} GB disk free)")
+            if place.get("evict_candidates"):
+                bits.append(f"(would have to stop: "
+                            f"{', '.join(place['evict_candidates'])})")
+            if place.get("note"):
+                bits.append(f"({place.get('note')})")
+            lines.append(" ".join(bits))
+    return "\n".join(lines)
+
+
 def register(ctx) -> None:
     ctx.register_delegation_provider(TiinyRouterDelegationProvider())
+    ctx.register_tool(
+        name="tiiny_find", toolset="tiiny",
+        schema=TIINY_FIND_SCHEMA, handler=_tiiny_find,
+        description=("Find a model in the Tiiny appliance stores that can do a "
+                     "described job, and say what it would take to run it."),
+        emoji="🔎",
+    )
