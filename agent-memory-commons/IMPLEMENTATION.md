@@ -296,16 +296,43 @@ Keep it under a page. `AGENTS.md` is a common name for it, because it is a conve
 
 ### The frontmatter vocabulary
 
-Two fields on every note, with a closed set of values for each:
+Three fields on every note that should appear in a view, with a closed set of
+values for each:
 
 | Field | What it means | Values |
 |---|---|---|
-| `type:` | what kind of note this is | `design`, `ops`, `reference`, `protocol`, `note`, `log`, `decision`, `pattern`, … |
-| `status:` | where the note is in its life | `maintained`, `active`, `draft`, `done`, `verified`, `stale`, `reference`, `archived` |
+| `type:` | what kind of note this is | `design`, `ops`, `protocol`, `index`, `reference`, `note`, `log`, `briefing`, `work-instruction`, `plan`, `decision`, `measurement`, `handoff`, `project`, `publish-source`, `newsletter`, `moved-pointer` |
+| `status:` | where the note is in its life | `maintained`, `active`, `draft`, `done`, `verified`, `stale`, `reference`, `archived`, `retired`, `ready` |
+| `category:` | what the note is about | `categories`, `design`, `ops`, `publish`, `reference`, `newsletter`, `handoff`, `project`, `agent` |
 
-`status:` is a **lifecycle state, never a description.** "verified Oct 16 against v1.29" is a sentence, not a state — it belongs in its own field, next to `status: verified`. A sentence in `status:` breaks every view and every filter built on it, and it breaks them silently, because a view that groups on a free-text field still renders — it just renders nonsense.
+**The linter is the machine-readable authority.** `VAULT_TYPES`,
+`VAULT_STATUSES` and `VAULT_CATEGORIES` in
+`skills/memory-lint/lint.py` are the lists a machine checks, and
+`_python-scripts/amc_property_layer.py` reads them from there rather than
+keeping its own copy. The table above is the same list in prose. **A gate and
+a writer that disagree is a gate nobody runs.**
 
-`status: stale` is the pruning marker. It never deletes anything; it moves a note into the pruning queue, where a human decides. That is what makes it safe to write a lot: the cost of an unwanted note is one flag, not a deleted file and a revert.
+**The vocabulary is scoped.** The wiki has its own page types
+(`entity`, `concept`, `source`, `meta`, `moc`) declared in `wiki/schema.md`,
+and a wiki page is never judged against the AMC's list.
+
+**`status:` is a lifecycle state, never a description.** "verified Oct 16
+against v1.29" is a sentence, not a state — it belongs in its own field,
+next to `status: verified`. A sentence in `status:` breaks every view and
+every filter built on it, and it breaks them silently, because a view that
+groups on a free-text field still renders — it just renders nonsense.
+
+**`status: stale` is the pruning marker.** It never deletes anything; it
+moves a note into the pruning queue, where a human decides. That is what
+makes it safe to write a lot: the cost of an unwanted note is one flag, not a
+deleted file and a revert.
+
+**`category:` crosses folder classes.** The folder tree answers *who may
+write here*; the category answers *what is this about*. A note carries both
+`category:` (a scalar, for grouping and sorting) and `categories:` (a list of
+wikilinks to the notes under `Categories/`, for filtering with
+`categories.contains(link("ops"))`). One script writes both, from one mapping,
+so they cannot drift. Full rules in `CONVENTIONS.md` §3.5.
 
 ### The read-only linter
 
