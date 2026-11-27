@@ -1,0 +1,68 @@
+# The newsletter pipeline end to end — the survey, the package, the carousel,
+# the archived editions and the monetisation notes. This is the strand that
+# ships twice a week, so it gets its own view rather than a folder listing.
+#
+# A NOTE ON DIVERGENCE: the author's own vault filters the archive by
+# FOLDER, because that is how their vault is arranged. This published copy
+# filters by STATUS instead, so a reader can adopt it without first
+# inventing the author's folder names. Mark an edition `status: archived`
+# and it moves to the Archived editions view. The two files are otherwise
+# identical, and the published one is the portable one.
+filters:
+  and:
+    - 'file.ext == "md"'
+    - 'file.inFolder("newsletter")'
+    - 'file.hasProperty("type")'
+formulas:
+  age_days: '(now() - file.mtime).days'
+properties:
+  note.type:
+    displayName: "Type"
+  note.status:
+    displayName: "Status"
+  note.updated:
+    displayName: "Updated"
+  file.folder:
+    displayName: "Folder"
+  formula.age_days:
+    displayName: "Age (days)"
+views:
+  - type: table
+    name: "Live cycle"
+    filters:
+      not:
+        - 'note.status == "archived"'
+    sort:
+      - property: file.mtime
+        direction: DESC
+    order:
+      - file.name
+      - type
+      - status
+      - file.folder
+      - formula.age_days
+    limit: 60
+  - type: table
+    name: "Archived editions"
+    filters:
+      - 'note.status == "archived"'
+    groupBy:
+      property: note.status
+      direction: ASC
+    order:
+      - file.name
+      - type
+      - status
+      - file.folder
+    limit: 100
+  - type: table
+    name: "Waiting on you"
+    filters:
+      and:
+        - 'status == "draft"'
+        - 'not: note.status == "archived"'
+    order:
+      - file.name
+      - status
+      - file.folder
+      - file.mtime

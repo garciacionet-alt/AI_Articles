@@ -22,8 +22,31 @@ One **optional add-on** sits on top of that: a Git repository over the vault tre
 |---|---|
 | [PATTERN.md](./PATTERN.md) | The pattern itself: purpose, design principles, sync directories, layered memory architecture, startup discipline, basic setup, the operating layer, the **optional version-control add-on**, failure modes. Portable across any single-user multi-agent setup. |
 | [IMPLEMENTATION.md](./IMPLEMENTATION.md) | The concrete implementation: env vars, session-startup and session-end prompts, the read-only linter, live views, claim classification, Engraphis setup, alternative vector databases, the **optional version-control setup**, shell scripts, end-to-end setup checklist. |
-| [scripts/](./scripts/) | Two shell scripts: `commons-startup.sh` for session bootstrap and `commons-hygiene.sh` for quarterly maintenance. Both take the vault path from the environment and report rather than modify. |
+| [scripts/](./scripts/) | Four scripts: `commons-startup.sh` for session bootstrap, `commons-hygiene.sh` for quarterly maintenance, `lint.py` for the read-only frontmatter and link check, and `check_bases.py` for the view validator. All report rather than modify. |
+| [Categories/](./Categories/) | The category notes. Each one defines what belongs in a category and embeds a live view of the notes that carry it. Copy the set, or define your own. |
+| [Bases/](./Bases/) | The live views, as Obsidian Bases files: everything, agents, the newsletter strand, and hand-offs. Copy, rename, and edit the filters. |
+| [Templates/](./Templates/) | Seven document templates — design, operations, project, reference, measurement, note and hand-off — each already carrying the frontmatter the linter expects. |
+| [types.json](./types.json) | The property-to-type map Obsidian reads, so `categories` is a list, `updated` is a date, and the rest are text. Drop it into `.obsidian/`. |
 | [examples/](./examples/) | A worked example: the `_agent-hermes/` README filled in. Use this as a template for your own agent subspaces. |
+
+### The property layer, and how to adopt it
+
+The category notes, the views and the templates are the part of the operating layer that turns a folder tree into something an agent can navigate by meaning rather than by path. Three things have to arrive together or none of them work:
+
+1. **The categories** — a closed set of nine, each a note under `Categories/` so that `[[design]]` resolves to something rather than to a dangling link.
+2. **The views** — `Bases/` files that filter on `category` and `categories`, so the axis is queryable rather than decorative.
+3. **The linter** — `scripts/lint.py`, which is what keeps the vocabulary closed. It is the authority, not the prose.
+
+The linter is the one piece that needs a word of configuration. Three folder names are **empty by default**, meaning *not configured*: `AMC_DIR`, `AMC_PUBLISH_DIR` and `AMC_SNAPSHOT_DIR`. If your vault keeps the AMC's own documents, a folder of published copies, or a dated import snapshot, set the matching variables and the linter will stop treating those files as ordinary documents:
+
+```bash
+AMC_DIR=<your-amc-folder>/ AMC_PUBLISH_DIR=<your-publish-folder>/ \
+  AMC_SNAPSHOT_DIR=<your-snapshot-folder>/ \
+  python3 scripts/lint.py --vault ~/your-vault
+```
+
+With them unset, the linter is still correct for a vault with no such folders — it simply has no reason to exempt them. Set only the ones that apply: a variable left unset exempts nothing, and every file under a folder you did not name is linted as an ordinary document.
+
 
 ## Audience
 

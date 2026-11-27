@@ -1,0 +1,49 @@
+# Cross-agent hand-offs and session records — what one agent learned and the
+# next agent needs to know. A hand-off is a first-class artifact, not a
+# side-channel, so it gets its own view.
+filters:
+  and:
+    - 'file.ext == "md"'
+    - 'file.hasProperty("type")'
+    - 'file.hasProperty("category")'
+    - 'category == "handoff"'
+formulas:
+  age_days: '(now() - file.mtime).days'
+properties:
+  note.type:
+    displayName: "Type"
+  note.status:
+    displayName: "Status"
+  note.agent:
+    displayName: "From"
+  note.updated:
+    displayName: "Updated"
+  file.folder:
+    displayName: "Folder"
+  formula.age_days:
+    displayName: "Age (days)"
+views:
+  - type: table
+    name: "All hand-offs"
+    sort:
+      - property: file.mtime
+        direction: DESC
+    order:
+      - file.name
+      - agent
+      - type
+      - status
+      - file.folder
+      - formula.age_days
+    limit: 60
+  - type: table
+    name: "Open"
+    filters:
+      and:
+        - 'status != "done"'
+    order:
+      - file.name
+      - agent
+      - status
+      - file.folder
+      - file.mtime

@@ -1,0 +1,78 @@
+# The AMC at a glance — every typed note, grouped by the category it belongs
+# to. The category is the axis that crosses folder classes: a design note and
+# a project note can share a category, and this view is what makes that
+# visible without knowing where anything lives.
+filters:
+  and:
+    - 'file.ext == "md"'
+    - 'file.hasProperty("type")'
+    - 'file.hasProperty("category")'
+formulas:
+  age_days: '(now() - file.mtime).days'
+properties:
+  note.type:
+    displayName: "Type"
+  note.status:
+    displayName: "Status"
+  note.category:
+    displayName: "Category"
+  note.updated:
+    displayName: "Updated"
+  file.folder:
+    displayName: "Folder"
+  formula.age_days:
+    displayName: "Age (days)"
+views:
+  - type: table
+    name: "All AMC documents"
+    groupBy:
+      property: note.category
+      direction: ASC
+    sort:
+      - property: file.name
+        direction: ASC
+    order:
+      - file.name
+      - type
+      - status
+      - file.folder
+      - formula.age_days
+  - type: table
+    name: "In flight"
+    filters:
+      and:
+        - 'status == "active"'
+    sort:
+      - property: file.name
+        direction: ASC
+    order:
+      - file.name
+      - type
+      - category
+      - file.folder
+  - type: table
+    name: "Needs a decision"
+    filters:
+      or:
+        - 'status == "draft"'
+        - 'status == "stale"'
+    sort:
+      - property: file.mtime
+        direction: DESC
+    order:
+      - file.name
+      - status
+      - category
+      - file.folder
+      - file.mtime
+    limit: 60
+  - type: cards
+    name: "By category"
+    groupBy:
+      property: note.category
+      direction: ASC
+    order:
+      - file.name
+      - type
+      - status
+      - file.folder

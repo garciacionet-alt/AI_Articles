@@ -1,0 +1,30 @@
+{
+ "types": {
+  "categories": "multitext",
+  "category": "text",
+  "type": "text",
+  "status": "text",
+  "title": "text",
+  "description": "text",
+  "tags": "tags",
+  "updated": "date",
+  "created": "date",
+  "date": "date",
+  "published": "date",
+  "audience": "text",
+  "agent": "text",
+  "project": "text",
+  "applies-to": "text",
+  "destination": "text",
+  "version": "text",
+  "name": "text",
+  "series": "multitext",
+  "sources": "multitext",
+  "source": "text",
+  "source_url": "text",
+  "confidence": "text",
+  "next_step": "text",
+  "task": "text",
+  "metadata": "multitext"
+ }
+}

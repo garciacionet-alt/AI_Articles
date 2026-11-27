@@ -508,11 +508,17 @@ worse than no log because it claims completeness it does not have.
 
 ## The required set
 
-**There is no watchdog any more.** A five-minute cron poller used to reload a
+**The fixed-set reload poller is gone; the per-device hold watchdog is not.**
+A five-minute cron poller used to reload a
 fixed set of models whenever the device looked cold. It was retired for two
 reasons: that set was duplicated across three scripts and drifted apart three
 times, and a fixed set is the wrong shape when a batch needs one specific
-model.
+model. What replaced it is a different kind of thing: `mesh_watchdog.py`
+scopes the **hold and the lock to a device**, so two boxes do not fight over
+one NPU pool. It does not poll for a cold device and it does not reload a
+fixed set. "There is no watchdog" is true of the poller and false of the
+per-device hold, and the difference decides whether two boxes can run
+concurrently at all.
 
 **Prove that, do not assume it — and do not trust a document that still says a
 watchdog exists.** The four places a timer can hide, all of them cheap to read:
